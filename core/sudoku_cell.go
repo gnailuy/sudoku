@@ -17,7 +17,7 @@ func NewCell(row, column int) (cell Cell) {
 	cell = Cell{Row: row, Column: column}
 
 	if !cell.IsValid() {
-		panic("Invalid cell : " + cell.toString())
+		panic("Invalid cell : " + cell.ToString())
 	}
 
 	return
@@ -29,7 +29,7 @@ func NewCellFromInput(row, column int) (cell *Cell, err error) {
 	cell = &Cell{Row: row, Column: column}
 
 	if !cell.IsValid() {
-		return nil, errors.New("Invalid cell : " + cell.toString())
+		return nil, errors.New("Invalid cell : " + cell.ToString())
 	}
 
 	return cell, nil
@@ -41,6 +41,6 @@ func (cell *Cell) IsValid() bool {
 }
 
 // Function to print the cell as a coordinate
-func (cell *Cell) toString() string {
+func (cell *Cell) ToString() string {
 	return fmt.Sprintf("(%d, %d)", cell.Row, cell.Column)
 }

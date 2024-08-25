@@ -1,17 +1,17 @@
 package core
 
 // Function to check if a number can be placed in a specific cell
-func (board *SudokuBoard) isValid(cell Cell, number int) bool {
+func (board *SudokuBoard) isValidInput(cell Cell, number int) bool {
 	// Check the row
 	for i := 0; i < 9; i++ {
-		if board.Get(NewCell(cell.Row, i)) == number {
+		if i != cell.Column && board.Get(NewCell(cell.Row, i)) == number {
 			return false
 		}
 	}
 
 	// Check the column
 	for i := 0; i < 9; i++ {
-		if board.Get(NewCell(i, cell.Column)) == number {
+		if i != cell.Row && board.Get(NewCell(i, cell.Column)) == number {
 			return false
 		}
 	}
@@ -20,7 +20,9 @@ func (board *SudokuBoard) isValid(cell Cell, number int) bool {
 	startRow, startColumn := cell.Row/3*3, cell.Column/3*3
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
-			if board.Get(NewCell(startRow+i, startColumn+j)) == number {
+			if startRow+i != cell.Row &&
+				startColumn+j != cell.Column &&
+				board.Get(NewCell(startRow+i, startColumn+j)) == number {
 				return false
 			}
 		}
@@ -47,7 +49,7 @@ func (board *SudokuBoard) solve(option solveOptions) bool {
 
 				for _, num := range candidateNumbers {
 					// Try to place a number in the cell and solve the board recursively if it is valid
-					if board.isValid(cell, num) {
+					if board.isValidInput(cell, num) {
 						board.Set(cell, num)
 						if board.solve(option) {
 							if option.CountSolutions {
@@ -82,9 +84,40 @@ func (board *SudokuBoard) SolveRandomly() {
 
 // Exported function to count the number of solutions for the Sudoku board
 func (board *SudokuBoard) CountSolutions() int {
+	// If there is any invalid cell, the board is not solvable, return 0
+	for i := 0; i < 9; i++ {
+		for j := 0; j < 9; j++ {
+			cell := NewCell(i, j)
+			number := board.Get(cell)
+			if number != 0 && !board.isValidInput(cell, number) {
+				return 0
+			}
+		}
+	}
+
+	// If no invalid cell, we can count the number of solutions
 	board.numberOfSolutions = 0
 	board.solve(solveOptions{
 		CountSolutions: true,
 	})
 	return board.numberOfSolutions
+}
+
+// Exported function to check if the Sudoku board is solvable
+func (board *SudokuBoard) IsSolvable() bool {
+	return board.IsSolved() || board.CountSolutions() > 0
+}
+
+// Exported function to check if the Sudoku board is solved
+func (board *SudokuBoard) IsSolved() bool {
+	for i := 0; i < 9; i++ {
+		for j := 0; j < 9; j++ {
+			cell := NewCell(i, j)
+			number := board.Get(cell)
+			if number == 0 || !board.isValidInput(cell, number) {
+				return false
+			}
+		}
+	}
+	return true
 }
