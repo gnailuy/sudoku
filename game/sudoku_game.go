@@ -189,6 +189,21 @@ func (game *SudokuGame) Redo() (err error) {
 	return
 }
 
+// Function to reset the game to the initial state
+func (game *SudokuGame) Reset() {
+	for i := 0; i < 9; i++ {
+		for j := 0; j < 9; j++ {
+			if game.boardState[i][j] == UserCell {
+				game.Problem.Unset(core.NewCell(i, j))
+			}
+		}
+	}
+
+	game.invalidInput = core.NewEmptySudokuBoard()
+	game.inputSequence = []CellInputHistory{}
+	game.inputCursor = -1
+}
+
 // Function to check if the game is solved
 func (game *SudokuGame) IsSolved() bool {
 	return game.Problem.IsSolved()

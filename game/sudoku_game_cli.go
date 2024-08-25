@@ -40,14 +40,15 @@ func (board *SudokuGame) print() {
 // Print help function
 func (game *SudokuGame) printHelp() {
 	fmt.Println("Supported commands:")
-	fmt.Println("  - help: Print this help message.")
-	fmt.Println("  - add `row` `column` `number`: Input a number to a call at (row, column).")
-	fmt.Println("  - clear `row` `column`: Clear the number in a call at (row, column).")
-	fmt.Println("  - undo: Undo last move.")
-	fmt.Println("  - redo: Redo last undo.")
-	fmt.Println("  - check: Check if the current board is correct.")
-	fmt.Println("  - solve: Solve the problem for me.")
-	fmt.Println("  - quit: Quit the game.")
+	fmt.Println("  - help                        : Print this help message.")
+	fmt.Println("  - add `row` `column` `number` : Input a number to a call at (row, column).")
+	fmt.Println("  - clear `row` `column`        : Clear the number in a call at (row, column).")
+	fmt.Println("  - undo                        : Undo last move.")
+	fmt.Println("  - redo                        : Redo last undo.")
+	fmt.Println("  - reset                       : Reset the problem.")
+	fmt.Println("  - check                       : Check if the current board is correct.")
+	fmt.Println("  - solve                       : Solve the problem for me.")
+	fmt.Println("  - quit                        : Quit the game.")
 }
 
 // Function for the add and clear commands
@@ -67,7 +68,6 @@ func (game *SudokuGame) runAddCommand(row, column, number int) bool {
 
 // Function to run a command
 func (game *SudokuGame) runCommand(command string) bool {
-	command = strings.TrimSpace(command)
 	commandFields := strings.SplitN(command, " ", 2)
 
 	if len(commandFields) == 0 || len(commandFields[0]) == 0 {
@@ -87,7 +87,6 @@ func (game *SudokuGame) runCommand(command string) bool {
 			_, err := fmt.Sscanf(commandFields[1], "%d %d %d", &row, &column, &number)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input:", err)
-				return false
 			} else {
 				return game.runAddCommand(row, column, number)
 			}
@@ -100,7 +99,6 @@ func (game *SudokuGame) runCommand(command string) bool {
 			_, err := fmt.Sscanf(commandFields[1], "%d %d", &row, &column)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input:", err)
-				return false
 			} else {
 				return game.runAddCommand(row, column, 0)
 			}
@@ -117,7 +115,9 @@ func (game *SudokuGame) runCommand(command string) bool {
 		} else {
 			fmt.Println("The current board is correct.")
 		}
-		return false
+	case "reset":
+		game.Reset()
+		return true
 	case "solve":
 		game.Problem.Solve()
 		return true
@@ -140,7 +140,7 @@ func (game *SudokuGame) askUserInput(scanner *bufio.Scanner) bool {
 	fmt.Print("> ")
 
 	scanner.Scan()
-	command := scanner.Text()
+	command := strings.TrimSpace(scanner.Text())
 
 	return game.runCommand(command)
 }
@@ -156,4 +156,6 @@ func (game *SudokuGame) Play() {
 			break
 		}
 	}
+
+	fmt.Println("Congratulations! You have solved the problem.")
 }
