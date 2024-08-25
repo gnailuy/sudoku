@@ -5,6 +5,7 @@ import (
 
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/solver"
+	"github.com/gnailuy/sudoku/util"
 )
 
 // Define the cell state enum of the problem board
@@ -99,7 +100,7 @@ func (game *SudokuGame) addZeroInput(input core.Cell) {
 				value := game.invalidInput.Get(core.NewPosition(i, j))
 				if value != 0 {
 					// Try to add the previously invalid input to the problem board
-					game.addNonZeroInput(core.NewCell(i, j, value))
+					game.addNonZeroInput(core.NewCell(core.NewPosition(i, j), value))
 				}
 			}
 		}
@@ -194,7 +195,7 @@ func (game *SudokuGame) Redo() (err error) {
 
 // Function to repair the game to the last valid state
 func (game *SudokuGame) Repair() (undoSteps int) {
-	for !game.Invalid() && game.inputCursor >= 0 {
+	for !game.IsValid() && game.inputCursor >= 0 {
 		undoSteps++
 		game.Undo()
 	}
@@ -222,12 +223,35 @@ func (game *SudokuGame) Solve() {
 	game.defaultSolver.Solve(&game.Problem)
 }
 
+// Function to get a hint of the game
+func (game *SudokuGame) Hint() *core.Cell {
+	// If there is any invalid input, randomly remove one of them
+	if !game.invalidInput.IsEmpty() {
+		rowOrder := util.GenerateNumberArray(0, 9, true)
+		columnOrder := util.GenerateNumberArray(0, 9, true)
+		for _, row := range rowOrder {
+			for _, column := range columnOrder {
+				value := game.invalidInput.Get(core.NewPosition(row, column))
+				if value != 0 {
+					return &core.Cell{
+						Position: core.NewPosition(row, column),
+						Value:    0,
+					}
+				}
+			}
+		}
+	}
+
+	// Otherwise, get a hint to add a new input
+	return game.defaultSolver.Hint(&game.Problem)
+}
+
 // Function to check if the game is solved
 func (game *SudokuGame) IsSolved() bool {
 	return game.Problem.IsSolved()
 }
 
-// Function to check if the game is in an invalid state
-func (game *SudokuGame) Invalid() bool {
+// Function to check if the game is in a valid state
+func (game *SudokuGame) IsValid() bool {
 	return game.invalidInput.IsEmpty()
 }

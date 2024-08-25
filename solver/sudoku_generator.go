@@ -2,6 +2,7 @@ package solver
 
 import (
 	"github.com/gnailuy/sudoku/core"
+	"github.com/gnailuy/sudoku/util"
 )
 
 // Options to generate a Sudoku problem
@@ -60,7 +61,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 		}
 
 		// Test the non-empty positions in a random order and unset the first one that can be removed
-		shuffleArray(nonEmptyPositions)
+		util.ShuffleArray(nonEmptyPositions)
 
 		removedPositionIndex := -1
 		for j, position := range nonEmptyPositions {

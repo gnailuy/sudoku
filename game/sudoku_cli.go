@@ -67,14 +67,15 @@ func (game *SudokuGame) print() {
 func (game *SudokuGame) printHelp() {
 	fmt.Println("Supported commands:")
 	fmt.Println("  - help, h                       : Print this help message.")
-	fmt.Println("  - add, a <row> <column> <value> : Input a value to a cell at (row, column).")
-	fmt.Println("  - clear, c <row> <column>       : Clear the value in a cell at (row, column).")
+	fmt.Println("  - add, a <row> <column> <value> : Add the value to the cell at (row, column).")
+	fmt.Println("  - clear, d <row> <column>       : Clear the value in a cell at (row, column).")
+	fmt.Println("  - check, c                      : Check if the current board is correct.")
 	fmt.Println("  - undo, u                       : Undo last move.")
 	fmt.Println("  - redo, r                       : Redo last undo.")
 	fmt.Println("  - repair, f                     : Undo all invalid inputs.")
-	fmt.Println("  - reset, e                      : Reset the problem.")
-	fmt.Println("  - check, k                      : Check if the current board is correct.")
+	fmt.Println("  - hint, i                       : Apply a hint for the next move.")
 	fmt.Println("  - solve, s                      : Solve the problem for me.")
+	fmt.Println("  - reset, e                      : Reset the game and start over.")
 	fmt.Println("  - quit, q                       : Quit the game.")
 }
 
@@ -126,6 +127,22 @@ func (game *SudokuGame) runClearCommand(commandArguments string) (cleared bool, 
 	}
 }
 
+// Function to handle the command with arguments
+func (game *SudokuGame) runCommandWithArguments(commandFields []string) (success bool, err error) {
+	if len(commandFields) != 2 {
+		return false, errors.New("no argument specified for the command")
+	}
+
+	switch commandFields[0] {
+	case "add", "a":
+		return game.runAddCommand(commandFields[1])
+	case "clear", "d":
+		return game.runClearCommand(commandFields[1])
+	default:
+		return false, fmt.Errorf("unsupported command: %s", commandFields[0])
+	}
+}
+
 // Function to run a command
 func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel) bool {
 	commandFields := strings.SplitN(command, " ", 2)
@@ -140,24 +157,17 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 		game.printHelp()
 		return false
 	case "add", "a":
-		if len(commandFields) != 2 {
-			printError("No argument specified for the add command.")
-		} else {
-			added, err := game.runAddCommand(commandFields[1])
-			if err != nil {
-				printError("Failed to run the add command:", err)
-			}
-			return added
+	case "clear", "d":
+		success, err := game.runCommandWithArguments(commandFields)
+		if err != nil {
+			printError("Failed to run the", commandFields[0], "command:", err)
 		}
-	case "clear", "c":
-		if len(commandFields) != 2 {
-			printError("No argument specified for the clear command.")
+		return success
+	case "check", "c":
+		if game.IsValid() {
+			fmt.Println("The current board is correct.")
 		} else {
-			cleared, err := game.runClearCommand(commandFields[1])
-			if err != nil {
-				printError("Failed to run the clear command:", err)
-			}
-			return cleared
+			fmt.Println("You have entered incorrect values(s).")
 		}
 	case "undo", "u":
 		err := game.Undo()
@@ -167,17 +177,28 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 		return err == nil
 	case "repair", "f":
 		return game.Repair() > 0
-	case "check", "k":
-		if game.Invalid() {
-			fmt.Println("The current board is correct.")
-		} else {
-			fmt.Println("You have entered incorrect values(s).")
+	case "hint", "i":
+		hint := game.Hint()
+		if hint != nil {
+			added, err := game.setValue(hint.Position.Row+1, hint.Position.Column+1, hint.Value)
+			if err != nil {
+				printError("Failed to apply hint:", err)
+			}
+			if added {
+				if hint.Value != 0 {
+					fmt.Printf("Hint: Added %d to cell (%d, %d)\n", hint.Value, hint.Position.Row+1, hint.Position.Column+1)
+				} else {
+					fmt.Printf("Hint: Cleared cell (%d, %d)\n", hint.Position.Row+1, hint.Position.Column+1)
+				}
+			}
+			return added
 		}
-	case "reset", "e":
-		game.Reset()
-		return true
+		return false
 	case "solve", "s":
 		game.Solve()
+		return true
+	case "reset", "e":
+		game.Reset()
 		return true
 	case "quit", "q":
 		closeChannel.Close()

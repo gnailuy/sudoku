@@ -13,8 +13,10 @@ type Cell struct {
 
 // Constructor like function to create a new Sudoku cell
 // Use this when you are sure the cell is valid, will panic otherwise
-func NewCell(row, column, value int) (cell Cell) {
-	position := NewPosition(row, column)
+func NewCell(position Position, value int) (cell Cell) {
+	if !position.IsValid() {
+		panic("Bug: Invalid cell position: " + position.ToString())
+	}
 
 	if value < 0 || value > 9 {
 		panic("Bug: Invalid cell value: " + fmt.Sprint(value))
