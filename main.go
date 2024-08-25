@@ -8,34 +8,32 @@ import (
 	"github.com/gnailuy/sudoku/game"
 	"github.com/gnailuy/sudoku/generator"
 	"github.com/gnailuy/sudoku/solver"
-	"github.com/spf13/pflag"
 )
 
 func main() {
 	// Create and initialize the solver store.
 	solverStore := solver.NewSudokuSolverStore()
 
-	// Accept an optional argument to play a specific game given by an input string.
-	// If the argument is not provided, a random game will be generated.
-	input := pflag.StringP("input", "i", "", "A Sudoku problem string to play.")
-	pflag.Parse()
+	// Parse the command line options.
+	options := NewCommandLineOptions()
+	options.Parse()
 
-	if *input != "" {
+	if *options.Input != "" {
 		// Read the input as a Sudoku string
-		problem, err := generator.GenerateSudokuProblemFromString(*input)
+		problem, err := generator.GenerateSudokuProblemFromString(*options.Input)
 
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "The input is not a valid Sudoku problem: %s\n", *input)
+			fmt.Fprintf(os.Stderr, "The input is not a valid Sudoku problem: %s\n", *options.Input)
 			os.Exit(1)
 		}
 
 		fmt.Println("Playing the game from input:")
-		fmt.Println(*input)
+		fmt.Println(*options.Input)
 		playCli(*problem, solverStore)
 	} else {
 		// Generate a random problem.
-		fmt.Println("Generating a random Sudoku problem...")
-		problem := generator.GenerateSudokuProblem(generator.NewDefaultSudokuProblemOptions(solverStore))
+		fmt.Printf("Generating a random %s Sudoku problem...\n", options.Level.String())
+		problem := generator.GenerateSudokuProblem(generator.NewSudokuProblemOptions(solverStore, options.GetDifficultyOptions()))
 
 		playCli(problem, solverStore)
 	}

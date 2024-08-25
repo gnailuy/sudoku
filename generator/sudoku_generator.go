@@ -34,8 +34,8 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 
 	// Remove numbers randomly from the solved board to create a problem.
 	for i := 0; i < options.MaximumIterations; i++ {
-		// Stop removing numbers because the board has reached the minimum number of filled cells.
-		if board.FilledCells() <= options.MinimumFilledCells {
+		// Stop removing numbers when the number of filled cells is within the difficulty range.
+		if options.Difficulty.IsWithinDifficultyLevel(board.FilledCells()) {
 			break
 		}
 
@@ -57,7 +57,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 
 			// Find out the maximum number of solutions using all available solvers.
 			numberOfSolutions := 0
-			for _, key := range options.SolverKeys {
+			for _, key := range options.Difficulty.SolverKeys {
 				solver := options.solverStore.GetSolverByKey(key)
 				if solver == nil {
 					panic("Bug: Invalid solver key: " + key)

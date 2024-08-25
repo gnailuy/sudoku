@@ -5,22 +5,20 @@ import "github.com/gnailuy/sudoku/solver"
 // Define the options to generate a Sudoku problem.
 type SudokuGeneratorOptions struct {
 	// Public fields.
-	MinimumFilledCells int
-	MaximumIterations  int
-	MaximumSolutions   int
-	SolverKeys         []string
+	MaximumSolutions  int
+	MaximumIterations int
+	Difficulty        SudokuDifficulty
 
 	// Private fields.
 	solverStore solver.SudokuSolverStore
 }
 
 // Constructor like function to create a default options object.
-func NewDefaultSudokuProblemOptions(solverStore solver.SudokuSolverStore) SudokuGeneratorOptions {
+func NewSudokuProblemOptions(solverStore solver.SudokuSolverStore, difficulty SudokuDifficulty) SudokuGeneratorOptions {
 	return SudokuGeneratorOptions{
-		MinimumFilledCells: 17,
-		MaximumIterations:  60,
-		MaximumSolutions:   1,
-		SolverKeys:         []string{"default"},
-		solverStore:        solverStore,
+		MaximumSolutions:  1,
+		MaximumIterations: 58,
+		Difficulty:        difficulty,
+		solverStore:       solverStore,
 	}
 }

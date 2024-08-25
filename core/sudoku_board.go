@@ -15,8 +15,7 @@ type SudokuBoard struct {
 
 // Constructor like function to create a empty Sudoku board.
 func NewEmptySudokuBoard() SudokuBoard {
-	var board SudokuBoard
-	return board
+	return *new(SudokuBoard)
 }
 
 // Function to set the value to a position.
