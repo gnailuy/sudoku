@@ -65,6 +65,7 @@ func (game *SudokuGame) printHelp() {
 	fmt.Println("  - clear `row` `column`        : Clear the value in a cell at (row, column).")
 	fmt.Println("  - undo                        : Undo last move.")
 	fmt.Println("  - redo                        : Redo last undo.")
+	fmt.Println("  - repair                      : Undo all invalid inputs.")
 	fmt.Println("  - reset                       : Reset the problem.")
 	fmt.Println("  - check                       : Check if the current board is correct.")
 	fmt.Println("  - solve                       : Solve the problem for me.")
@@ -143,11 +144,13 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 	case "redo":
 		err := game.Redo()
 		return err == nil
+	case "repair":
+		return game.Repair() > 0
 	case "check":
-		if game.IsInvalid() {
-			fmt.Println("You have entered incorrect values(s).")
-		} else {
+		if game.Invalid() {
 			fmt.Println("The current board is correct.")
+		} else {
+			fmt.Println("You have entered incorrect values(s).")
 		}
 	case "reset":
 		game.Reset()

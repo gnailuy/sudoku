@@ -14,7 +14,7 @@ func (closeChannel CloseChannel) handleInterruptSignal() {
 
 	go func() {
 		for range c {
-			close(closeChannel)
+			closeChannel.Close()
 		}
 	}()
 }

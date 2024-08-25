@@ -106,6 +106,15 @@ func (game *SudokuGame) addZeroInput(input core.Cell) {
 	}
 }
 
+// Function to get the cell value of the game boards
+func (game *SudokuGame) Get(position core.Position) int {
+	if game.Problem.Get(position) != 0 {
+		return game.Problem.Get(position)
+	} else {
+		return game.invalidInput.Get(position)
+	}
+}
+
 // Function to add a cell input
 func (game *SudokuGame) AddInput(input core.Cell) (err error) {
 	if !input.IsValid() {
@@ -124,15 +133,6 @@ func (game *SudokuGame) AddInput(input core.Cell) (err error) {
 	}
 
 	return
-}
-
-// Function to get the cell value of the game boards
-func (game *SudokuGame) Get(position core.Position) int {
-	if game.Problem.Get(position) != 0 {
-		return game.Problem.Get(position)
-	} else {
-		return game.invalidInput.Get(position)
-	}
 }
 
 // Function to add a cell input and record the history
@@ -192,6 +192,16 @@ func (game *SudokuGame) Redo() (err error) {
 	return
 }
 
+// Function to repair the game to the last valid state
+func (game *SudokuGame) Repair() (undoSteps int) {
+	for !game.Invalid() && game.inputCursor >= 0 {
+		undoSteps++
+		game.Undo()
+	}
+
+	return undoSteps
+}
+
 // Function to reset the game to the initial state
 func (game *SudokuGame) Reset() {
 	for i := 0; i < 9; i++ {
@@ -218,6 +228,6 @@ func (game *SudokuGame) IsSolved() bool {
 }
 
 // Function to check if the game is in an invalid state
-func (game *SudokuGame) IsInvalid() bool {
-	return !game.invalidInput.IsEmpty()
+func (game *SudokuGame) Invalid() bool {
+	return game.invalidInput.IsEmpty()
 }
