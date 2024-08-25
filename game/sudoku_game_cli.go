@@ -67,7 +67,7 @@ func (game *SudokuGame) runCommand(command string) bool {
 }
 
 // Function to ask the user for input
-func (game *SudokuGame) askUserInput() bool {
+func (game *SudokuGame) askUserInput(scanner *bufio.Scanner) bool {
 	// Print the problem
 	game.Problem.Print()
 
@@ -75,11 +75,8 @@ func (game *SudokuGame) askUserInput() bool {
 	fmt.Println("Enter a command (Enter 'help' for help):")
 	fmt.Print("> ")
 
-	reader := bufio.NewReader(os.Stdin)
-	command, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-	}
+	scanner.Scan()
+	command := scanner.Text()
 
 	return game.runCommand(command)
 }
@@ -92,8 +89,9 @@ func (game *SudokuGame) Play() {
 	}
 	defer keyboard.Close()
 
+	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		added := game.askUserInput()
+		added := game.askUserInput(scanner)
 
 		if added && game.HasInvalidCells() {
 			fmt.Fprintln(os.Stderr, "[ERROR] Your input is invalid.")
