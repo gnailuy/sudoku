@@ -28,15 +28,16 @@ type SudokuGame struct {
 	Problem core.SudokuBoard
 
 	// Private fields.
-	boardState    [9][9]CellState      // The state of the problem board.
-	invalidInput  core.SudokuBoard     // Put the invalid input in another board to keep the original problem board solvable.
-	inputSequence []CellInputHistory   // User input sequence.
-	inputCursor   int                  // The cursor of the current user input.
-	defaultSolver solver.ISudokuSolver // The default solver to judge the input, must be reliable.
+	boardState    [9][9]CellState        // The state of the problem board.
+	invalidInput  core.SudokuBoard       // Put the invalid input in another board to keep the original problem board solvable.
+	inputSequence []CellInputHistory     // User input sequence.
+	inputCursor   int                    // The cursor of the current user input.
+	defaultSolver solver.ISudokuSolver   // The default solver to judge the input, must be reliable.
+	hintSolvers   []solver.ISudokuSolver // An optional list of solvers to give hints, may be unreliable.
 }
 
 // Function to create a new Sudoku game.
-func NewSudokuGame(problem core.SudokuBoard) SudokuGame {
+func NewSudokuGame(problem core.SudokuBoard, options SudokuGameOptions) SudokuGame {
 	if !problem.IsValid() {
 		panic("Bug: Invalid problem board when creating a new Sudoku game")
 	}
@@ -59,7 +60,8 @@ func NewSudokuGame(problem core.SudokuBoard) SudokuGame {
 		invalidInput:  core.NewEmptySudokuBoard(),
 		inputSequence: []CellInputHistory{},
 		inputCursor:   -1,
-		defaultSolver: solver.NewDefaultSolver(),
+		defaultSolver: options.solverStore.GetDefaultSolver(),
+		hintSolvers:   options.GetHintSolvers(),
 	}
 }
 
@@ -239,6 +241,14 @@ func (game *SudokuGame) Hint() *core.Cell {
 					}
 				}
 			}
+		}
+	}
+
+	// If any of the hint solvers can give a hint, use it.
+	for _, solver := range game.hintSolvers {
+		hint := solver.Hint(&game.Problem)
+		if hint != nil {
+			return hint
 		}
 	}
 

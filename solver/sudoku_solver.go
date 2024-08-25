@@ -2,9 +2,10 @@ package solver
 
 import "github.com/gnailuy/sudoku/core"
 
-// Define the base solver object containing the name and reliability of the solver.
-type BaseSolver struct {
-	Name        string // The name of the solver.
+// Define the solver properties object containing the key and other properties of the solver.
+type SolverProperties struct {
+	Key         string // The unique key of the solver.
+	DisplayName string // The display name of the solver.
 	Description string // The description of the solver.
 	Reliable    bool   // If the solver is reliable, it will always solve a valid Sudoku board, otherwise, it may not be able to solve some boards.
 }
@@ -19,4 +20,7 @@ type ISudokuSolver interface {
 
 	// Count the number of solutions of the board, return 0 if the solver cannot solve the board, return 1 if the board is already solved.
 	CountSolutions(board *core.SudokuBoard) int
+
+	// Return the properties of the solver.
+	GetProperties() SolverProperties
 }

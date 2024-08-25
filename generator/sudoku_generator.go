@@ -1,41 +1,23 @@
-package solver
+package generator
 
 import (
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/util"
 )
 
-// Define the options to generate a Sudoku problem.
-type SudokuProblemOptions struct {
-	MinimumFilledCells int
-	MaximumIterations  int
-	MaximumSolutions   int
-	Solvers            []ISudokuSolver
-}
-
-// Constructor like function to create a default SudokuProblemOptions.
-func NewDefaultSudokuProblemOptions() SudokuProblemOptions {
-	return SudokuProblemOptions{
-		MinimumFilledCells: 17,
-		MaximumIterations:  60,
-		MaximumSolutions:   1,
-		Solvers:            []ISudokuSolver{NewDefaultSolver()},
-	}
-}
-
 // Function to generate a solved Sudoku board by solving an empty board randomly.
-func GenerateSolvedBoard() core.SudokuBoard {
+func GenerateSolvedBoard(options SudokuGeneratorOptions) core.SudokuBoard {
 	board := core.NewEmptySudokuBoard()
 
 	// To generate a solved board from an empty board, we use the reliable default solver.
-	solver := NewDefaultSolver()
+	solver := options.solverStore.GetDefaultSolver()
 	solver.Solve(&board)
 
 	return board
 }
 
 // Function to generate a Sudoku problem from a solved board.
-func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options SudokuProblemOptions) core.SudokuBoard {
+func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options SudokuGeneratorOptions) core.SudokuBoard {
 	if !board.IsSolved() || !board.IsValid() {
 		panic("Bug: The board is not solved or not valid to generate a problem")
 	}
@@ -73,7 +55,12 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 
 			// Find out the maximum number of solutions using all available solvers.
 			numberOfSolutions := 0
-			for _, solver := range options.Solvers {
+			for _, key := range options.SolverKeys {
+				solver := options.solverStore.GetSolverByKey(key)
+				if solver == nil {
+					panic("Bug: Invalid solver key: " + key)
+				}
+
 				nos := solver.CountSolutions(&board)
 				if nos > numberOfSolutions {
 					numberOfSolutions = nos
@@ -103,7 +90,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 }
 
 // Function to generate a Sudoku problem.
-func GenerateSudokuProblem(options SudokuProblemOptions) core.SudokuBoard {
-	solvedBoard := GenerateSolvedBoard()
+func GenerateSudokuProblem(options SudokuGeneratorOptions) core.SudokuBoard {
+	solvedBoard := GenerateSolvedBoard(options)
 	return GenerateSudokuProblemFromSolvedBoard(solvedBoard, options)
 }
