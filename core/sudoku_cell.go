@@ -27,18 +27,16 @@ func NewCell(row, column, value int) (cell Cell) {
 
 // Constructor like function to create a new Sudoku cell from user input
 // Use this to deal with user input, will return an error if the cell is invalid
-func NewCellFromInput(row, column, value int) (cell *Cell, err error) {
-	position, err := NewPositionFromInput(row, column)
-
-	if err != nil {
-		return nil, err
+func NewCellFromInput(position Position, value int) (cell *Cell, err error) {
+	if !position.IsValid() {
+		return nil, errors.New("invalid cell position: " + position.ToString())
 	}
 
 	if value < 0 || value > 9 {
-		return nil, errors.New("Invalid cell value: " + fmt.Sprint(value))
+		return nil, errors.New("invalid cell value: " + fmt.Sprint(value))
 	}
 
-	cell = &Cell{Position: *position, Value: value}
+	cell = &Cell{Position: position, Value: value}
 
 	return cell, nil
 }

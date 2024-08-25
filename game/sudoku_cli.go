@@ -2,6 +2,7 @@ package game
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -9,6 +10,11 @@ import (
 	"github.com/gnailuy/sudoku/cli"
 	"github.com/gnailuy/sudoku/core"
 )
+
+// Function to print an error message with a prefix [ERROR]
+func printError(message ...any) {
+	fmt.Fprintln(os.Stderr, "[ERROR]", message)
+}
 
 // Function to print the column numbers
 func printColumnNumbers() {
@@ -60,45 +66,64 @@ func (game *SudokuGame) print() {
 // Function to print the help message
 func (game *SudokuGame) printHelp() {
 	fmt.Println("Supported commands:")
-	fmt.Println("  - help                        : Print this help message.")
-	fmt.Println("  - add `row` `column` `value`  : Input a value to a cell at (row, column).")
-	fmt.Println("  - clear `row` `column`        : Clear the value in a cell at (row, column).")
-	fmt.Println("  - undo                        : Undo last move.")
-	fmt.Println("  - redo                        : Redo last undo.")
-	fmt.Println("  - repair                      : Undo all invalid inputs.")
-	fmt.Println("  - reset                       : Reset the problem.")
-	fmt.Println("  - check                       : Check if the current board is correct.")
-	fmt.Println("  - solve                       : Solve the problem for me.")
-	fmt.Println("  - quit                        : Quit the game.")
+	fmt.Println("  - help, h                       : Print this help message.")
+	fmt.Println("  - add, a <row> <column> <value> : Input a value to a cell at (row, column).")
+	fmt.Println("  - clear, c <row> <column>       : Clear the value in a cell at (row, column).")
+	fmt.Println("  - undo, u                       : Undo last move.")
+	fmt.Println("  - redo, r                       : Redo last undo.")
+	fmt.Println("  - repair, f                     : Undo all invalid inputs.")
+	fmt.Println("  - reset, e                      : Reset the problem.")
+	fmt.Println("  - check, k                      : Check if the current board is correct.")
+	fmt.Println("  - solve, s                      : Solve the problem for me.")
+	fmt.Println("  - quit, q                       : Quit the game.")
 }
 
 // Function to set a cell for the add and clear commands
-func (game *SudokuGame) setValue(row, column, value int) bool {
+func (game *SudokuGame) setValue(rowInput, columnInput, valueInput int) (success bool, err error) {
 	// Check user input validity
-	positionPointer, err := core.NewPositionFromInput(row-1, column-1)
-
+	positionPointer, err := core.NewPositionFromInput(rowInput-1, columnInput-1)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "[ERROR] Error in the input:", err)
-		return false
+		return false, fmt.Errorf("error in the input position: %w", err)
+	}
+
+	cellPointer, err := core.NewCellFromInput(*positionPointer, valueInput)
+	if err != nil {
+		return false, fmt.Errorf("error in the input value: %w", err)
 	}
 
 	// Skip adding if the input is the same as the current value
-	if game.Get(*positionPointer) == value {
-		return false
+	if game.Get(*positionPointer) == valueInput {
+		return false, errors.New("ihe input value is the same as the current value")
 	}
 
 	// Add the value to the cell
-	err = game.AddInputAndRecordHistory(core.Cell{
-		Position: *positionPointer,
-		Value:    value,
-	})
+	err = game.AddInputAndRecordHistory(*cellPointer)
+	success = err == nil
+	return
+}
 
+// Function to handle the add command
+func (game *SudokuGame) runAddCommand(commandArguments string) (added bool, err error) {
+	var row, column, value int
+	_, err = fmt.Sscanf(commandArguments, "%1d%1d%1d", &row, &column, &value)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "[ERROR] Error when adding an input value:", err)
-		return false
+		return false, err
+	} else {
+		added, err = game.setValue(row, column, value)
+		return
 	}
+}
 
-	return true
+// Function to handle the clear command
+func (game *SudokuGame) runClearCommand(commandArguments string) (cleared bool, err error) {
+	var row, column int
+	_, err = fmt.Sscanf(commandArguments, "%1d%1d", &row, &column)
+	if err != nil {
+		return false, err
+	} else {
+		cleared, err = game.setValue(row, column, 0)
+		return
+	}
 }
 
 // Function to run a command
@@ -111,57 +136,58 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 	}
 
 	switch commandFields[0] {
-	case "help":
+	case "help", "h":
 		game.printHelp()
 		return false
-	case "add":
+	case "add", "a":
 		if len(commandFields) != 2 {
-			fmt.Fprintln(os.Stderr, "[ERROR] No argument specified for the add command.")
+			printError("No argument specified for the add command.")
 		} else {
-			var row, column, value int
-			_, err := fmt.Sscanf(commandFields[1], "%1d%1d%1d", &row, &column, &value)
+			added, err := game.runAddCommand(commandFields[1])
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input command:", err)
-			} else {
-				return game.setValue(row, column, value)
+				printError("Failed to run the add command:", err)
 			}
+			return added
 		}
-	case "clear":
+	case "clear", "c":
 		if len(commandFields) != 2 {
-			fmt.Fprintln(os.Stderr, "[ERROR] No argument specified for the clear command.")
+			printError("No argument specified for the clear command.")
 		} else {
-			var row, column int
-			_, err := fmt.Sscanf(commandFields[1], "%1d%1d", &row, &column)
+			cleared, err := game.runClearCommand(commandFields[1])
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input command:", err)
-			} else {
-				return game.setValue(row, column, 0)
+				printError("Failed to run the clear command:", err)
 			}
+			return cleared
 		}
-	case "undo":
+	case "undo", "u":
 		err := game.Undo()
 		return err == nil
-	case "redo":
+	case "redo", "r":
 		err := game.Redo()
 		return err == nil
-	case "repair":
+	case "repair", "f":
 		return game.Repair() > 0
-	case "check":
+	case "check", "k":
 		if game.Invalid() {
 			fmt.Println("The current board is correct.")
 		} else {
 			fmt.Println("You have entered incorrect values(s).")
 		}
-	case "reset":
+	case "reset", "e":
 		game.Reset()
 		return true
-	case "solve":
+	case "solve", "s":
 		game.Solve()
 		return true
-	case "quit":
+	case "quit", "q":
 		closeChannel.Close()
 	default:
-		fmt.Fprintln(os.Stderr, "[ERROR] Unknown command.")
+		// I find myself often forgetting to use the 'add' command and just typing the numbers directly
+		added, err := game.runAddCommand(command)
+		if err != nil {
+			printError("Failed to run the command:", err)
+		}
+		return added
 	}
 
 	return false
@@ -178,7 +204,7 @@ func (game *SudokuGame) askUserInput(scanner *bufio.Scanner, inputChannel chan s
 	game.print()
 
 	// Ask for user input
-	fmt.Println("Enter a command (Enter 'help' for help):")
+	fmt.Println("Enter a command (Enter 'help' or 'h for help):")
 	fmt.Print("> ")
 
 	// Block until the user enters a command
@@ -187,7 +213,7 @@ func (game *SudokuGame) askUserInput(scanner *bufio.Scanner, inputChannel chan s
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input command:", err)
+		printError("Failed to read the input command:", err)
 	}
 }
 

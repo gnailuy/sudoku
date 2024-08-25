@@ -20,7 +20,7 @@ func NewEmptySudokuBoard() SudokuBoard {
 // Function to set the value to a position
 func (board *SudokuBoard) Set(position Position, value int) (err error) {
 	if value < 1 || value > 9 {
-		return errors.New("Cannot set invalid number: " + fmt.Sprint(value))
+		return errors.New("cannot set invalid number: " + fmt.Sprint(value))
 	}
 
 	if board.grid[position.Row][position.Column] == 0 {
@@ -34,7 +34,7 @@ func (board *SudokuBoard) Set(position Position, value int) (err error) {
 // Function to set the value of a cell
 func (board *SudokuBoard) SetCell(cell Cell) (err error) {
 	if !cell.IsValid() {
-		return errors.New("Cannot set invalid cell: " + cell.ToString())
+		return errors.New("cannot set invalid cell: " + cell.ToString())
 	}
 
 	board.Set(cell.Position, cell.Value)

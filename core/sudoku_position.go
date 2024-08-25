@@ -29,7 +29,7 @@ func NewPositionFromInput(row, column int) (position *Position, err error) {
 	position = &Position{Row: row, Column: column}
 
 	if !position.IsValid() {
-		return nil, errors.New("Invalid board position: " + position.ToString())
+		return nil, errors.New("invalid board position: " + position.ToString())
 	}
 
 	return position, nil
