@@ -19,6 +19,11 @@ func main() {
 	options := cli.NewCommandLineOptions()
 	options.Parse()
 
+	if *options.HelpRequested {
+		cli.PrintHelp()
+		os.Exit(0)
+	}
+
 	if *options.Input != "" {
 		// Read the input as a Sudoku string
 		problem, err := generator.GenerateSudokuProblemFromString(*options.Input)
@@ -36,6 +41,8 @@ func main() {
 		fmt.Printf("Generating a random %s Sudoku problem...\n", options.Level.String())
 		problem := generator.GenerateSudokuProblem(generator.NewSudokuProblemOptions(solverStore, options.GetDifficultyOptions()))
 
+		fmt.Println("Playing new game:")
+		fmt.Println(problem.ToString())
 		playCli(problem, solverStore)
 	}
 }
