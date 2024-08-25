@@ -69,24 +69,38 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 			// Update the board.
 			board.Unset(position)
 
-			// Find out the maximum number of solutions using all available solvers.
-			numberOfSolutions := 0
-			for _, key := range options.Difficulty.SolverKeys {
-				solver := options.solverStore.GetSolverByKey(key)
-				if solver == nil {
-					panic("Bug: Invalid solver key: " + key)
-				}
+			// Find out the maximum number of solutions using the default solver.
+			numberOfSolutions := options.solverStore.GetDefaultSolver().CountSolutions(&board)
 
-				nos := solver.CountSolutions(&board)
-				if nos > numberOfSolutions {
-					numberOfSolutions = nos
-				}
-			}
-
-			// If the problem is solvable and has no more than maximum solutions, confirm the removal.
+			// Check if the problem is solvable and has no more than maximum solutions.
 			if numberOfSolutions > 0 && numberOfSolutions <= options.MaximumSolutions {
-				removedPositionIndex = j
-				break
+				canHint := false
+
+				if len(options.Difficulty.StrategySolverKeys) > 0 {
+					// Test the strategy solvers to ensure that at least one of them can give a hint.
+					for _, key := range options.Difficulty.StrategySolverKeys {
+						solver := options.solverStore.GetSolverByKey(key)
+						if solver == nil {
+							panic("Bug: Invalid strategy solver key: " + key)
+						}
+
+						hint := solver.Hint(&board)
+						if hint != nil {
+							canHint = true
+							break
+						}
+					}
+				} else {
+					// If there are no strategy solvers configured, we don't care about limiting the problem to specific strategies.
+					// And the default solver can always give a hint.
+					canHint = true
+				}
+
+				// Confirm the removal.
+				if canHint {
+					removedPositionIndex = j
+					break
+				}
 			}
 
 			// If the problem is not solvable or has more than maximum solutions, revert the removal.

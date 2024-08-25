@@ -27,12 +27,12 @@ type SudokuGame struct {
 	Problem core.SudokuBoard
 
 	// Private fields.
-	boardState    [9][9]CellState        // The state of the problem board.
-	invalidInput  core.SudokuBoard       // Put the invalid input in another board to keep the original problem board solvable.
-	inputSequence []CellInputHistory     // User input sequence.
-	inputCursor   int                    // The cursor of the current user input.
-	defaultSolver solver.ISudokuSolver   // The default solver to judge the input, must be reliable.
-	hintSolvers   []solver.ISudokuSolver // An optional list of solvers to give hints, may be unreliable.
+	boardState      [9][9]CellState        // The state of the problem board.
+	invalidInput    core.SudokuBoard       // Put the invalid input in another board to keep the original problem board solvable.
+	inputSequence   []CellInputHistory     // User input sequence.
+	inputCursor     int                    // The cursor of the current user input.
+	defaultSolver   solver.ISudokuSolver   // The default solver to judge the input, must be reliable.
+	strategySolvers []solver.ISudokuSolver // An optional list of strategy solvers to give hints, may be unreliable.
 }
 
 // Function to create a new Sudoku game.
@@ -54,13 +54,13 @@ func NewSudokuGame(problem core.SudokuBoard, options SudokuGameOptions) SudokuGa
 	}
 
 	return SudokuGame{
-		Problem:       problem,
-		boardState:    boardState,
-		invalidInput:  core.NewEmptySudokuBoard(),
-		inputSequence: []CellInputHistory{},
-		inputCursor:   -1,
-		defaultSolver: options.solverStore.GetDefaultSolver(),
-		hintSolvers:   options.GetHintSolvers(),
+		Problem:         problem,
+		boardState:      boardState,
+		invalidInput:    core.NewEmptySudokuBoard(),
+		inputSequence:   []CellInputHistory{},
+		inputCursor:     -1,
+		defaultSolver:   options.solverStore.GetDefaultSolver(),
+		strategySolvers: options.GetStrategySolvers(),
 	}
 }
 
@@ -242,8 +242,8 @@ func (game *SudokuGame) Hint() *core.Cell {
 		}
 	}
 
-	// If any of the hint solvers can give a hint, use it.
-	for _, solver := range game.hintSolvers {
+	// If any of the strategy solvers can give a hint, use it.
+	for _, solver := range game.strategySolvers {
 		hint := solver.Hint(&game.Problem)
 		if hint != nil {
 			return hint
