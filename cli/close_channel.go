@@ -5,9 +5,10 @@ import (
 	"os/signal"
 )
 
+// Define the close channel type.
 type CloseChannel chan struct{}
 
-// Handle the interrupt signal
+// Function to handle the interrupt signal.
 func (closeChannel CloseChannel) handleInterruptSignal() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -19,7 +20,7 @@ func (closeChannel CloseChannel) handleInterruptSignal() {
 	}()
 }
 
-// Create a new close channel
+// Constructor like function to create a new close channel.
 func NewCloseChannel() CloseChannel {
 	var closeChannel CloseChannel = make(chan struct{})
 	closeChannel.handleInterruptSignal()
@@ -27,7 +28,7 @@ func NewCloseChannel() CloseChannel {
 	return closeChannel
 }
 
-// Non-blocking check on if the close channel is closed
+// Function to check if the close channel is closed, unblocking.
 func (closeChannel CloseChannel) IsClosed() bool {
 	select {
 	case <-closeChannel:
@@ -38,7 +39,7 @@ func (closeChannel CloseChannel) IsClosed() bool {
 	return false
 }
 
-// Close the close channel
+// Function to close the close channel.
 func (closeChannel CloseChannel) Close() {
 	close(closeChannel)
 }

@@ -11,12 +11,12 @@ import (
 	"github.com/gnailuy/sudoku/core"
 )
 
-// Function to print an error message with a prefix [ERROR]
+// Function to print an error message with a prefix [ERROR].
 func printError(message ...any) {
 	fmt.Fprintln(os.Stderr, "[ERROR]", message)
 }
 
-// Function to print the column numbers
+// Function to print the column numbers.
 func printColumnNumbers() {
 	fmt.Print("    ")
 	for i := 0; i < 9; i++ {
@@ -28,13 +28,13 @@ func printColumnNumbers() {
 	fmt.Println()
 }
 
-// Function to print the Sudoku game
+// Function to print the Sudoku game.
 func (game *SudokuGame) print() {
-	// Header column numbers
+	// Header column numbers.
 	fmt.Println()
 	printColumnNumbers()
 
-	// Board and row numbers
+	// Board and row numbers.
 	for i := 0; i < 9; i++ {
 		if i%3 == 0 {
 			fmt.Println("    -------+-------+-------")
@@ -58,12 +58,12 @@ func (game *SudokuGame) print() {
 	}
 	fmt.Println("    -------+-------+-------")
 
-	// Footer column numbers
+	// Footer column numbers.
 	printColumnNumbers()
 	fmt.Println()
 }
 
-// Function to print the help message
+// Function to print the help message.
 func (game *SudokuGame) printHelp() {
 	fmt.Println("Supported commands:")
 	fmt.Println("  - help, h                       : Print this help message.")
@@ -79,9 +79,9 @@ func (game *SudokuGame) printHelp() {
 	fmt.Println("  - quit, q                       : Quit the game.")
 }
 
-// Function to set a cell for the add and clear commands
+// Function to set a cell for the add and clear commands.
 func (game *SudokuGame) setValue(rowInput, columnInput, valueInput int) (success bool, err error) {
-	// Check user input validity
+	// Check user input validity.
 	positionPointer, err := core.NewPositionFromInput(rowInput-1, columnInput-1)
 	if err != nil {
 		return false, fmt.Errorf("error in the input position: %w", err)
@@ -92,18 +92,18 @@ func (game *SudokuGame) setValue(rowInput, columnInput, valueInput int) (success
 		return false, fmt.Errorf("error in the input value: %w", err)
 	}
 
-	// Skip adding if the input is the same as the current value
+	// Skip adding if the input is the same as the current value.
 	if game.Get(*positionPointer) == valueInput {
 		return false, errors.New("ihe input value is the same as the current value")
 	}
 
-	// Add the value to the cell
+	// Add the value to the cell.
 	err = game.AddInputAndRecordHistory(*cellPointer)
 	success = err == nil
 	return
 }
 
-// Function to handle the add command
+// Function to handle the add command.
 func (game *SudokuGame) runAddCommand(commandArguments string) (added bool, err error) {
 	var row, column, value int
 	_, err = fmt.Sscanf(commandArguments, "%1d%1d%1d", &row, &column, &value)
@@ -115,7 +115,7 @@ func (game *SudokuGame) runAddCommand(commandArguments string) (added bool, err 
 	}
 }
 
-// Function to handle the clear command
+// Function to handle the clear command.
 func (game *SudokuGame) runClearCommand(commandArguments string) (cleared bool, err error) {
 	var row, column int
 	_, err = fmt.Sscanf(commandArguments, "%1d%1d", &row, &column)
@@ -127,7 +127,7 @@ func (game *SudokuGame) runClearCommand(commandArguments string) (cleared bool, 
 	}
 }
 
-// Function to handle the command with arguments
+// Function to handle the command with arguments.
 func (game *SudokuGame) runCommandWithArguments(commandFields []string) (success bool, err error) {
 	if len(commandFields) != 2 {
 		return false, errors.New("no argument specified for the command")
@@ -143,11 +143,11 @@ func (game *SudokuGame) runCommandWithArguments(commandFields []string) (success
 	}
 }
 
-// Function to run a command
+// Function to run a command.
 func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel) bool {
 	commandFields := strings.SplitN(command, " ", 2)
 
-	// Empty command, return directly
+	// Empty command, return directly.
 	if len(commandFields) == 0 || len(commandFields[0]) == 0 {
 		return false
 	}
@@ -203,7 +203,7 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 	case "quit", "q":
 		closeChannel.Close()
 	default:
-		// I find myself often forgetting to use the 'add' command and just typing the numbers directly
+		// I find myself often forgetting to use the 'add' command and just typing the numbers directly.
 		added, err := game.runAddCommand(command)
 		if err != nil {
 			printError("Failed to run the command:", err)
@@ -214,21 +214,21 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 	return false
 }
 
-// Function to ask the user for input
+// Function to ask the user for input.
 func (game *SudokuGame) askUserInput(scanner *bufio.Scanner, inputChannel chan string, closeChannel cli.CloseChannel) {
-	// Check if the close channel is closed
+	// Check if the close channel is closed.
 	if closeChannel.IsClosed() {
 		return
 	}
 
-	// Print the problem
+	// Print the problem.
 	game.print()
 
-	// Ask for user input
+	// Ask for user input.
 	fmt.Println("Enter a command (Enter 'help' or 'h for help):")
 	fmt.Print("> ")
 
-	// Block until the user enters a command
+	// Block until the user enters a command.
 	if scanner.Scan() {
 		inputChannel <- strings.TrimSpace(scanner.Text())
 	}
@@ -238,17 +238,17 @@ func (game *SudokuGame) askUserInput(scanner *bufio.Scanner, inputChannel chan s
 	}
 }
 
-// Function to start the game
+// Function to start the game.
 func (game *SudokuGame) Play() {
 	inputChannel := make(chan string)
 	closeChannel := cli.NewCloseChannel()
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		// Ask for user input in a goroutine, it will block until the user enters a command
+		// Ask for user input in a goroutine, it will block until the user enters a command.
 		go game.askUserInput(scanner, inputChannel, closeChannel)
 
-		// Block until we receive a command or the close channel is closed
+		// Block until we receive a command or the close channel is closed.
 		select {
 		case command := <-inputChannel:
 			game.runCommand(command, closeChannel)

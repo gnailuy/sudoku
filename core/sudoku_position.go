@@ -5,14 +5,14 @@ import (
 	"fmt"
 )
 
-// Define the struct for a Sudoku board position
+// Define the struct for a Sudoku board position.
 type Position struct {
 	Row    int
 	Column int
 }
 
-// Constructor like function to create a new Sudoku position
-// Use this when you are sure the position is valid, will panic otherwise
+// Constructor like function to create a new Sudoku position.
+// Use this when you are sure the position is valid, will panic otherwise.
 func NewPosition(row, column int) (position Position) {
 	position = Position{Row: row, Column: column}
 
@@ -23,8 +23,8 @@ func NewPosition(row, column int) (position Position) {
 	return
 }
 
-// Constructor like function to create a new Sudoku position from user input
-// Use this to deal with user input, will return an error if the position is invalid
+// Constructor like function to create a new Sudoku position from user input.
+// Use this to deal with user input, will return an error if the position is invalid.
 func NewPositionFromInput(row, column int) (position *Position, err error) {
 	position = &Position{Row: row, Column: column}
 
@@ -35,12 +35,12 @@ func NewPositionFromInput(row, column int) (position *Position, err error) {
 	return position, nil
 }
 
-// Function to check if a position is valid
+// Function to check if a position is valid.
 func (position *Position) IsValid() bool {
 	return position.Row >= 0 && position.Row < 9 && position.Column >= 0 && position.Column < 9
 }
 
-// Function to print the position as a user facing coordinate, 1-indexed
+// Function to print the position as a user facing coordinate, 1-indexed.
 func (position *Position) ToString() string {
 	return fmt.Sprintf("(%d, %d)", position.Row+1, position.Column+1)
 }

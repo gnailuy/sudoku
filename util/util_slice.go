@@ -2,7 +2,7 @@ package util
 
 import "math/rand"
 
-// Function to generate numbers from min to max, including min but excluding max, optionally in a random order
+// Function to generate numbers from min to max, including min but excluding max, optionally in a random order.
 func GenerateNumberArray(min, max int, randomly bool) []int {
 	if min >= max {
 		panic("Bug: Invalid range to generate number array: min >= max")
@@ -20,7 +20,7 @@ func GenerateNumberArray(min, max int, randomly bool) []int {
 	return numbers
 }
 
-// Function to shuffle a slice of arrays in place
+// Function to shuffle a slice of arrays in place.
 func ShuffleArray[T any](array []T) {
 	rand.Shuffle(len(array), func(i, j int) {
 		array[i], array[j] = array[j], array[i]
