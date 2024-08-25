@@ -11,7 +11,7 @@ import (
 )
 
 // Function to print the Sudoku game
-func (board *SudokuGame) print() {
+func (game *SudokuGame) print() {
 	for i := 0; i < 9; i++ {
 		if i%3 == 0 {
 			fmt.Println("--------+-------+--------")
@@ -19,10 +19,7 @@ func (board *SudokuGame) print() {
 
 		for j := 0; j < 9; j++ {
 			cell := core.NewCell(i, j)
-			number := board.Problem.Get(cell)
-			if number == 0 {
-				number = board.invalidInput.Get(cell)
-			}
+			number := game.Get(cell)
 
 			if j%3 == 0 {
 				fmt.Print("| ")
@@ -38,7 +35,7 @@ func (board *SudokuGame) print() {
 	fmt.Println("--------+-------+--------")
 }
 
-// Print help function
+// Function to print the help message
 func (game *SudokuGame) printHelp() {
 	fmt.Println("Supported commands:")
 	fmt.Println("  - help                        : Print this help message.")
@@ -52,10 +49,24 @@ func (game *SudokuGame) printHelp() {
 	fmt.Println("  - quit                        : Quit the game.")
 }
 
-// Function for the add and clear commands
-func (game *SudokuGame) runAddCommand(row, column, number int) bool {
-	err := game.AddInputAndRecordHistory(CellInput{
-		Cell:   core.NewCell(row-1, column-1),
+// Function to set a cell for the add and clear commands
+func (game *SudokuGame) setNumber(row, column, number int) bool {
+	// Check user input validity
+	cellPointer, err := core.NewCellFromInput(row-1, column-1)
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "[ERROR] Error in the input:", err)
+		return false
+	}
+
+	// Skip adding if the input is the same as the current number
+	if game.Get(*cellPointer) == number {
+		return false
+	}
+
+	// Add the number to the cell
+	err = game.AddInputAndRecordHistory(CellInput{
+		Cell:   *cellPointer,
 		Number: number,
 	})
 
@@ -85,11 +96,11 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 			fmt.Fprintln(os.Stderr, "[ERROR] No argument specified for the add command.")
 		} else {
 			var row, column, number int
-			_, err := fmt.Sscanf(commandFields[1], "%d %d %d", &row, &column, &number)
+			_, err := fmt.Sscanf(commandFields[1], "%1d%1d%1d", &row, &column, &number)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input command:", err)
 			} else {
-				return game.runAddCommand(row, column, number)
+				return game.setNumber(row, column, number)
 			}
 		}
 	case "clear":
@@ -97,11 +108,11 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 			fmt.Fprintln(os.Stderr, "[ERROR] No argument specified for the clear command.")
 		} else {
 			var row, column int
-			_, err := fmt.Sscanf(commandFields[1], "%d %d", &row, &column)
+			_, err := fmt.Sscanf(commandFields[1], "%1d%1d", &row, &column)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input command:", err)
 			} else {
-				return game.runAddCommand(row, column, 0)
+				return game.setNumber(row, column, 0)
 			}
 		}
 	case "undo":

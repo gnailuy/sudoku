@@ -7,15 +7,15 @@ func generateCellCandidates(randomly bool) []int {
 	numbers := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 	if randomly {
-		rand.Shuffle(len(numbers), func(i, j int) {
-			numbers[i], numbers[j] = numbers[j], numbers[i]
-		})
+		shuffleArray(numbers)
 	}
 
 	return numbers
 }
 
-// Function to generate a random number between min and max
-func generateRandomNumber(min, max int) int {
-	return rand.Intn(max-min) + min
+// Function to shuffle a slice of arrays in place
+func shuffleArray[T any](array []T) {
+	rand.Shuffle(len(array), func(i, j int) {
+		array[i], array[j] = array[j], array[i]
+	})
 }
