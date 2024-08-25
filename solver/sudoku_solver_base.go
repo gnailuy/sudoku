@@ -10,6 +10,5 @@ type BaseSolver struct {
 
 type ISudokuSolver interface {
 	Solve(board *core.SudokuBoard) bool
-	SolveRandomly(board *core.SudokuBoard) bool
 	CountSolutions(board *core.SudokuBoard) int
 }

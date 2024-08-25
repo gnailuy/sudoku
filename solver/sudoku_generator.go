@@ -28,7 +28,7 @@ func GenerateSolvedBoard() core.SudokuBoard {
 
 	// To generate a solved board from an empty board, we need a reliable solver
 	solver := NewDefaultSolver()
-	solver.SolveRandomly(&board)
+	solver.Solve(&board)
 
 	return board
 }

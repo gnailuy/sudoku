@@ -71,18 +71,8 @@ func solve(board *core.SudokuBoard, state *solveState, options solveOptions) boo
 	return true
 }
 
-// Function to solve the Sudoku board
-func (solver DefaultSolver) Solve(board *core.SudokuBoard) bool {
-	if !board.IsValid() {
-		return false
-	}
-
-	state := &solveState{}
-	return solve(board, state, newSolveOptions(false, false))
-}
-
 // Function to solve the Sudoku board with random candidate values
-func (solver DefaultSolver) SolveRandomly(board *core.SudokuBoard) bool {
+func (solver DefaultSolver) Solve(board *core.SudokuBoard) bool {
 	if !board.IsValid() {
 		return false
 	}
