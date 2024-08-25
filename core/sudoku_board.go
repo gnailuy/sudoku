@@ -7,20 +7,14 @@ import (
 
 // Define the SudokuBoard struct
 type SudokuBoard struct {
-	grid              [9][9]int
-	filledCells       int
-	numberOfSolutions int
+	grid        [9][9]int
+	filledCells int
 }
 
 // Constructor like function to create a empty Sudoku board
 func NewEmptySudokuBoard() SudokuBoard {
 	var board SudokuBoard
 	return board
-}
-
-// Function to check if the board is empty
-func (board *SudokuBoard) IsEmpty() bool {
-	return board.filledCells == 0
 }
 
 // Function to set the value of a cell
@@ -48,6 +42,11 @@ func (board *SudokuBoard) Unset(cell Cell) {
 // Function to get the value of a cell
 func (board *SudokuBoard) Get(cell Cell) int {
 	return board.grid[cell.Row][cell.Column]
+}
+
+// Function to get the number of filled cells
+func (board *SudokuBoard) FilledCells() int {
+	return board.filledCells
 }
 
 // Function to print the board as a single string

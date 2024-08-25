@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/gnailuy/sudoku/core"
+	"github.com/gnailuy/sudoku/solver"
 )
 
 // Define the cell state enum of the problem board
@@ -20,16 +21,15 @@ type SudokuGame struct {
 	Problem core.SudokuBoard
 
 	// Private fields
-	boardState    [9][9]CellState    // The state of the problem board
-	invalidInput  core.SudokuBoard   // Put the invalid input in another board to keep the original problem board solvable
-	inputSequence []CellInputHistory // User input sequence
-	inputCursor   int                // The cursor of the current user input
+	boardState    [9][9]CellState      // The state of the problem board
+	invalidInput  core.SudokuBoard     // Put the invalid input in another board to keep the original problem board solvable
+	inputSequence []CellInputHistory   // User input sequence
+	inputCursor   int                  // The cursor of the current user input
+	defaultSolver solver.ISudokuSolver // The default solver to judge the input, must be reliable
 }
 
 // Function to create a new Sudoku game
-func NewSudokuGame(options core.SudokuProblemOptions) SudokuGame {
-	solvedBoard := core.GenerateSolvedBoard()
-	problem := solvedBoard.GenerateSudokuProblem(options)
+func NewSudokuGame(problem core.SudokuBoard) SudokuGame {
 	boardState := [9][9]CellState{}
 
 	for i := 0; i < 9; i++ {
@@ -48,19 +48,25 @@ func NewSudokuGame(options core.SudokuProblemOptions) SudokuGame {
 		invalidInput:  core.NewEmptySudokuBoard(),
 		inputSequence: []CellInputHistory{},
 		inputCursor:   -1,
+		defaultSolver: solver.NewDefaultSolver(),
 	}
+}
+
+// Function to count the solutions of the problem board using the default solver
+func (game *SudokuGame) countProblemSolutions() int {
+	return game.defaultSolver.CountSolutions(&game.Problem)
 }
 
 // Function to add a non-zero cell input
 func (game *SudokuGame) addNonZeroInput(input CellInput) {
 	if input.Number == 0 {
-		panic("Bug: Cannot add a zero input with this function.")
+		panic("Bug: Cannot add a zero input with this function")
 	}
 
 	game.Problem.Set(input.Cell, input.Number)
 	game.invalidInput.Unset(input.Cell) // Reset the invalid input state when adding a new input
 
-	if !game.Problem.IsSolvable() {
+	if game.countProblemSolutions() <= 0 {
 		// Store the invalid input in the invalidInput board and unset the cell in the problem board
 		game.Problem.Unset(input.Cell)
 		game.invalidInput.Set(input.Cell, input.Number)
@@ -70,14 +76,14 @@ func (game *SudokuGame) addNonZeroInput(input CellInput) {
 // Function to add a zero
 func (game *SudokuGame) addZeroInput(input CellInput) {
 	if input.Number != 0 {
-		panic("Bug: Cannot add a non-zero input with this function.")
+		panic("Bug: Cannot add a non-zero input with this function")
 	}
 
 	game.Problem.Unset(input.Cell)
 	game.invalidInput.Unset(input.Cell) // Reset the invalid input state when adding a new input
 
 	// If the board has multiple solutions, we need to check if any previously invalid input is now valid
-	if !game.invalidInput.IsEmpty() && game.Problem.CountSolutions() > 1 {
+	if !game.invalidInput.IsEmpty() && game.countProblemSolutions() > 1 {
 		for i := 0; i < 9; i++ {
 			for j := 0; j < 9; j++ {
 				cell := core.NewCell(i, j)
@@ -97,7 +103,7 @@ func (game *SudokuGame) addZeroInput(input CellInput) {
 // Function to add a cell input
 func (game *SudokuGame) AddInput(input CellInput) (err error) {
 	if !input.IsValid() {
-		panic("Bug: Invalid input when adding input. Check user input before calling this function.")
+		panic("Bug: Invalid input when adding input. Check user input before calling this function")
 	}
 
 	if game.boardState[input.Cell.Row][input.Cell.Column] == ProblemCell {
@@ -196,6 +202,11 @@ func (game *SudokuGame) Reset() {
 	game.invalidInput = core.NewEmptySudokuBoard()
 	game.inputSequence = []CellInputHistory{}
 	game.inputCursor = -1
+}
+
+// Function to solve the game
+func (game *SudokuGame) Solve() {
+	game.defaultSolver.Solve(&game.Problem)
 }
 
 // Function to check if the game is solved

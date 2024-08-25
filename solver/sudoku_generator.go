@@ -1,10 +1,15 @@
-package core
+package solver
+
+import (
+	"github.com/gnailuy/sudoku/core"
+)
 
 // Options to generate a Sudoku problem
 type SudokuProblemOptions struct {
 	MinimumFilledCells int
 	MaximumIterations  int
 	MaximumSolutions   int
+	Solvers            []ISudokuSolver
 }
 
 // Constructor like function to create a default SudokuProblemOptions
@@ -13,38 +18,44 @@ func NewDefaultSudokuProblemOptions() SudokuProblemOptions {
 		MinimumFilledCells: 17,
 		MaximumIterations:  60,
 		MaximumSolutions:   1,
+		Solvers:            []ISudokuSolver{NewDefaultSolver()},
 	}
 }
 
 // Function to generate a solved Sudoku board by solving an empty board randomly
-func GenerateSolvedBoard() SudokuBoard {
-	board := NewEmptySudokuBoard()
-	board.SolveRandomly()
+func GenerateSolvedBoard() core.SudokuBoard {
+	board := core.NewEmptySudokuBoard()
+
+	// To generate a solved board from an empty board, we need a reliable solver
+	solver := NewDefaultSolver()
+	solver.SolveRandomly(&board)
+
 	return board
 }
 
 // Function to generate a Sudoku problem from a solved board
-func (solvedBoard SudokuBoard) GenerateSudokuProblem(options SudokuProblemOptions) SudokuBoard {
-	// Make a copy of the solved board in case the original board is needed somewhere else
-	board := solvedBoard
+func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options SudokuProblemOptions) core.SudokuBoard {
+	if !board.IsSolved() || !board.IsValid() {
+		panic("Bug: The board is not solved or not valid to generate a problem")
+	}
 
 	// Initially, all cells are filled
-	nonEmptyCells := make([]Cell, 0)
+	nonEmptyCells := make([]core.Cell, 0)
 	for row := 0; row < 9; row++ {
 		for col := 0; col < 9; col++ {
-			nonEmptyCells = append(nonEmptyCells, NewCell(row, col))
+			nonEmptyCells = append(nonEmptyCells, core.NewCell(row, col))
 		}
 	}
 
 	// Remove numbers randomly from the solved board to create a problem
 	for i := 0; i < options.MaximumIterations; i++ {
 		// Stop removing numbers because the board has reached the minimum number of filled cells
-		if board.filledCells <= options.MinimumFilledCells {
+		if board.FilledCells() <= options.MinimumFilledCells {
 			break
 		}
 
 		// Stop removing numbers because it is impossible to have a unique solution with less than 17 filled cells
-		if options.MaximumSolutions == 1 && board.filledCells <= 17 {
+		if options.MaximumSolutions == 1 && board.FilledCells() <= 17 {
 			break
 		}
 
@@ -59,8 +70,16 @@ func (solvedBoard SudokuBoard) GenerateSudokuProblem(options SudokuProblemOption
 			// Update the board
 			board.Unset(cell)
 
+			// Find out the maximum number of solutions using all available solvers
+			numberOfSolutions := 0
+			for _, solver := range options.Solvers {
+				nos := solver.CountSolutions(&board)
+				if nos > numberOfSolutions {
+					numberOfSolutions = nos
+				}
+			}
+
 			// If the problem is solvable and has no more than maximum solutions, confirm the removal
-			numberOfSolutions := board.CountSolutions()
 			if numberOfSolutions > 0 && numberOfSolutions <= options.MaximumSolutions {
 				removedCellIndex = j
 				break
@@ -80,4 +99,10 @@ func (solvedBoard SudokuBoard) GenerateSudokuProblem(options SudokuProblemOption
 	}
 
 	return board
+}
+
+// Function to generate a Sudoku problem
+func GenerateSudokuProblem(options SudokuProblemOptions) core.SudokuBoard {
+	solvedBoard := GenerateSolvedBoard()
+	return GenerateSudokuProblemFromSolvedBoard(solvedBoard, options)
 }

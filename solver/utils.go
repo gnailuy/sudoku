@@ -1,4 +1,4 @@
-package core
+package solver
 
 import "math/rand"
 

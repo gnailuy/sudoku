@@ -153,7 +153,7 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 		game.Reset()
 		return true
 	case "solve":
-		game.Problem.Solve()
+		game.Solve()
 		return true
 	case "quit":
 		closeChannel.Close()
