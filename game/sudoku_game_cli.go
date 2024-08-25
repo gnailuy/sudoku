@@ -60,7 +60,7 @@ func (game *SudokuGame) runAddCommand(row, column, number int) bool {
 	})
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "[ERROR] Error when adding the input:", err)
+		fmt.Fprintln(os.Stderr, "[ERROR] Error when adding a number:", err)
 		return false
 	}
 
@@ -87,7 +87,7 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 			var row, column, number int
 			_, err := fmt.Sscanf(commandFields[1], "%d %d %d", &row, &column, &number)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input:", err)
+				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input command:", err)
 			} else {
 				return game.runAddCommand(row, column, number)
 			}
@@ -99,7 +99,7 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 			var row, column int
 			_, err := fmt.Sscanf(commandFields[1], "%d %d", &row, &column)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input:", err)
+				fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input command:", err)
 			} else {
 				return game.runAddCommand(row, column, 0)
 			}
@@ -112,7 +112,7 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 		return err == nil
 	case "check":
 		if game.IsInvalid() {
-			fmt.Println("You have entered an incorrect number.")
+			fmt.Println("You have entered incorrect number(s).")
 		} else {
 			fmt.Println("The current board is correct.")
 		}
@@ -132,7 +132,12 @@ func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel
 }
 
 // Function to ask the user for input
-func (game *SudokuGame) askUserInput(scanner *bufio.Scanner, closeChannel cli.CloseChannel) bool {
+func (game *SudokuGame) askUserInput(scanner *bufio.Scanner, inputChannel chan string, closeChannel cli.CloseChannel) {
+	// Check if the close channel is closed
+	if closeChannel.IsClosed() {
+		return
+	}
+
 	// Print the problem
 	game.print()
 
@@ -140,21 +145,31 @@ func (game *SudokuGame) askUserInput(scanner *bufio.Scanner, closeChannel cli.Cl
 	fmt.Println("Enter a command (Enter 'help' for help):")
 	fmt.Print("> ")
 
-	scanner.Scan()
-	command := strings.TrimSpace(scanner.Text())
+	// Block until the user enters a command
+	if scanner.Scan() {
+		inputChannel <- strings.TrimSpace(scanner.Text())
+	}
 
-	return game.runCommand(command, closeChannel)
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "[ERROR] Error when reading the input command:", err)
+	}
 }
 
 // Function to start the game
 func (game *SudokuGame) Play() {
+	inputChannel := make(chan string)
 	closeChannel := cli.NewCloseChannel()
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		game.askUserInput(scanner, closeChannel)
+		// Ask for user input in a goroutine, it will block until the user enters a command
+		go game.askUserInput(scanner, inputChannel, closeChannel)
 
-		if closeChannel.IsClosed() {
+		// Block until we receive a command or the close channel is closed
+		select {
+		case command := <-inputChannel:
+			game.runCommand(command, closeChannel)
+		case <-closeChannel:
 			fmt.Println("\nExiting the game. Bye!")
 			os.Exit(0)
 		}

@@ -5,7 +5,7 @@ import (
 	"os/signal"
 )
 
-type CloseChannel chan bool
+type CloseChannel chan struct{}
 
 // Handle the interrupt signal
 func (closeChannel CloseChannel) handleInterruptSignal() {
@@ -14,21 +14,20 @@ func (closeChannel CloseChannel) handleInterruptSignal() {
 
 	go func() {
 		for range c {
-			closeChannel <- true
-			break
+			close(closeChannel)
 		}
 	}()
 }
 
 // Create a new close channel
 func NewCloseChannel() CloseChannel {
-	var closeChannel CloseChannel = make(chan bool)
+	var closeChannel CloseChannel = make(chan struct{})
 	closeChannel.handleInterruptSignal()
 
 	return closeChannel
 }
 
-// Check if the close channel is closed
+// Non-blocking check on if the close channel is closed
 func (closeChannel CloseChannel) IsClosed() bool {
 	select {
 	case <-closeChannel:
@@ -41,7 +40,5 @@ func (closeChannel CloseChannel) IsClosed() bool {
 
 // Close the close channel
 func (closeChannel CloseChannel) Close() {
-	go func() {
-		closeChannel <- true
-	}()
+	close(closeChannel)
 }
