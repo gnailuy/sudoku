@@ -17,31 +17,42 @@ func NewEmptySudokuBoard() SudokuBoard {
 	return board
 }
 
-// Function to set the value of a cell
-func (board *SudokuBoard) Set(cell Cell, number int) (err error) {
-	if number < 1 || number > 9 {
-		return errors.New("Cannot set invalid number: " + fmt.Sprint(number))
+// Function to set the value to a position
+func (board *SudokuBoard) Set(position Position, value int) (err error) {
+	if value < 1 || value > 9 {
+		return errors.New("Cannot set invalid number: " + fmt.Sprint(value))
 	}
 
-	if board.grid[cell.Row][cell.Column] == 0 {
+	if board.grid[position.Row][position.Column] == 0 {
 		board.filledCells++
 	}
-	board.grid[cell.Row][cell.Column] = number
+	board.grid[position.Row][position.Column] = value
 
 	return nil
 }
 
-// Function to unset the value of a cell
-func (board *SudokuBoard) Unset(cell Cell) {
-	if board.grid[cell.Row][cell.Column] > 0 {
-		board.filledCells--
+// Function to set the value of a cell
+func (board *SudokuBoard) SetCell(cell Cell) (err error) {
+	if !cell.IsValid() {
+		return errors.New("Cannot set invalid cell: " + cell.ToString())
 	}
-	board.grid[cell.Row][cell.Column] = 0
+
+	board.Set(cell.Position, cell.Value)
+
+	return nil
 }
 
-// Function to get the value of a cell
-func (board *SudokuBoard) Get(cell Cell) int {
-	return board.grid[cell.Row][cell.Column]
+// Function to unset the value of a position
+func (board *SudokuBoard) Unset(position Position) {
+	if board.grid[position.Row][position.Column] > 0 {
+		board.filledCells--
+	}
+	board.grid[position.Row][position.Column] = 0
+}
+
+// Function to get the value of a position
+func (board *SudokuBoard) Get(position Position) int {
+	return board.grid[position.Row][position.Column]
 }
 
 // Function to get the number of filled cells

@@ -15,6 +15,12 @@ const (
 	UserCell
 )
 
+// Define the user input sequence struct with the previous value of the cell
+type CellInputHistory struct {
+	Input         core.Cell
+	PreviousValue int
+}
+
 // Define the Sudoku game struct
 type SudokuGame struct {
 	// Public fields
@@ -30,11 +36,15 @@ type SudokuGame struct {
 
 // Function to create a new Sudoku game
 func NewSudokuGame(problem core.SudokuBoard) SudokuGame {
+	if !problem.IsValid() {
+		panic("Bug: Invalid problem board when creating a new Sudoku game")
+	}
+
 	boardState := [9][9]CellState{}
 
 	for i := 0; i < 9; i++ {
 		for j := 0; j < 9; j++ {
-			if problem.Get(core.NewCell(i, j)) == 0 {
+			if problem.Get(core.NewPosition(i, j)) == 0 {
 				boardState[i][j] = UserCell
 			} else {
 				boardState[i][j] = ProblemCell
@@ -58,42 +68,38 @@ func (game *SudokuGame) countProblemSolutions() int {
 }
 
 // Function to add a non-zero cell input
-func (game *SudokuGame) addNonZeroInput(input CellInput) {
-	if input.Number == 0 {
+func (game *SudokuGame) addNonZeroInput(input core.Cell) {
+	if input.Value == 0 {
 		panic("Bug: Cannot add a zero input with this function")
 	}
 
-	game.Problem.Set(input.Cell, input.Number)
-	game.invalidInput.Unset(input.Cell) // Reset the invalid input state when adding a new input
+	game.Problem.SetCell(input)
+	game.invalidInput.Unset(input.Position) // Reset the invalid input state when adding a new input
 
 	if game.countProblemSolutions() <= 0 {
 		// Store the invalid input in the invalidInput board and unset the cell in the problem board
-		game.Problem.Unset(input.Cell)
-		game.invalidInput.Set(input.Cell, input.Number)
+		game.Problem.Unset(input.Position)
+		game.invalidInput.SetCell(input)
 	}
 }
 
 // Function to add a zero
-func (game *SudokuGame) addZeroInput(input CellInput) {
-	if input.Number != 0 {
+func (game *SudokuGame) addZeroInput(input core.Cell) {
+	if input.Value != 0 {
 		panic("Bug: Cannot add a non-zero input with this function")
 	}
 
-	game.Problem.Unset(input.Cell)
-	game.invalidInput.Unset(input.Cell) // Reset the invalid input state when adding a new input
+	game.Problem.Unset(input.Position)
+	game.invalidInput.Unset(input.Position) // Reset the invalid input state when adding a new input
 
 	// If the board has multiple solutions, we need to check if any previously invalid input is now valid
 	if !game.invalidInput.IsEmpty() && game.countProblemSolutions() > 1 {
 		for i := 0; i < 9; i++ {
 			for j := 0; j < 9; j++ {
-				cell := core.NewCell(i, j)
-				number := game.invalidInput.Get(cell)
-				if number != 0 {
+				value := game.invalidInput.Get(core.NewPosition(i, j))
+				if value != 0 {
 					// Try to add the previously invalid input to the problem board
-					game.addNonZeroInput(CellInput{
-						Cell:   cell,
-						Number: number,
-					})
+					game.addNonZeroInput(core.NewCell(i, j, value))
 				}
 			}
 		}
@@ -101,17 +107,17 @@ func (game *SudokuGame) addZeroInput(input CellInput) {
 }
 
 // Function to add a cell input
-func (game *SudokuGame) AddInput(input CellInput) (err error) {
+func (game *SudokuGame) AddInput(input core.Cell) (err error) {
 	if !input.IsValid() {
 		panic("Bug: Invalid input when adding input. Check user input before calling this function")
 	}
 
-	if game.boardState[input.Cell.Row][input.Cell.Column] == ProblemCell {
+	if game.boardState[input.Position.Row][input.Position.Column] == ProblemCell {
 		err = errors.New("cannot change the value of a problem cell")
 		return
 	}
 
-	if input.Number == 0 {
+	if input.Value == 0 {
 		game.addZeroInput(input)
 	} else {
 		game.addNonZeroInput(input)
@@ -120,18 +126,18 @@ func (game *SudokuGame) AddInput(input CellInput) (err error) {
 	return
 }
 
-// Function to get the cell number of the game boards
-func (game *SudokuGame) Get(cell core.Cell) int {
-	if game.Problem.Get(cell) != 0 {
-		return game.Problem.Get(cell)
+// Function to get the cell value of the game boards
+func (game *SudokuGame) Get(position core.Position) int {
+	if game.Problem.Get(position) != 0 {
+		return game.Problem.Get(position)
 	} else {
-		return game.invalidInput.Get(cell)
+		return game.invalidInput.Get(position)
 	}
 }
 
 // Function to add a cell input and record the history
-func (game *SudokuGame) AddInputAndRecordHistory(input CellInput) (err error) {
-	oldNumber := game.Get(input.Cell)
+func (game *SudokuGame) AddInputAndRecordHistory(input core.Cell) (err error) {
+	previousValue := game.Get(input.Position)
 
 	err = game.AddInput(input)
 	if err != nil {
@@ -145,8 +151,8 @@ func (game *SudokuGame) AddInputAndRecordHistory(input CellInput) (err error) {
 
 	// Then append the new input to the input sequence
 	game.inputSequence = append(game.inputSequence, CellInputHistory{
-		CellInput:      input,
-		PreviousNumber: oldNumber,
+		Input:         input,
+		PreviousValue: previousValue,
 	})
 	game.inputCursor++
 
@@ -163,9 +169,9 @@ func (game *SudokuGame) Undo() (err error) {
 	lastInput := game.inputSequence[game.inputCursor]
 	game.inputCursor--
 
-	game.AddInput(CellInput{
-		Cell:   lastInput.Cell,
-		Number: lastInput.PreviousNumber,
+	game.AddInput(core.Cell{
+		Position: lastInput.Input.Position,
+		Value:    lastInput.PreviousValue,
 	})
 
 	return
@@ -181,10 +187,7 @@ func (game *SudokuGame) Redo() (err error) {
 	game.inputCursor++
 	nextInput := game.inputSequence[game.inputCursor]
 
-	game.AddInput(CellInput{
-		Cell:   nextInput.Cell,
-		Number: nextInput.Number,
-	})
+	game.AddInput(nextInput.Input)
 
 	return
 }
@@ -194,7 +197,7 @@ func (game *SudokuGame) Reset() {
 	for i := 0; i < 9; i++ {
 		for j := 0; j < 9; j++ {
 			if game.boardState[i][j] == UserCell {
-				game.Problem.Unset(core.NewCell(i, j))
+				game.Problem.Unset(core.NewPosition(i, j))
 			}
 		}
 	}

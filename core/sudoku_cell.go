@@ -5,42 +5,50 @@ import (
 	"fmt"
 )
 
-// Define the Cell struct for a Sudoku board position
+// Define the struct for a Sudoku board cell
 type Cell struct {
-	Row    int
-	Column int
+	Position Position
+	Value    int
 }
 
 // Constructor like function to create a new Sudoku cell
-// Use this when you are sure the cell is valid, will panic if the cell is invalid
-func NewCell(row, column int) (cell Cell) {
-	cell = Cell{Row: row, Column: column}
+// Use this when you are sure the cell is valid, will panic otherwise
+func NewCell(row, column, value int) (cell Cell) {
+	position := NewPosition(row, column)
 
-	if !cell.IsValid() {
-		panic("Bug: Invalid cell: " + cell.ToString())
+	if value < 0 || value > 9 {
+		panic("Bug: Invalid cell value: " + fmt.Sprint(value))
 	}
+
+	cell = Cell{Position: position, Value: value}
 
 	return
 }
 
 // Constructor like function to create a new Sudoku cell from user input
 // Use this to deal with user input, will return an error if the cell is invalid
-func NewCellFromInput(row, column int) (cell *Cell, err error) {
-	cell = &Cell{Row: row, Column: column}
+func NewCellFromInput(row, column, value int) (cell *Cell, err error) {
+	position, err := NewPositionFromInput(row, column)
 
-	if !cell.IsValid() {
-		return nil, errors.New("Invalid cell : " + cell.ToString())
+	if err != nil {
+		return nil, err
 	}
+
+	if value < 0 || value > 9 {
+		return nil, errors.New("Invalid cell value: " + fmt.Sprint(value))
+	}
+
+	cell = &Cell{Position: *position, Value: value}
 
 	return cell, nil
 }
 
 // Function to check if a cell is valid
 func (cell *Cell) IsValid() bool {
-	return cell.Row >= 0 && cell.Row < 9 && cell.Column >= 0 && cell.Column < 9
+	return cell.Position.IsValid() && cell.Value >= 0 && cell.Value <= 9
 }
 
-// Function to print the cell as a coordinate
+// Function to print the cell as a user facing coordinate, 1-indexed
 func (cell *Cell) ToString() string {
-	return fmt.Sprintf("(%d, %d)", cell.Row+1, cell.Column+1)
+	return fmt.Sprintf("%s: %d", cell.Position.ToString(), cell.Value)
 }

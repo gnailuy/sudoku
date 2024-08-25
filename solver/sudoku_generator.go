@@ -40,10 +40,10 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 	}
 
 	// Initially, all cells are filled
-	nonEmptyCells := make([]core.Cell, 0)
+	nonEmptyPositions := make([]core.Position, 0)
 	for row := 0; row < 9; row++ {
 		for col := 0; col < 9; col++ {
-			nonEmptyCells = append(nonEmptyCells, core.NewCell(row, col))
+			nonEmptyPositions = append(nonEmptyPositions, core.NewPosition(row, col))
 		}
 	}
 
@@ -59,16 +59,16 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 			break
 		}
 
-		// Test the non-empty cells in a random order and remove the first cell that can be removed
-		shuffleArray(nonEmptyCells)
+		// Test the non-empty positions in a random order and unset the first one that can be removed
+		shuffleArray(nonEmptyPositions)
 
-		removedCellIndex := -1
-		for j, cell := range nonEmptyCells {
+		removedPositionIndex := -1
+		for j, position := range nonEmptyPositions {
 			// Temporarily store the cell value
-			originalNumber := board.Get(cell)
+			originalValue := board.Get(position)
 
 			// Update the board
-			board.Unset(cell)
+			board.Unset(position)
 
 			// Find out the maximum number of solutions using all available solvers
 			numberOfSolutions := 0
@@ -81,19 +81,19 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 
 			// If the problem is solvable and has no more than maximum solutions, confirm the removal
 			if numberOfSolutions > 0 && numberOfSolutions <= options.MaximumSolutions {
-				removedCellIndex = j
+				removedPositionIndex = j
 				break
 			}
 
 			// If the problem is not solvable or has more than maximum solutions, revert the removal
-			board.Set(cell, originalNumber)
+			board.Set(position, originalValue)
 		}
 
-		// Remove the cell from the non-empty cells list
-		if removedCellIndex >= 0 {
-			nonEmptyCells = append(nonEmptyCells[:removedCellIndex], nonEmptyCells[removedCellIndex+1:]...)
+		// Remove the position from the non-empty positions list
+		if removedPositionIndex >= 0 {
+			nonEmptyPositions = append(nonEmptyPositions[:removedPositionIndex], nonEmptyPositions[removedPositionIndex+1:]...)
 		} else {
-			// We did not find any cell to remove in this iteration, so we stop the process
+			// We did not find any position to remove in this iteration, so we stop the process
 			break
 		}
 	}

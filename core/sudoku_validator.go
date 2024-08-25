@@ -1,27 +1,31 @@
 package core
 
-// Function to check if a number can be placed in a specific cell
-func (board *SudokuBoard) IsValidInput(cell Cell, number int) bool {
+// Function to check if a value can be placed in a specific position
+func (board SudokuBoard) IsValidInput(position Position, value int) bool {
+	if !position.IsValid() || value < 1 || value > 9 {
+		return false
+	}
+
 	// Check the row
 	for i := 0; i < 9; i++ {
-		if i != cell.Column && board.Get(NewCell(cell.Row, i)) == number {
+		if i != position.Column && board.Get(NewPosition(position.Row, i)) == value {
 			return false
 		}
 	}
 
 	// Check the column
 	for i := 0; i < 9; i++ {
-		if i != cell.Row && board.Get(NewCell(i, cell.Column)) == number {
+		if i != position.Row && board.Get(NewPosition(i, position.Column)) == value {
 			return false
 		}
 	}
 
 	// Check the 3x3 sub-grid
-	startRow, startColumn := cell.Row/3*3, cell.Column/3*3
+	startRow, startColumn := position.Row/3*3, position.Column/3*3
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
-			if startRow+i != cell.Row && startColumn+j != cell.Column &&
-				board.Get(NewCell(startRow+i, startColumn+j)) == number {
+			if startRow+i != position.Row && startColumn+j != position.Column &&
+				board.Get(NewPosition(startRow+i, startColumn+j)) == value {
 				return false
 			}
 		}
@@ -31,12 +35,12 @@ func (board *SudokuBoard) IsValidInput(cell Cell, number int) bool {
 }
 
 // Function to check if the Sudoku board is valid
-func (board *SudokuBoard) IsValid() bool {
+func (board SudokuBoard) IsValid() bool {
 	for i := 0; i < 9; i++ {
 		for j := 0; j < 9; j++ {
-			cell := NewCell(i, j)
-			number := board.Get(cell)
-			if number != 0 && !board.IsValidInput(cell, number) {
+			position := NewPosition(i, j)
+			value := board.Get(position)
+			if value != 0 && !board.IsValidInput(position, value) {
 				return false
 			}
 		}
@@ -45,12 +49,12 @@ func (board *SudokuBoard) IsValid() bool {
 }
 
 // Function to check if the Sudoku board is solved
-func (board *SudokuBoard) IsSolved() bool {
+func (board SudokuBoard) IsSolved() bool {
 	for i := 0; i < 9; i++ {
 		for j := 0; j < 9; j++ {
-			cell := NewCell(i, j)
-			number := board.Get(cell)
-			if number == 0 || !board.IsValidInput(cell, number) {
+			position := NewPosition(i, j)
+			value := board.Get(position)
+			if value == 0 || !board.IsValidInput(position, value) {
 				return false
 			}
 		}
@@ -59,6 +63,6 @@ func (board *SudokuBoard) IsSolved() bool {
 }
 
 // Function to check if the board is empty
-func (board *SudokuBoard) IsEmpty() bool {
+func (board SudokuBoard) IsEmpty() bool {
 	return board.filledCells == 0
 }
