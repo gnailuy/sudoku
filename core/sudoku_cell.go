@@ -17,7 +17,7 @@ func NewCell(row, column int) (cell Cell) {
 	cell = Cell{Row: row, Column: column}
 
 	if !cell.IsValid() {
-		panic("Invalid cell : " + cell.ToString())
+		panic("Bug: Invalid cell: " + cell.ToString())
 	}
 
 	return

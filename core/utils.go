@@ -2,9 +2,16 @@ package core
 
 import "math/rand"
 
-// Function to generate numbers 1 to 9, optionally in a random order
-func generateCellCandidates(randomly bool) []int {
-	numbers := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
+// Function to generate numbers from min to max, including min but excluding max, optionally in a random order
+func generateNumberArray(min, max int, randomly bool) []int {
+	if min >= max {
+		panic("Bug: Invalid range to generate number array: min >= max")
+	}
+
+	numbers := make([]int, max-min)
+	for i := min; i < max; i++ {
+		numbers[i-min] = i
+	}
 
 	if randomly {
 		shuffleArray(numbers)

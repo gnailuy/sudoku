@@ -33,19 +33,31 @@ func (board *SudokuBoard) isValidInput(cell Cell, number int) bool {
 
 // Internal options for the solve function
 type solveOptions struct {
-	Randomly       bool // Randomly generate candidate numbers. When counting solutions, this option is ignored
-	CountSolutions bool // Count the number of solutions instead of returning the first solution, default is false
+	Randomly       bool  // Randomly generate candidate numbers. When counting solutions, this option is ignored
+	CountSolutions bool  // Count the number of solutions instead of returning the first solution, default is false
+	RowOrder       []int // Order of rows to generate candidate cells
+	ColumnOrder    []int // Order of columns to generate candidate cells
+}
+
+// Constructor like function to create a new solveOptions object
+func newSolveOptions(randomly, countSolutions bool) solveOptions {
+	return solveOptions{
+		Randomly:       randomly,
+		CountSolutions: countSolutions,
+		RowOrder:       generateNumberArray(0, 9, randomly),
+		ColumnOrder:    generateNumberArray(0, 9, randomly),
+	}
 }
 
 // Function to solve the Sudoku board using backtracking
 func (board *SudokuBoard) solve(option solveOptions) bool {
-	for row := 0; row < 9; row++ {
-		for column := 0; column < 9; column++ {
+	for _, row := range option.RowOrder {
+		for _, column := range option.ColumnOrder {
 			cell := NewCell(row, column)
 
 			if board.Get(cell) == 0 {
 				// When counting solutions, we do not need to generate candidate numbers randomly
-				candidateNumbers := generateCellCandidates(!option.CountSolutions && option.Randomly)
+				candidateNumbers := generateNumberArray(1, 10, !option.CountSolutions && option.Randomly)
 
 				for _, num := range candidateNumbers {
 					// Try to place a number in the cell and solve the board recursively if it is valid
@@ -84,16 +96,12 @@ func (board *SudokuBoard) IsSolved() bool {
 
 // Function to solve the Sudoku board using backtracking
 func (board *SudokuBoard) Solve() {
-	board.solve(solveOptions{
-		Randomly: false,
-	})
+	board.solve(newSolveOptions(false, false))
 }
 
 // Function to solve the Sudoku board using backtracking with random candidate numbers
 func (board *SudokuBoard) SolveRandomly() {
-	board.solve(solveOptions{
-		Randomly: true,
-	})
+	board.solve(newSolveOptions(true, false))
 }
 
 // Function to count the number of solutions for the Sudoku board
@@ -117,9 +125,7 @@ func (board *SudokuBoard) CountSolutions() int {
 
 	// If no invalid cell, we can count the number of solutions
 	board.numberOfSolutions = 0
-	board.solve(solveOptions{
-		CountSolutions: true,
-	})
+	board.solve(newSolveOptions(false, true))
 	return board.numberOfSolutions
 }
 
