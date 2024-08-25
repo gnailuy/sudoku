@@ -72,7 +72,7 @@ func (game *SudokuGame) askUserInput() bool {
 	game.Problem.Print()
 
 	// Ask for user input
-	fmt.Println("Enter a command:")
+	fmt.Println("Enter a command (Enter 'help' for help):")
 	fmt.Print("> ")
 
 	reader := bufio.NewReader(os.Stdin)
