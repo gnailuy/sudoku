@@ -1,11 +1,8 @@
 package main
 
-import "github.com/gnailuy/sudoku/core"
+import "github.com/gnailuy/sudoku/game"
 
 func main() {
-	board := core.GenerateSudokuProblem(42)
-	board.Print()
-
-	board.Solve()
-	board.Print()
+	newGame := game.NewSudokuGame(42)
+	newGame.Play()
 }

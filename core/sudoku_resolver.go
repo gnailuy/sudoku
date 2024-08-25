@@ -1,26 +1,26 @@
 package core
 
 // Function to check if a number can be placed in a specific cell
-func (board *SudokuBoard) isValid(row, col, num int) bool {
+func (board *SudokuBoard) isValid(cell Cell, number int) bool {
 	// Check the row
 	for i := 0; i < 9; i++ {
-		if board.Get(row, i) == num {
+		if board.Get(NewCell(cell.Row, i)) == number {
 			return false
 		}
 	}
 
 	// Check the column
 	for i := 0; i < 9; i++ {
-		if board.Get(i, col) == num {
+		if board.Get(NewCell(i, cell.Column)) == number {
 			return false
 		}
 	}
 
 	// Check the 3x3 sub-grid
-	startRow, startCol := row/3*3, col/3*3
+	startRow, startColumn := cell.Row/3*3, cell.Column/3*3
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
-			if board.Get(startRow+i, startCol+j) == num {
+			if board.Get(NewCell(startRow+i, startColumn+j)) == number {
 				return false
 			}
 		}
@@ -38,21 +38,25 @@ type solveOptions struct {
 // Function to solve the Sudoku board using backtracking
 func (board *SudokuBoard) solve(option solveOptions) bool {
 	for row := 0; row < 9; row++ {
-		for col := 0; col < 9; col++ {
-			if board.Get(row, col) == 0 {
+		for column := 0; column < 9; column++ {
+			cell := NewCell(row, column)
+
+			if board.Get(cell) == 0 {
 				// When counting solutions, we do not need to generate candidate numbers randomly
 				candidateNumbers := generateCellCandidates(!option.CountSolutions && option.Randomly)
+
 				for _, num := range candidateNumbers {
-					if board.isValid(row, col, num) {
-						board.Set(row, col, num)
+					// Try to place a number in the cell and solve the board recursively if it is valid
+					if board.isValid(cell, num) {
+						board.Set(cell, num)
 						if board.solve(option) {
 							if option.CountSolutions {
-								board.numberOfSolutions++
+								board.numberOfSolutions++ // Collect one solution when the board solved
 							} else {
-								return true
+								return true // Return the first solution
 							}
 						}
-						board.Unset(row, col)
+						board.Unset(cell)
 					}
 				}
 				return false
@@ -76,7 +80,7 @@ func (board *SudokuBoard) SolveRandomly() {
 	})
 }
 
-// Export function to count the number of solutions for the Sudoku board
+// Exported function to count the number of solutions for the Sudoku board
 func (board *SudokuBoard) CountSolutions() int {
 	board.numberOfSolutions = 0
 	board.solve(solveOptions{
