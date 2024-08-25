@@ -9,8 +9,8 @@ import (
 
 // Define the SudokuBoard struct.
 type SudokuBoard struct {
-	grid        [9][9]int
-	filledCells int
+	grid             [9][9]int
+	filledCellsCount int
 }
 
 // Constructor like function to create a empty Sudoku board.
@@ -25,7 +25,7 @@ func (board *SudokuBoard) Set(position Position, value int) (err error) {
 	}
 
 	if board.grid[position.Row][position.Column] == 0 {
-		board.filledCells++
+		board.filledCellsCount++
 	}
 	board.grid[position.Row][position.Column] = value
 
@@ -46,7 +46,7 @@ func (board *SudokuBoard) SetCell(cell Cell) (err error) {
 // Function to unset the value of a position.
 func (board *SudokuBoard) Unset(position Position) {
 	if board.grid[position.Row][position.Column] > 0 {
-		board.filledCells--
+		board.filledCellsCount--
 	}
 	board.grid[position.Row][position.Column] = 0
 }
@@ -74,56 +74,6 @@ func (board *SudokuBoard) GetRandomPositionWith(validator func(int) bool) *Posit
 }
 
 // Function to get the number of filled cells.
-func (board *SudokuBoard) FilledCells() int {
-	return board.filledCells
-}
-
-// Function to print the board as a single string.
-func (board *SudokuBoard) ToString() string {
-	result := ""
-
-	for i := 0; i < 9; i++ {
-		for j := 0; j < 9; j++ {
-			if board.grid[i][j] == 0 {
-				result += "."
-			} else {
-				result += fmt.Sprint(board.grid[i][j])
-			}
-		}
-	}
-
-	return result
-}
-
-// Function to build a Sudoku board from a string.
-func (board *SudokuBoard) FromString(s string) {
-	if !IsValidSudokuString(s) {
-		panic("Bug: Invalid Sudoku string")
-	}
-
-	for i := 0; i < 81; i++ {
-		row := i / 9
-		column := i % 9
-		if s[i] == '.' {
-			board.grid[row][column] = 0
-		} else {
-			board.grid[row][column] = int(s[i] - '0')
-			board.filledCells++
-		}
-	}
-}
-
-// Function to check if a Sudoku string is valid.
-func IsValidSudokuString(s string) bool {
-	if len(s) != 81 {
-		return false
-	}
-
-	for i := 0; i < 81; i++ {
-		if s[i] != '.' && (s[i] < '1' || s[i] > '9') {
-			return false
-		}
-	}
-
-	return true
+func (board *SudokuBoard) GetFilledCellsCount() int {
+	return board.filledCellsCount
 }

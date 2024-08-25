@@ -36,13 +36,13 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 	difficultyReached := false
 	for i := 0; i < options.MaximumIterations; i++ {
 		// Check if the difficulty level is reached.
-		if options.Difficulty.IsWithinDifficultyLevel(board.FilledCells()) {
+		if options.Difficulty.IsWithinDifficultyLevel(board.GetFilledCellsCount()) {
 			difficultyReached = true
 		}
 
 		if difficultyReached {
 			// Stop if removing more numbers will exceed the difficulty level.
-			if !options.Difficulty.IsWithinDifficultyLevel(board.FilledCells() - 1) {
+			if !options.Difficulty.IsWithinDifficultyLevel(board.GetFilledCellsCount() - 1) {
 				break
 			}
 
@@ -54,7 +54,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 		}
 
 		// Stop removing numbers because it is impossible to have a unique solution with less than 17 filled cells.
-		if options.MaximumSolutions == 1 && board.FilledCells() <= 17 {
+		if options.MaximumSolutions == 1 && board.GetFilledCellsCount() <= 17 {
 			break
 		}
 

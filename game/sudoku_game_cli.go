@@ -82,7 +82,7 @@ func (game *SudokuGame) printHelp() {
 // Function to set a cell for the add and clear commands.
 func (game *SudokuGame) setValue(rowInput, columnInput, valueInput int) (success bool, err error) {
 	// Check user input validity.
-	positionPointer, err := core.NewPositionFromInput(rowInput-1, columnInput-1)
+	positionPointer, err := core.NewPositionFromInput(rowInput, columnInput)
 	if err != nil {
 		return false, fmt.Errorf("error in the input position: %w", err)
 	}

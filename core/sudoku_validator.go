@@ -64,5 +64,5 @@ func (board SudokuBoard) IsSolved() bool {
 
 // Function to check if the board is empty.
 func (board SudokuBoard) IsEmpty() bool {
-	return board.filledCells == 0
+	return board.filledCellsCount == 0
 }

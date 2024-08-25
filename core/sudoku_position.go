@@ -13,6 +13,7 @@ type Position struct {
 
 // Constructor like function to create a new Sudoku position.
 // Use this when you are sure the position is valid, will panic otherwise.
+// Note that the internal representation is 0-indexed.
 func NewPosition(row, column int) (position Position) {
 	position = Position{Row: row, Column: column}
 
@@ -25,8 +26,9 @@ func NewPosition(row, column int) (position Position) {
 
 // Constructor like function to create a new Sudoku position from user input.
 // Use this to deal with user input, will return an error if the position is invalid.
-func NewPositionFromInput(row, column int) (position *Position, err error) {
-	position = &Position{Row: row, Column: column}
+// Note that the user input is 1-indexed.
+func NewPositionFromInput(rowInput, columnInput int) (position *Position, err error) {
+	position = &Position{Row: rowInput - 1, Column: columnInput - 1}
 
 	if !position.IsValid() {
 		return nil, errors.New("invalid board position: " + position.ToString())
