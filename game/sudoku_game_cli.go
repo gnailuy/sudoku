@@ -239,7 +239,7 @@ func (game *SudokuGame) askUserInput(scanner *bufio.Scanner, inputChannel chan s
 }
 
 // Function to start the game.
-func (game *SudokuGame) Play() {
+func (game *SudokuGame) PlayCli() {
 	inputChannel := make(chan string)
 	closeChannel := cli.NewCloseChannel()
 

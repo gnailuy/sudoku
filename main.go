@@ -15,5 +15,5 @@ func main() {
 
 	// Play the game.
 	newGame := game.NewSudokuGame(problem, game.NewDefaultSudokuGameOptions(solverStore))
-	newGame.Play()
+	newGame.PlayCli()
 }

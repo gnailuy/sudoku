@@ -5,7 +5,6 @@ import (
 
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/solver"
-	"github.com/gnailuy/sudoku/util"
 )
 
 // Define the cell state enum of the problem board.
@@ -229,18 +228,17 @@ func (game *SudokuGame) Solve() {
 func (game *SudokuGame) Hint() *core.Cell {
 	// If there is any invalid input, randomly remove one of them.
 	if !game.invalidInput.IsEmpty() {
-		rowOrder := util.GenerateNumberArray(0, 9, true)
-		columnOrder := util.GenerateNumberArray(0, 9, true)
-		for _, row := range rowOrder {
-			for _, column := range columnOrder {
-				value := game.invalidInput.Get(core.NewPosition(row, column))
-				if value != 0 {
-					return &core.Cell{
-						Position: core.NewPosition(row, column),
-						Value:    0,
-					}
-				}
-			}
+		positionPointer := game.invalidInput.GetRandomPositionWith(func(value int) bool {
+			return value != 0
+		})
+
+		if positionPointer == nil {
+			panic("Bug: Invalid input board is not empty but cannot find a valid position")
+		}
+
+		return &core.Cell{
+			Position: *positionPointer,
+			Value:    0,
 		}
 	}
 

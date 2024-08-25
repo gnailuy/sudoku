@@ -3,6 +3,8 @@ package core
 import (
 	"errors"
 	"fmt"
+
+	"github.com/gnailuy/sudoku/util"
 )
 
 // Define the SudokuBoard struct.
@@ -53,6 +55,23 @@ func (board *SudokuBoard) Unset(position Position) {
 // Function to get the value of a position.
 func (board *SudokuBoard) Get(position Position) int {
 	return board.grid[position.Row][position.Column]
+}
+
+// Function to get a random position satisfying the value validator.
+func (board *SudokuBoard) GetRandomPositionWith(validator func(int) bool) *Position {
+	rowOrder := util.GenerateNumberArray(0, 9, true)
+	columnOrder := util.GenerateNumberArray(0, 9, true)
+	for _, row := range rowOrder {
+		for _, column := range columnOrder {
+			position := NewPosition(row, column)
+			value := board.Get(position)
+			if validator(value) {
+				return &position
+			}
+		}
+	}
+
+	return nil
 }
 
 // Function to get the number of filled cells.
