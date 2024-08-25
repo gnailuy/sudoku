@@ -1,2 +1,3 @@
-# sudoku
-A Sudoku game
+# Sudoku
+
+A simple Sudoku game.
