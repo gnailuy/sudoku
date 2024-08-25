@@ -1,6 +1,8 @@
 package generator
 
 import (
+	"errors"
+
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/util"
 )
@@ -93,4 +95,22 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 func GenerateSudokuProblem(options SudokuGeneratorOptions) core.SudokuBoard {
 	solvedBoard := GenerateSolvedBoard(options)
 	return GenerateSudokuProblemFromSolvedBoard(solvedBoard, options)
+}
+
+// Function to generate a Sudoku problem from an input string.
+func GenerateSudokuProblemFromString(input string) (boardPointer *core.SudokuBoard, err error) {
+	if !core.IsValidSudokuString(input) {
+		return nil, errors.New("invalid Sudoku string: " + input)
+	}
+
+	board := core.NewEmptySudokuBoard()
+	board.FromString(input)
+
+	if !board.IsValid() {
+		return nil, errors.New("invalid Sudoku board: " + input)
+	}
+
+	boardPointer = &board
+
+	return
 }

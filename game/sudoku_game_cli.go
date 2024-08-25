@@ -253,7 +253,8 @@ func (game *SudokuGame) PlayCli() {
 		case command := <-inputChannel:
 			game.runCommand(command, closeChannel)
 		case <-closeChannel:
-			fmt.Println("\nExiting the game. Bye!")
+			fmt.Println("\nExiting the game:")
+			fmt.Println(game.Problem.ToString())
 			os.Exit(0)
 		}
 
