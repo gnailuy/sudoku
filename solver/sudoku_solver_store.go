@@ -9,7 +9,7 @@ func NewSudokuSolverStore() SudokuSolverStore {
 
 	// Register the default solver.
 	defaultSolver := NewDefaultSolver()
-	store[defaultSolver.Properties.Key] = defaultSolver
+	store[defaultSolver.GetKey()] = defaultSolver
 
 	return store
 }
@@ -29,6 +29,10 @@ func (store SudokuSolverStore) GetDefaultSolver() ISudokuSolver {
 
 	if defaultSolver == nil {
 		panic("Bug: Default solver not found in the store")
+	}
+
+	if !defaultSolver.IsReliable() {
+		panic("Bug: Default solver must be reliable")
 	}
 
 	return defaultSolver

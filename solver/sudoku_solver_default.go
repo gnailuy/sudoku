@@ -7,13 +7,13 @@ import (
 
 // Define the default solver object.
 type DefaultSolver struct {
-	Properties SolverProperties
+	BaseSolver
 }
 
 // Constructor like function to create a default DefaultSolver object.
 func NewDefaultSolver() DefaultSolver {
 	return DefaultSolver{
-		Properties: SolverProperties{
+		BaseSolver{
 			Key:         "default",
 			DisplayName: "Default Solver",
 			Description: `Default solver using recursive backtracking in a random order.`,
@@ -137,9 +137,4 @@ func (solver DefaultSolver) CountSolutions(board *core.SudokuBoard) int {
 	state := &solveState{}
 	solve(board, state, newSolveOptions(false, false, true))
 	return state.numberOfSolutions
-}
-
-// Function to return the properties of the solver.
-func (solver DefaultSolver) GetProperties() SolverProperties {
-	return solver.Properties
 }

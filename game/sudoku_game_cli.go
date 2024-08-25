@@ -94,7 +94,7 @@ func (game *SudokuGame) setValue(rowInput, columnInput, valueInput int) (success
 
 	// Skip adding if the input is the same as the current value.
 	if game.Get(*positionPointer) == valueInput {
-		return false, errors.New("ihe input value is the same as the current value")
+		return false, nil
 	}
 
 	// Add the value to the cell.

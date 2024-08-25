@@ -98,7 +98,7 @@ func (board *SudokuBoard) ToString() string {
 // Function to build a Sudoku board from a string.
 func (board *SudokuBoard) FromString(s string) {
 	if !IsValidSudokuString(s) {
-		panic("Invalid Sudoku string")
+		panic("Bug: Invalid Sudoku string")
 	}
 
 	for i := 0; i < 81; i++ {
