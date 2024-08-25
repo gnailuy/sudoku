@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gnailuy/sudoku/cli"
 	"github.com/gnailuy/sudoku/core"
 )
 
@@ -67,11 +68,11 @@ func (game *SudokuGame) runAddCommand(row, column, number int) bool {
 }
 
 // Function to run a command
-func (game *SudokuGame) runCommand(command string) bool {
+func (game *SudokuGame) runCommand(command string, closeChannel cli.CloseChannel) bool {
 	commandFields := strings.SplitN(command, " ", 2)
 
+	// Empty command, return directly
 	if len(commandFields) == 0 || len(commandFields[0]) == 0 {
-		fmt.Fprintln(os.Stderr, "[ERROR] No command entered.")
 		return false
 	}
 
@@ -122,7 +123,7 @@ func (game *SudokuGame) runCommand(command string) bool {
 		game.Problem.Solve()
 		return true
 	case "quit":
-		os.Exit(0)
+		closeChannel.Close()
 	default:
 		fmt.Fprintln(os.Stderr, "[ERROR] Unknown command.")
 	}
@@ -131,7 +132,7 @@ func (game *SudokuGame) runCommand(command string) bool {
 }
 
 // Function to ask the user for input
-func (game *SudokuGame) askUserInput(scanner *bufio.Scanner) bool {
+func (game *SudokuGame) askUserInput(scanner *bufio.Scanner, closeChannel cli.CloseChannel) bool {
 	// Print the problem
 	game.print()
 
@@ -142,14 +143,21 @@ func (game *SudokuGame) askUserInput(scanner *bufio.Scanner) bool {
 	scanner.Scan()
 	command := strings.TrimSpace(scanner.Text())
 
-	return game.runCommand(command)
+	return game.runCommand(command, closeChannel)
 }
 
 // Function to start the game
 func (game *SudokuGame) Play() {
+	closeChannel := cli.NewCloseChannel()
+
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		game.askUserInput(scanner)
+		game.askUserInput(scanner, closeChannel)
+
+		if closeChannel.IsClosed() {
+			fmt.Println("\nExiting the game. Bye!")
+			os.Exit(0)
+		}
 
 		if game.IsSolved() {
 			game.print()
