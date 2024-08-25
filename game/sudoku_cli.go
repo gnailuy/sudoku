@@ -10,13 +10,31 @@ import (
 	"github.com/gnailuy/sudoku/core"
 )
 
+// Function to print the column numbers
+func printColumnNumbers() {
+	fmt.Print("    ")
+	for i := 0; i < 9; i++ {
+		if i%3 == 0 && i != 0 {
+			fmt.Print("  ")
+		}
+		fmt.Printf(" %d", i+1)
+	}
+	fmt.Println()
+}
+
 // Function to print the Sudoku game
 func (game *SudokuGame) print() {
+	// Header column numbers
+	fmt.Println()
+	printColumnNumbers()
+
+	// Board and row numbers
 	for i := 0; i < 9; i++ {
 		if i%3 == 0 {
-			fmt.Println("--------+-------+--------")
+			fmt.Println("    -------+-------+-------")
 		}
 
+		fmt.Printf(" %d ", i+1)
 		for j := 0; j < 9; j++ {
 			cell := core.NewCell(i, j)
 			number := game.Get(cell)
@@ -30,9 +48,13 @@ func (game *SudokuGame) print() {
 				fmt.Printf("%d ", number)
 			}
 		}
-		fmt.Println("|")
+		fmt.Println("|", i+1)
 	}
-	fmt.Println("--------+-------+--------")
+	fmt.Println("    -------+-------+-------")
+
+	// Footer column numbers
+	printColumnNumbers()
+	fmt.Println()
 }
 
 // Function to print the help message
