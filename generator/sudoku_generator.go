@@ -33,10 +33,24 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 	}
 
 	// Remove numbers randomly from the solved board to create a problem.
+	difficultyReached := false
 	for i := 0; i < options.MaximumIterations; i++ {
-		// Stop removing numbers when the number of filled cells is within the difficulty range.
+		// Check if the difficulty level is reached.
 		if options.Difficulty.IsWithinDifficultyLevel(board.FilledCells()) {
-			break
+			difficultyReached = true
+		}
+
+		if difficultyReached {
+			// Stop if removing more numbers will exceed the difficulty level.
+			if !options.Difficulty.IsWithinDifficultyLevel(board.FilledCells() - 1) {
+				break
+			}
+
+			// Use a simple geometric distribution to stop removing numbers with a probability of P.
+			// The expected number of iterations after the difficulty level is reached will be 1/P.
+			if util.RandomBool(0.2) {
+				break
+			}
 		}
 
 		// Stop removing numbers because it is impossible to have a unique solution with less than 17 filled cells.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gnailuy/sudoku/cli"
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
 	"github.com/gnailuy/sudoku/generator"
@@ -15,7 +16,7 @@ func main() {
 	solverStore := solver.NewSudokuSolverStore()
 
 	// Parse the command line options.
-	options := NewCommandLineOptions()
+	options := cli.NewCommandLineOptions()
 	options.Parse()
 
 	if *options.Input != "" {

@@ -26,3 +26,8 @@ func ShuffleArray[T any](array []T) {
 		array[i], array[j] = array[j], array[i]
 	})
 }
+
+// Function to return true with a probability of p.
+func RandomBool(p float64) bool {
+	return rand.Float64() < p
+}
