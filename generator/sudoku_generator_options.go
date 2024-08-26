@@ -17,7 +17,7 @@ type SudokuGeneratorOptions struct {
 func NewSudokuProblemOptions(solverStore solver.SudokuSolverStore, difficulty SudokuDifficulty) SudokuGeneratorOptions {
 	return SudokuGeneratorOptions{
 		MaximumSolutions:  1,
-		MaximumIterations: 58,
+		MaximumIterations: 1024,
 		Difficulty:        difficulty,
 		solverStore:       solverStore,
 	}

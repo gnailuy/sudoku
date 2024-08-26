@@ -28,7 +28,7 @@ func NewMediumSudokuDifficulty() SudokuDifficulty {
 // Constructor like function to create the hard difficulty level.
 func NewHardSudokuDifficulty() SudokuDifficulty {
 	return SudokuDifficulty{
-		MinimumClues:       27,
+		MinimumClues:       25,
 		MaximumClues:       32,
 		StrategySolverKeys: []string{},
 	}
@@ -37,8 +37,8 @@ func NewHardSudokuDifficulty() SudokuDifficulty {
 // Constructor like function to create the extreme difficulty level.
 func NewExtremeSudokuDifficulty() SudokuDifficulty {
 	return SudokuDifficulty{
-		MinimumClues:       22,
-		MaximumClues:       27,
+		MinimumClues:       20,
+		MaximumClues:       25,
 		StrategySolverKeys: []string{},
 	}
 }
@@ -47,7 +47,7 @@ func NewExtremeSudokuDifficulty() SudokuDifficulty {
 func NewEvilSudokuDifficulty() SudokuDifficulty {
 	return SudokuDifficulty{
 		MinimumClues:       17,
-		MaximumClues:       22,
+		MaximumClues:       20,
 		StrategySolverKeys: []string{},
 	}
 }
