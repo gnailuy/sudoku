@@ -77,3 +77,11 @@ func (board *SudokuBoard) GetRandomPositionWith(validator func(int) bool) *Posit
 func (board *SudokuBoard) GetFilledCellsCount() int {
 	return board.filledCellsCount
 }
+
+// Function to return a copy of the board.
+func (board *SudokuBoard) Copy() SudokuBoard {
+	return SudokuBoard{
+		grid:             board.grid,
+		filledCellsCount: board.filledCellsCount,
+	}
+}

@@ -4,7 +4,7 @@ package generator
 type SudokuDifficulty struct {
 	MinimumClues       int      // Inclusive.
 	MaximumClues       int      // Exclusive.
-	StrategySolverKeys []string // Allowed strategies to solve the problem.
+	StrategySolverKeys []string // Allowed strategies to solve the problem in this difficulty level. Empty means all strategies are allowed.
 }
 
 // Constructor like function to create the easy difficulty level.

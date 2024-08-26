@@ -33,14 +33,14 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 	}
 
 	// Remove numbers randomly from the solved board to create a problem.
-	difficultyReached := false
+	cluesNumberReached := false
 	for i := 0; i < options.MaximumIterations; i++ {
-		// Check if the difficulty level is reached.
+		// Check if the number of clues reached the difficulty level.
 		if options.Difficulty.IsWithinDifficultyLevel(board.GetFilledCellsCount()) {
-			difficultyReached = true
+			cluesNumberReached = true
 		}
 
-		if difficultyReached {
+		if cluesNumberReached {
 			// Stop if removing more numbers will exceed the difficulty level.
 			if !options.Difficulty.IsWithinDifficultyLevel(board.GetFilledCellsCount() - 1) {
 				break
@@ -48,7 +48,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 
 			// Use a simple geometric distribution to stop removing numbers with a probability of P.
 			// The expected number of iterations after the difficulty level is reached will be 1/P.
-			if util.RandomBool(0.2) {
+			if util.RandomBool(0.125) {
 				break
 			}
 		}
@@ -77,6 +77,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 				canHint := false
 
 				if len(options.Difficulty.StrategySolverKeys) > 0 {
+					// If there are strategy solvers configured, we limit the problem to be solvable with the specified strategies.
 					// Test the strategy solvers to ensure that at least one of them can give a hint.
 					for _, key := range options.Difficulty.StrategySolverKeys {
 						solver := options.solverStore.GetSolverByKey(key)
