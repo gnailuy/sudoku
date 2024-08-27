@@ -33,16 +33,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Println("Playing the game from input:")
-		fmt.Println(*options.Input)
 		playCli(*problem, solverStore)
 	} else {
 		// Generate a random problem.
 		fmt.Printf("Generating a random %s Sudoku problem...\n", options.Level.String())
 		problem := generator.GenerateSudokuProblem(generator.NewSudokuProblemOptions(solverStore, options.GetDifficultyOptions()))
 
-		fmt.Println("Playing new game:")
-		fmt.Println(problem.ToString())
 		playCli(problem, solverStore)
 	}
 }
