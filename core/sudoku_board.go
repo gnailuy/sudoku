@@ -85,3 +85,15 @@ func (board *SudokuBoard) Copy() SudokuBoard {
 		filledCellsCount: board.filledCellsCount,
 	}
 }
+
+// Function to merge the board with another board.
+func (board *SudokuBoard) Merge(otherBoard SudokuBoard) {
+	for i := 0; i < 9; i++ {
+		for j := 0; j < 9; j++ {
+			if board.grid[i][j] == 0 && otherBoard.grid[i][j] != 0 {
+				board.grid[i][j] = otherBoard.grid[i][j]
+				board.filledCellsCount++
+			}
+		}
+	}
+}
