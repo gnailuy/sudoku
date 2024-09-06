@@ -7,11 +7,15 @@ import (
 	"github.com/gnailuy/sudoku/util"
 )
 
-// Function to generate a solved Sudoku board by solving an empty board randomly.
-func GenerateSolvedBoard(options SudokuGeneratorOptions) core.SudokuBoard {
+// Function to generate a solved Sudoku board by solving an empty normalized board randomly.
+func GenerateNormalizedSolvedBoard(options SudokuGeneratorOptions) core.SudokuBoard {
+	// The first row of a normalize empty board is always from 1 to 9.
 	board := core.NewEmptySudokuBoard()
+	for col := 0; col < 9; col++ {
+		board.Set(core.NewPosition(0, col), col+1)
+	}
 
-	// To generate a solved board from an empty board, we use the reliable default solver.
+	// To generate a solved board from an empty normalized board, we use the reliable default solver.
 	solver := options.solverStore.GetDefaultSolver()
 	solver.Solve(&board)
 
@@ -122,8 +126,12 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 
 // Function to generate a Sudoku problem.
 func GenerateSudokuProblem(options SudokuGeneratorOptions) core.SudokuBoard {
-	solvedBoard := GenerateSolvedBoard(options)
-	return GenerateSudokuProblemFromSolvedBoard(solvedBoard, options)
+	solvedBoard := GenerateNormalizedSolvedBoard(options)
+
+	problem := GenerateSudokuProblemFromSolvedBoard(solvedBoard, options)
+	problem.Randomize()
+
+	return problem
 }
 
 // Function to generate a Sudoku problem from an input string.

@@ -27,6 +27,15 @@ func ShuffleArray[T any](array []T) {
 	})
 }
 
+// Function to generate a random number from min to max, including min but excluding max.
+func RandomInt(min, max int) int {
+	if min >= max {
+		panic("Bug: Invalid range to generate random number: min >= max")
+	}
+
+	return rand.Intn(max-min) + min
+}
+
 // Function to return true with a probability of p.
 func RandomBool(p float64) bool {
 	return rand.Float64() < p
