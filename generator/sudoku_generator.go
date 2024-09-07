@@ -127,9 +127,9 @@ func GenerateSudokuProblemFromSolvedBoard(board core.SudokuBoard, options Sudoku
 // Function to generate a Sudoku problem.
 func GenerateSudokuProblem(options SudokuGeneratorOptions) core.SudokuBoard {
 	solvedBoard := GenerateNormalizedSolvedBoard(options)
+	solvedBoard.Randomize()
 
 	problem := GenerateSudokuProblemFromSolvedBoard(solvedBoard, options)
-	problem.Randomize()
 
 	return problem
 }
