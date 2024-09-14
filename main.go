@@ -33,6 +33,14 @@ func main() {
 			os.Exit(1)
 		}
 
+		solutionCount := solverStore.GetDefaultSolver().CountSolutions(problem)
+		if solutionCount == 0 {
+			fmt.Fprintf(os.Stderr, "The input is not a solvable Sudoku problem: %s\n", *options.Input)
+			os.Exit(1)
+		} else if solutionCount > 1 {
+			fmt.Fprintf(os.Stderr, "The input has %d solutions: %s\n", solutionCount, *options.Input)
+		}
+
 		playCli(*problem, solverStore)
 	} else {
 		// Generate a random problem.
