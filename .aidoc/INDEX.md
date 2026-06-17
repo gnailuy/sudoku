@@ -28,8 +28,8 @@ This index provides reading chains for common starting points and a complete doc
 3. `generator/generator.go` — board generation and cell removal logic
 
 ### Understanding the Roadmap
-1. `.aidoc/designs/roadmap.md` — future phases: core refactoring, strategy solvers, puzzle database, UI-ready engine
-2. `.aidoc/designs/difficulty-model.md` — difficulty model and generation/storage flow
+1. `.aidoc/designs/roadmap.md` — future phases: generator + puzzle database, UI-ready engine
+2. `.aidoc/designs/difficulty-model.md` — difficulty model, scoring, and puzzle classification
 3. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
 
 ### Adding a New Strategy Solver

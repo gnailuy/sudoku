@@ -66,4 +66,4 @@ go build && go test ./...
 
 ## Domain Context
 
-This is a Sudoku puzzle game. The current difficulty model is clue-count-based (how many cells are pre-filled). The goal is to evolve toward strategy-based difficulty, where difficulty is determined by the hardest solving technique required. See `.aidoc/designs/difficulty-model.md` for the design.
+This is a Sudoku puzzle game with 23 strategy solvers across five difficulty tiers (Easy through Evil). Difficulty is determined by the hardest solving technique required, with clue count as a secondary constraint. A scoring system (HoDoKu-based weights) quantifies puzzle difficulty. The next milestone is a puzzle database backed by SQLite for reliable puzzle serving. See `.aidoc/designs/difficulty-model.md` for the design and `.aidoc/designs/roadmap.md` for the development plan.

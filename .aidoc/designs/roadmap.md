@@ -9,67 +9,169 @@ dependencies:
 
 # Roadmap
 
-Future development phases for the Sudoku project, from core refactoring through UI readiness.
-Refactoring comes first — clean up while the codebase is small, then build new solvers on solid foundations.
+Future development phases for the Sudoku project.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|-------------|
 | `.aidoc/architecture/guidelines.md` | Current layer boundaries and solver contract |
-| `.aidoc/designs/difficulty-model.md` | Difficulty model design (strategy-based, with puzzle database) |
+| `.aidoc/designs/difficulty-model.md` | Difficulty model design (strategy-based, with scoring and puzzle database) |
 | `.aidoc/INDEX.md` | Discovery index |
 
-## Phase 3: Strategy Solvers
+## Phase 4: Generator and Puzzle Database
 
-Five strategy solvers organized by difficulty tier. Each solver implements `StrategySolver`
-(with `Apply()` returning `*Move`), has tests, and registers in the solver store.
+### Goal
 
-**Easy tier:**
-- Naked Singles — cell has exactly one candidate left.
-- Hidden Singles — candidate appears in only one cell within a row, column, or box.
-- Both registered in store, wired into Easy difficulty (`SolverKeys`).
+Replace the current generate-or-reject loop with a best-effort generator backed by a
+persistent puzzle database. When real-time generation can't produce a puzzle at the
+requested difficulty within a time/iteration budget, fall back to a database lookup.
 
-**Intermediate tier:**
-- Naked Pairs/Triples — two/three cells in a unit share the same candidates exclusively; eliminating those candidates from other cells in the unit reveals singles.
-- Pointing Pairs / Box-Line Reduction — candidate confined to single row/column within a box (or vice versa); elimination reveals singles.
-- Both registered in store, wired into Medium difficulty (`SolverKeys`).
-- Single-field design: `SolverKeys` holds the solvers introduced at this tier. `tierRegistry` (map keyed by difficulty level name) + `tierOrder` (ordered slice of tier names) are the single source of truth for tier ordering — `LowerTierSolverKeys()` and `AllowedSolverKeys()` derive cumulative keys from them.
+### Architecture
 
-**Advanced tier:**
-- X-Wing — candidate in exactly two cells in each of two rows sharing the same two columns (or transpose). Elimination of the candidate from other cells in those columns/rows reveals singles.
-- Registered in store, wired into Hard difficulty (`SolverKeys: ["x-wing"]`).
-- `tierRegistry` and `tierOrder` updated with `"hard"` entry.
+```
+User requests puzzle
+        │
+        ▼
+┌─────────────────┐
+│  Best-effort     │  Try generating with time/iteration limit
+│  Generator       │
+└────────┬────────┘
+         │
+    ┌────┴─────┐
+    │ Success? │
+    └────┬─────┘
+     yes │        no
+         │         │
+         ▼         ▼
+    Return     ┌──────────────┐
+    puzzle     │  DB Lookup    │  Random unplayed puzzle at requested level
+               └──────┬───────┘
+                      │
+                 ┌────┴─────┐
+                 │  Found?  │
+                 └────┬─────┘
+                  yes │       no
+                      │        │
+                      ▼        ▼
+                 Return    Return best-effort puzzle
+                 puzzle    with difficulty mismatch warning:
+                           "Expected: Hard, got: Medium"
+```
 
-**Expert tier:**
-- Swordfish — extension of X-Wing to three rows × three columns. A candidate appears in 2–3 cells in each of three rows, confined to the same three columns (or transpose). Elimination from other cells in those columns reveals singles.
-- Hidden Pairs/Triples — complement of Naked Pairs/Triples. Two or three candidates appear in only the same 2 or 3 cells within a unit. All other candidates can be eliminated from those cells, revealing singles.
-- Both registered in store, wired into Expert difficulty (`SolverKeys: ["swordfish", "hidden-subset"]`).
-- `tierRegistry` and `tierOrder` updated with `"expert"` entry.
-- CLI renamed "Extreme" → "Expert" for consistency with standard Sudoku terminology.
+### Puzzle Database (SQLite)
 
-Seven solvers cover Easy/Medium/Hard/Expert — sufficient for a fully playable game.
-Evil level remains unconstrained (no technique requirements — may require guessing).
+Store puzzles in a local SQLite database. Each puzzle is stored in its normalized
+(canonical) form — digit-swapped equivalents map to the same record.
 
-**Evil tier:**
-- XY-Wing — three-cell pattern: a pivot with {X,Y} connects to two wings with {X,Z} and {Y,Z}. Any cell seeing both wings can eliminate Z, because exactly one wing must contain Z.
-- Simple Coloring — tracks conjugate pair chains for a digit (pairs of cells where the digit appears as a candidate in exactly two places in a unit). Alternating colors along the chain enable two elimination rules: same-color conflict (a color is impossible if two same-colored cells share a unit) and sees-both-colors (an uncolored cell seeing both colors can eliminate the digit).
-- Both registered in store, wired into Evil difficulty (`SolverKeys: ["xy-wing", "simple-coloring"]`).
-- `tierRegistry` and `tierOrder` updated with `"evil"` entry.
+**Schema (conceptual):**
 
-Nine solvers cover Easy/Medium/Hard/Expert/Evil — fully strategy-based difficulty across all tiers.
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PRIMARY KEY | Auto-increment row id |
+| `puzzle` | TEXT UNIQUE | 81-char normalized puzzle string (`.` for empty cells) |
+| `solution` | TEXT | 81-char solved board string |
+| `difficulty` | TEXT | Difficulty level name (easy/medium/hard/expert/evil) |
+| `clues` | INTEGER | Number of given clues |
+| `score` | INTEGER | Total difficulty score (Σ technique weights) |
+| `max_technique` | TEXT | Highest-tier technique required (solver key) |
+| `played` | BOOLEAN DEFAULT FALSE | Whether this puzzle has been played |
+| `source` | TEXT | Origin: "generated", "imported", or source name |
+| `created_at` | TIMESTAMP | When the puzzle was added |
 
-## Phase 4: Generator Integration and Puzzle Database
+**Normalization as dedup key:** The existing `Board.Normalize()` remaps digits so the
+first row is always 1–9. Two puzzles that differ only by digit permutation share the
+same normalized form → stored once.
 
-Wire strategy solvers into puzzle generation and build a puzzle database:
+### Best-Effort Generator
 
-1. Generate puzzles offline using the existing generator.
-2. Classify each puzzle by technique tier (highest strategy required to solve) and clue count.
-3. Store puzzles with difficulty metadata in a database.
-4. Serve puzzles by database lookup — filter by requested difficulty level.
+Enhance the existing generator with configurable limits:
 
-Clue-count ranges are a secondary constraint: a puzzle must fall within the expected
-clue band *and* require techniques at the target tier.
+- **Max iterations** (already exists): cap on cell-removal attempts.
+- **Max duration**: wall-clock time limit (e.g., 5 seconds default).
+- **Max rounds**: number of full generate-from-scratch attempts before giving up.
+
+When the budget is exhausted, the generator returns whatever it has — even if the
+difficulty tier doesn't match the request. The caller decides whether to use it
+or fall back to the database.
+
+### Fallback Flow
+
+When the generator fails to produce a puzzle at the target difficulty:
+
+1. Query the database for a random unplayed puzzle at the requested level.
+2. If found: return it and mark it as played.
+3. If not found: return the best-effort puzzle with a warning message:
+   `"Requested difficulty: Hard. Generated puzzle difficulty: Medium. Enjoy!"`
+
+### Batch Generation CLI
+
+A new CLI command for offline puzzle generation:
+
+```bash
+sudoku generate --count 100 --difficulty hard --timeout 30s --db puzzles.db
+```
+
+**Behavior:**
+- Generate `N` puzzles at the specified difficulty (best-effort per puzzle).
+- Classify each puzzle: determine actual difficulty tier + score using `ScorePuzzle()`.
+- Normalize and deduplicate against the database.
+- Store new unique puzzles.
+- Output a report:
+
+```
+Generated: 100
+Stored (new): 73
+Duplicates: 27
+
+By difficulty:
+  Easy:   12
+  Medium: 31
+  Hard:   22
+  Expert:  7
+  Evil:    1
+```
+
+### Puzzle Sources
+
+Three approaches to populate the database:
+
+1. **Batch generation:** Run the CLI command above repeatedly (offline, low priority).
+   Random generation is inefficient for hard+ puzzles, but it's free and accumulates
+   over time.
+
+2. **Public puzzle databases:** Import puzzles from established collections
+   (e.g., HoDoKu test puzzles, Gordon Royle's 17-clue collection, top1465).
+   Each import run normalizes, classifies, and deduplicates.
+
+3. **Session collection:** Puzzles from email threads and interactive sessions
+   are already in normalized string form — import them into the database with
+   their known difficulty classification.
+
+### Implementation Plan
+
+| PR | Scope | Description |
+|----|-------|-------------|
+| A | Database layer | New `db/` package: SQLite schema, CRUD operations, random-unplayed query, dedup by normalized key. |
+| B | Best-effort generator | Add time/round limits to generator. Return partial result when budget exhausted. Classify result by difficulty. |
+| C | Fallback flow | Wire generator → DB fallback in `game/` or `cli/`. Show mismatch warning when downgrading difficulty. |
+| D | Batch CLI | `sudoku generate` command: generate N puzzles, classify, store, report. |
+| E | Import CLI | `sudoku import` command: load puzzles from files (one 81-char string per line), classify, deduplicate, store. |
+| F | Played tracking | Mark puzzles as played during interactive sessions. Filter played puzzles from DB lookup. |
+
+PRs are sequential: A → B → C → D → E → F.
+
+### Package Layout
+
+```
+db/
+├── db.go          # Open/close, schema migration
+├── puzzle.go      # InsertPuzzle, GetRandomUnplayed, MarkPlayed, Stats
+└── db_test.go     # Integration tests with in-memory SQLite
+```
+
+The `db` package depends on `core` (for normalization) and `solver` (for scoring/classification).
+It does NOT depend on `generator`, `game`, or `cli` — keeping the dependency graph clean.
 
 ## Phase 5: UI-Ready Core Engine
 
