@@ -1,6 +1,6 @@
 ---
 domain: Designs
-status: Proposed
+status: Draft
 entry_points:
   - db/db.go
   - db/puzzle.go
@@ -13,7 +13,7 @@ dependencies:
 
 # Concurrent SQLite Reliability
 
-Sudoku treats one SQLite file as a safe local coordination boundary for concurrent generation, import, acquisition, completion, statistics, and history reset. The next database increment makes connection configuration explicit, proves mixed-workload behavior with deterministic stress tests, and adds a built-binary multi-process acceptance case. It does not add a daemon, distributed lock, retry queue, or new user-facing flag.
+Sudoku treats one SQLite file as a safe local coordination boundary for concurrent generation, import, acquisition, completion, statistics, and history reset. The concurrency contract requires explicit connection configuration, deterministic mixed-workload stress tests, and a built-binary multi-process acceptance case. It does not add a daemon, distributed lock, retry queue, or new user-facing flag.
 
 ## Related Docs
 
@@ -24,11 +24,11 @@ Sudoku treats one SQLite file as a safe local coordination boundary for concurre
 | `.aidoc/designs/e2e-database-scenarios.md` | Owns black-box multi-process acceptance scenarios |
 | `.aidoc/designs/roadmap.md` | Sequences this reliability increment before import-policy changes |
 
-## Why This Is Next
+## Why Concurrency Needs an Explicit Contract
 
-The current database already uses WAL mode, a five-second busy timeout, atomic acquisition statements, transactions for snapshots/resets, and focused concurrent acquisition/completion tests. Those tests prove individual operations, but not the complete `database/sql` connection-pool contract or sustained mixed access from independent processes. SQLite pragmas can be connection-scoped, so configuring one pooled connection does not by itself prove that every later operation receives the same lock policy.
+The database uses WAL mode, a five-second busy timeout, atomic acquisition statements, transactions for snapshots and resets, and focused concurrent acquisition and completion tests. SQLite pragmas can be connection-scoped, so configuring one pooled connection does not guarantee that every operation receives the same lock policy. Individual-operation coverage also does not establish sustained mixed-access behavior across independent handles and processes.
 
-This increment turns the existing concurrency intent into a maintained contract before large imports or stricter import policy increase database load.
+An explicit connection and contention contract keeps local database behavior predictable without introducing application-level coordination or distributed infrastructure.
 
 ## Runtime Contract
 
