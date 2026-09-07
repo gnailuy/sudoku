@@ -94,4 +94,4 @@ Database behavior crosses generation, classification, persistence, and startup. 
 
 ## Deferred Database Scenarios
 
-Measured large-import behavior and minimum-clue or uniqueness policy remain separate decisions with their own future acceptance scenarios.
+Large-import acceptance belongs to `.aidoc/designs/e2e-import-scenarios.md`. Minimum-clue and uniqueness policy remain separate decisions with their own future acceptance scenarios.

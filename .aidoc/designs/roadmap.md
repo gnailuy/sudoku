@@ -16,6 +16,7 @@ dependencies:
   - .aidoc/designs/database-puzzle-selection.md
   - .aidoc/designs/database-play-statistics.md
   - .aidoc/designs/database-concurrency.md
+  - .aidoc/designs/database-large-import.md
 ---
 
 # Roadmap
@@ -34,6 +35,7 @@ The roadmap contains only ongoing maintenance and approved future work. Current 
 | `.aidoc/designs/database-puzzle-selection.md` | Current played-state selection and migration boundary |
 | `.aidoc/designs/database-play-statistics.md` | Current completion counters, statistics, and explicit history reset |
 | `.aidoc/designs/database-concurrency.md` | Current database reliability design: connection policy and deterministic mixed-workload stress |
+| `.aidoc/designs/database-large-import.md` | Approved next database increment: measured batching, partial success, progress, and safe reruns |
 
 ## Why Quality Gates Remain
 
@@ -65,9 +67,11 @@ Calibration runs from the stable CI baseline with deterministic classifier seman
 
 Calibration output remains local and telemetry-free. The 101-record corpus separates target-alignment failures from strategy-inventory stalls. Batch generation remains best-effort and stores each completed puzzle under its actual grade; per-puzzle wall-clock budgets are hard deadlines. Interactive play first uses an exact requested-grade result or database puzzle, then explicitly reports any actual-grade fallback. Technique-inventory changes remain separate; human data may support a later empirical player-difficulty layer but is not a prerequisite for strategy calibration.
 
-### Keep Later Database Decisions Separate
+### Measure Large-Import Behavior
 
-Measured large-import behavior and minimum-clue or uniqueness policy remain independently reviewed future decisions. Neither concern expands the concurrent SQLite reliability scope.
+Large imports use a separately reviewed measurement and behavior contract before implementation. `.aidoc/designs/database-large-import.md` defines the reproducible evidence, bounded transaction selection, streaming resource limits, partial-success and interruption semantics, progress output, safe reruns, and black-box acceptance boundary.
+
+Minimum-clue and uniqueness admission remain later product decisions. Puzzle-admission semantics do not expand the import-performance increment.
 
 ## Maintained Stabilization Gates
 
