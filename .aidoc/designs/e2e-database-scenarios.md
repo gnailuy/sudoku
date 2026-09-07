@@ -9,113 +9,89 @@ dependencies:
   - .aidoc/designs/game-engine.md
   - .aidoc/designs/database-puzzle-selection.md
   - .aidoc/designs/database-play-statistics.md
+  - .aidoc/designs/database-concurrency.md
 ---
 
 # E2E Database Scenarios
 
-The database scenario catalog protects root-command database composition, played-state acquisition behavior, acquisition/completion statistics, Cobra discovery, and explicitly deferred database work.
+The database scenario catalog protects root-command database composition, played-state acquisition, acquisition/completion statistics, and concurrent SQLite reliability through public commands and focused deterministic seams.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/e2e-test-scenarios.md` | E2E discovery map, isolation rules, and automation entry points |
-| `.aidoc/designs/database-puzzle-selection.md` | Current exact-grade acquisition and recycling contract |
-| `.aidoc/designs/database-play-statistics.md` | Current completion, statistics, and history-reset contract |
-| `AGENT.md` | Required black-box verification discipline |
+| `.aidoc/designs/e2e-test-scenarios.md` | E2E discovery, isolation, and automation entry points |
+| `.aidoc/designs/database-puzzle-selection.md` | Exact-grade acquisition and recycling contract |
+| `.aidoc/designs/database-play-statistics.md` | Completion, statistics, and history-reset contract |
+| `.aidoc/designs/database-concurrency.md` | Mixed-workload, lock-bound, and multi-process contract |
+| `AGENT.md` | Contributor verification requirements |
 
 ## Why This Boundary
 
-Database behavior crosses generation, classification, persistence, and startup. Deterministic cases belong in automation through the public `--from-db` boundary; generation fallback accounting remains covered at the narrowest deterministic package seam.
+Database behavior crosses generation, classification, persistence, and startup. Deterministic cases use the public `--from-db` boundary; generated fallback accounting and deliberate lock exhaustion use the narrowest deterministic package seam.
 
-## 6. Database and Fallback
+## Database and Fallback
 
-### 6.1 Auto-Store on Play
-**Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
-**Expected:** Puzzle is automatically stored in the DB at `~/.local/share/sudoku/puzzles.db`.
+### Auto-Store and Fallback
+**Action:** Run the matching `scripts/e2e_cli.py` cases for automatic play storage, exact-grade database fallback, and an empty requested grade.
+**Expected:** The selected puzzle is stored under the isolated XDG database. Exact-grade fallback avoids a mismatch warning; an unavailable grade reports the actual generated grade without mutating another database.
 
-### 6.2 DB Fallback Path
-1. Pre-populate the DB with easy puzzles: `./sudoku generate -n 20 -d easy --db $SUDOKU_DB`
-2. Request an easy puzzle: `echo "quit" | ./sudoku --level easy --db $SUDOKU_DB`
+### Input and Command Boundaries
+**Action:** Run the multiple-solution input and root-help cases in `scripts/e2e_cli.py`.
+**Expected:** Multiple-solution input warns and starts with the first solution. Root help exposes the `generate`, `import`, and `tui` commands.
 
-**Expected:** If best-effort generation misses the target, the system falls back to the DB. If a match is found in the DB, no mismatch warning is shown. If the DB is also empty for that difficulty, the mismatch warning fires.
+## Played-State Acquisition
 
-### 6.3 Mismatch Warning
-**Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
-**Expected (empty DB):** Best-effort likely misses easy target. Warning shown: "Requested difficulty: Easy. Generated puzzle difficulty: Medium/Hard. Enjoy!"
+### Never-Played First and Balanced Reuse
+**Setup:** Import two distinct puzzles with one exact strategy grade.
+**Action:** Acquire three puzzles through `sudoku --from-db --level <grade> --db <path>`.
+**Expected:** Each row is selected before either repeats; later selections keep acquisition counts within one.
 
-### 6.4 Multiple-Solution Puzzle Input
-**Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
-**Expected:** Warning about multiple solutions printed. Game still starts (plays with the first solution found).
+### In-Place Migration
+**Setup:** Create a pre-played-state database and open it with the current binary.
+**Expected:** Migration preserves puzzles and classifications, initializes history, and permits exact-grade acquisition.
 
----
+### Source and Failure Boundaries
+**Action:** Exercise an empty grade, custom database path, conflicting `--input` or `--resume`, and deterministic generated-fallback accounting.
+**Expected:** Stable errors do not generate substitutes or mutate unrelated databases. Only the puzzle selected for play gains acquisition history; explicit input and restored sessions leave acquisition history unchanged.
 
-## 7. Cobra Subcommand Structure
+## Acquisition and Completion Statistics
 
-### 7.1 Root Command Shows Subcommands
-**Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
-**Expected:** Shows available commands: `generate`, `import`, `tui`, and usage for the default play mode.
-
----
-
-## 12. Played-State Acquisition
-
-These built-binary cases run in `scripts/e2e_cli.py` with an isolated database:
-
-### 12.1 Never-Played Puzzles First
-**Setup:** Import two distinct puzzles with the same exact strategy grade.
-**Action:** Run `sudoku --from-db --level <grade> --db <path>` twice and quit each game.
-**Expected:** Each stored puzzle is selected once before either repeats; both rows record one acquisition.
-
-### 12.2 Balanced Reuse After Exhaustion
-**Action:** Acquire a third puzzle from the two-puzzle fixture.
-**Expected:** One least-played puzzle is returned and only its acquisition count increments. Repeated acquisitions keep counts within one of each other.
-
-### 12.3 In-Place Migration
-**Setup:** Create a pre-change database containing exact-grade puzzle rows, then open it with the new binary.
-**Expected:** Migration preserves every puzzle and classification, initializes each row as unplayed, and the first acquisition succeeds.
-
-### 12.4 Source and Failure Boundaries
-**Action:** Exercise `--from-db` with an empty requested grade, a custom database path, and conflicting `--input`/`--resume` flags.
-**Expected:** The command reports stable errors, does not generate a substitute, and does not mutate another database. Explicit input and resumed sessions leave acquisition history unchanged.
-
-### 12.5 Generated Fallback Accounting
-**Action:** Use the narrowest deterministic package seam to cover matched generation, generated mismatch with exact-grade DB fallback, and mismatch without a DB fallback.
-**Expected:** Only the puzzle ultimately selected for play is marked played; a stored but unused generated mismatch remains unplayed.
-
-## 13. Acquisition And Completion Statistics
-
-These scenarios are executable through the package suites and built-binary harness described below:
-
-### 13.1 Separate History Dimensions
-**Setup:** Use a fixed normalized puzzle fixture. Acquire it twice, quit one run unfinished, and complete the other with player actions.
+### Separate History Dimensions
+**Setup:** Acquire one normalized fixture twice, quit one run unfinished, and complete the other with player actions.
 **Action:** Run `sudoku db stats --db <path>`.
-**Expected:** The row reports two acquisitions and one completion. Acquisition is never labeled as completion or abandonment, and the overall row agrees with the per-grade snapshot.
+**Expected:** The grade and overall rows report two acquisitions and one completion without labeling either as abandonment.
 
-### 13.2 Completion Boundaries
-**Action:** Exercise quit, save/recovery, invalid moves, `solve`, a final player value, a hint-assisted final value, and undo/re-solve in isolated runs through the applicable built frontend.
-**Expected:** Quit, persistence, invalid actions, and `solve` do not increment completion. A player or hint-assisted solve increments once per run; undo/re-solve does not increment twice. Loading an already solved session does not count.
+### Completion Boundaries
+**Action:** Exercise quit, save/recovery, invalid moves, automatic solve, player completion, hint-assisted completion, undo/re-solve, and an already solved restored session.
+**Expected:** Only player and hint-assisted completion increment once per run; automatic solve and non-completion actions do not.
 
-### 13.3 Normalized Identity And Migration
-**Setup:** Open a pre-completion-schema database, then submit digit-relabelled forms that normalize to the same existing puzzle.
-**Expected:** Migration preserves the row and acquisition history, initializes completion history to zero, and every equivalent form contributes to the same normalized statistics row without creating a duplicate.
+### Identity, Migration, and Snapshot
+**Action:** Open a pre-completion-schema database, submit digit-relabelled equivalent fixtures, request all-grade and filtered statistics, and update counters concurrently in a focused package test.
+**Expected:** Migration preserves existing history and initializes completion history. Equivalent fixtures share one row. Each snapshot is internally consistent, empty timestamps render as `-`, and invalid grades fail before database work.
 
-### 13.4 Statistics Filtering And Snapshot
-**Action:** Request all-grade and single-grade statistics while a focused package test exercises a concurrent counter update.
-**Expected:** Unknown grades fail before database work. Each successful command reports stored, selected, acquisition, completed-puzzle, completion, and latest-time fields from one read snapshot; empty timestamps render as `-`.
+### Explicit Reset Scope
+**Action:** Preview acquisition, completion, and all-history resets; cancel once; then confirm with `--yes`, with and without a grade filter.
+**Expected:** Preview identifies database, scope, filter, rows, and counters. Reset changes only the selected count/timestamp pairs while preserving puzzle data, saves, recovery records, and the other history dimension.
 
-### 13.5 Explicit Reset Scope
-**Action:** Preview `reset-history` for `acquisition`, `completion`, and `all`; cancel once; then confirm with `--yes`, both with and without `--level`.
-**Expected:** The preview names the database, scope, filter, rows, and counters. Cancellation changes nothing. Confirmation resets exactly the requested counter/timestamp pairs atomically while preserving puzzle rows, classification, source, saved sessions, recovery records, and the non-selected history dimension.
+### Frontend and Failure Consistency
+**Action:** Complete a puzzle through the line CLI, TUI, and HTTP API where applicable; force completion-write and reset failures separately.
+**Expected:** Every frontend applies one completion rule. Completion-write failure leaves gameplay solved with a warning; reset failure exits non-zero without partial mutation.
 
-### 13.6 Frontend And Failure Consistency
-**Action:** Complete a puzzle through the line CLI, TUI, and HTTP API where each boundary applies; separately force completion persistence and reset failures.
-**Expected:** Every frontend applies the same completion rule. A completion-write failure leaves the game solved and surfaces a concise warning; a reset failure exits non-zero with no partial reset.
+## Concurrent SQLite Reliability
 
-## 14. Other Deferred Database Scenarios
+### Multi-Process Import and Read
+**Action:** Run overlapping fixed-fixture imports and bounded `sudoku db stats` readers against one temporary database.
+**Expected:** Processes finish without hangs, imports produce exactly the unique normalized rows, and every statistics response is internally consistent.
 
-Keep these independently reviewed after acquisition/completion statistics:
+### Post-Contention Acquisition and Integrity
+**Action:** Acquire fixed-grade rows after writers close, inspect counters, reopen the database, and run SQLite `PRAGMA quick_check`.
+**Expected:** Acquisition totals match successful selections, reuse remains balanced, committed counters survive reopen, and integrity returns `ok`.
 
-- **Large import progress indicator:** Import 150+ puzzles → progress indicator fires every 100 puzzles.
-- **Minimum-clues guard:** Import a puzzle with fewer than 17 clues → rejected or warned (prevents solver hang on near-empty boards).
-- **Concurrent DB access:** Multiple generate workers writing to the same DB → no corruption (WAL mode).
+### Deterministic Lock Bound
+**Action:** Hold a write transaction in a package test and write through another handle before and after releasing the lock.
+**Expected:** The blocked write returns within the configured five-second bound without partial mutation; the later write succeeds.
+
+## Deferred Database Scenarios
+
+Measured large-import behavior and minimum-clue or uniqueness policy remain separate decisions with their own future acceptance scenarios.

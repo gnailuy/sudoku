@@ -8,6 +8,7 @@ entry_points:
 dependencies:
   - .aidoc/designs/difficulty-model.md
   - .aidoc/designs/database-play-statistics.md
+  - .aidoc/designs/database-concurrency.md
   - .aidoc/designs/e2e-database-scenarios.md
 ---
 
@@ -21,6 +22,7 @@ Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, an
 |----------|-------------|
 | `.aidoc/designs/difficulty-model.md` | Defines the exact strategy-grade contract used by selection |
 | `.aidoc/designs/database-play-statistics.md` | Keeps completion counters and history reset separate from acquisition semantics |
+| `.aidoc/designs/database-concurrency.md` | Extends atomic acquisition into a mixed-handle and multi-process reliability contract |
 | `.aidoc/designs/e2e-database-scenarios.md` | Owns black-box acceptance scenarios for acquisition and migration |
 | `.aidoc/designs/roadmap.md` | Sequences this behavior before other database enhancements |
 

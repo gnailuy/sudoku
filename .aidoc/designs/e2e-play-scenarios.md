@@ -63,14 +63,9 @@ Root play is the oldest compatibility surface and composes Cobra parsing, databa
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
 **Expected:** Works the same as before the cobra migration.
 
----
-
 ## 2. Game Commands
 
-The game-command scenarios verify the stable engine boundary through the real terminal frontend: `cli.Controller` renders detached snapshots and submits typed actions while preserving the established command output and behavior.
-
-For these scenarios, start a game with a known puzzle:
-**Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
+The game-command scenarios verify the stable engine boundary through the real terminal frontend: `cli.Controller` renders detached snapshots and submits typed actions while preserving established behavior. Scenarios start from the known puzzle fixture owned by `scripts/e2e_cli.py`.
 
 ### 2.1 Add a Value (`add` / `a` / bare digits)
 **Input:** `add 1 1 4` or `a 1 1 4` or `1 1 4`

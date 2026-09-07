@@ -13,138 +13,75 @@ dependencies:
   - .aidoc/designs/database-puzzle-selection.md
   - .aidoc/designs/game-engine.md
   - .aidoc/designs/e2e-database-scenarios.md
+  - .aidoc/designs/database-concurrency.md
 ---
 
 # Database Play Statistics and History Reset
 
-The database keeps completion counters beside acquisition counters, exposes both as separate concepts through `sudoku db stats`, and provides an explicitly confirmed `sudoku db reset-history` command. A completion is counted once per play run when a player action first solves the puzzle; the automatic `solve` action does not count. This behavior does not infer abandonment or elapsed play duration, and it preserves the normalized puzzle key and `INSERT OR IGNORE` deduplication contract.
+The database keeps completion and acquisition histories as separate concepts, exposes both through `sudoku db stats`, and resets only an explicitly selected history dimension. Player actions can count one completion per play run; automatic solve, abandonment, and elapsed duration are outside the completion contract.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/database-puzzle-selection.md` | Defines acquisition counters and the selection policy that consumes them |
-| `.aidoc/designs/game-engine.md` | Defines solved status and typed actions used to detect completion |
-| `.aidoc/designs/e2e-database-scenarios.md` | Owns black-box acceptance scenarios for statistics and reset behavior |
-| `.aidoc/designs/roadmap.md` | Sequences this increment before broader database reliability work |
+| `.aidoc/designs/database-puzzle-selection.md` | Acquisition counters and the selection policy that consumes them |
+| `.aidoc/designs/game-engine.md` | Solved status and typed actions used to detect completion |
+| `.aidoc/designs/e2e-database-scenarios.md` | Black-box statistics and reset acceptance scenarios |
+| `.aidoc/designs/database-concurrency.md` | Mixed-workload snapshot/reset contention and lock bounds |
+| `.aidoc/designs/roadmap.md` | Current and future database work |
 
 ## Why Completion Is Separate From Acquisition
 
-`play_count` means that a stored puzzle was selected and exposed to a player. It increments before play begins so the selector can prefer unseen puzzles and balance reuse even if the process later quits, crashes, or saves for another day. It cannot answer whether a puzzle was solved.
+`play_count` means that a stored puzzle was selected and exposed to a player. Acquisition increments before play begins so selection can prefer unseen puzzles and balance reuse even when a process later quits, crashes, or saves for another day.
 
-Completion is the smallest reliable gameplay outcome. The engine reports exactly when a valid action reaches `game.StatusSolved`, while abandonment cannot be inferred from process exit: an exit may be a deliberate stop, a crash, or a session that will be resumed. The database therefore keeps acquisition and completion as separate dimensions and does not derive one from the other.
+Completion is the smallest reliable gameplay outcome. The engine reports when an accepted player action reaches `game.StatusSolved`, while process exit cannot distinguish abandonment from a crash or resumable session. Completion history therefore records a count and latest timestamp without inferring abandonment or solving duration.
 
-This increment interprets “completion times” as the number of successful completions plus the latest completion timestamp. It deliberately does not measure elapsed solving duration. Duration would require reviewed start, pause, idle, resume, and clock-change semantics and is not needed to count completions accurately.
-
-## What Counts As A Completion
+## Completion Contract
 
 A **play run** begins when a frontend creates or restores a playable `game.Game` and ends when that frontend exits or discards it.
 
-- Count at most one completion in each play run.
-- Count the first successful action whose result changes the run from not solved to `game.StatusSolved`.
-- Do not count `game.ActionSolve`; asking the complete solver to finish is not a player completion.
-- A completion reached with hints still counts. Hints assist play but remain explicit player actions and do not automatically solve the whole puzzle.
-- Undoing and re-solving within the same run does not add another completion.
-- Restoring a saved or recovered session creates a new run. If the restored game is unfinished and the player completes it, count one completion for that run.
-- Starting from an already solved serialized session does not count merely because it was loaded.
-- Quitting, process termination, saving, recovery creation, and invalid moves never create completion or abandonment records.
+- The first successful player action that changes an unsolved run to `game.StatusSolved` counts once.
+- `game.ActionSolve`, invalid moves, persistence, recovery creation, exit, and loading an already solved session do not count.
+- Hint-assisted completion counts because hints remain explicit player actions.
+- Undoing and re-solving within one run does not count twice.
+- Completing an unfinished restored session counts once for that new run.
 
-Counting is frontend-neutral. The line CLI, TUI, and HTTP API all observe accepted `game.Result` values through one shared play-run tracker rather than reimplementing completion rules independently. `game.Game` remains storage-neutral: it reports actions and solved status but does not open SQLite or suppress a successful game action when statistics persistence fails.
+The line CLI, TUI, and HTTP API use one frontend-neutral play-run tracker around `game.Game.Apply`. The engine remains storage-neutral, and a statistics failure never reverses an accepted game action.
 
-## What The Database Stores
+## Storage and Identity
 
-Apply an additive migration in `db.DB.migrate` that adds `completion_count` with a non-null zero default and nullable `last_completed_at` to `puzzles`. Existing rows migrate to zero completions and no completion timestamp. `db.DB.RecordCompletion` atomically increments the counter and assigns SQLite's current timestamp for the existing normalized puzzle key.
+`db.DB.migrate` adds non-null `completion_count` with a zero default and nullable `last_completed_at` columns. Existing rows begin with no completion history, and `db.DB.RecordCompletion` atomically increments the count and assigns SQLite's current timestamp.
 
-The puzzle key is the existing normalized 81-character puzzle string. `cmd/play.go` already remaps digits from the solved first row and stores that normalized string as the primary key. Imports, generated puzzles, and direct input continue to use `INSERT OR IGNORE`; duplicate input never creates another puzzle row or clears either history.
+The existing normalized 81-character puzzle string remains the primary key. Imports, generation, and direct input retain digit-relabel normalization and `INSERT OR IGNORE`; equivalent digit labels share history, while rotations, reflections, transposition, and row or column symmetry do not.
 
-The run tracker retains that normalized key and active database path from `cmd.createSession`. On restore, it derives the key from the immutable givens and uses the current `--db` path (or the XDG default). The root and TUI commands must both accept the same `--db` behavior. If an old session’s normalized puzzle is absent from the selected database, completion persistence reports a warning and leaves gameplay/session persistence intact rather than silently inserting or mutating another database.
+`cmd.createSession` retains the normalized key and selected database path for the run tracker. Restored sessions derive the key from immutable givens. A missing row or failed write produces a concise warning without inserting another row or changing gameplay/session persistence.
 
-The migration does not add a starts table, attempt/event log, abandonment field, elapsed-duration field, schema-version table, or broader Sudoku-symmetry normalization. It preserves the existing digit-relabeling normalization exactly; rotations, reflections, transposition, and row/column symmetry remain outside the deduplication contract.
+## Statistics Snapshot
 
-## What Users Can Inspect
+`sudoku db stats [--db <path>] [--level <easy|medium|hard|expert|evil>]` prints one row per included strategy grade and one overall row. Each row reports stored puzzles, never-selected and selected puzzles, total acquisitions, completed puzzles, total completions, and latest selection and completion times.
 
-Add a `db` Cobra command group with:
+Statistics labels preserve the acquisition/completion distinction; no value represents abandonment, elapsed duration, or unique players. Empty timestamps render as `-`, and an unknown grade fails before database access. One SQLite read transaction provides a consistent per-grade and overall snapshot even when another client updates history concurrently.
 
-```text
-sudoku db stats [--db <path>] [--level <easy|medium|hard|expert|evil>]
-```
+## Explicit History Reset
 
-The command prints one row per included strategy grade and one overall row. Each row reports:
+`sudoku db reset-history --history <acquisition|completion|all> [--level <grade>] [--db <path>] [--yes]` requires an explicit history dimension. Acquisition reset clears `play_count` and `last_played_at`; completion reset clears `completion_count` and `last_completed_at`; `all` clears both in one transaction.
 
-- stored puzzles;
-- puzzles never selected and selected at least once;
-- total selections;
-- puzzles completed at least once;
-- total completions;
-- latest selection time;
-- latest completion time.
+The preview names the database, grade filter, affected row count, and counters. Interactive use requires exact affirmative confirmation; non-interactive use requires `--yes`. Cancellation and empty selections do not mutate data.
 
-Labels use **selected/acquisitions** for `play_count` and **completed/completions** for `completion_count`; neither is presented as abandonment, elapsed duration, or unique players. Empty timestamps render as `-`. `--level` rejects unknown grades before opening or mutating the database. `--db` follows the existing explicit-path/XDG-default behavior.
+Reset preserves puzzle rows, classification, source, normalized keys, explicit saves, recovery records, and any unselected history dimension. Concurrent history updates occur wholly before or after the reset transaction, so no partial count/timestamp pair is visible.
 
-This command is a read-only snapshot. It may observe a state immediately before or after a concurrent acquisition/completion, but each returned aggregate comes from one SQLite read transaction so rows and the overall total describe the same snapshot.
+## Failure, Compatibility, and Privacy
 
-## How History Reset Works
+- Existing databases and sessions remain readable after the additive migration.
+- Statistics remain local to the selected SQLite file; no account identifier, telemetry, or network reporting is added.
+- Completion updates use the bounded SQLite busy timeout and return promptly under contention.
+- A completion-write failure leaves the game solved and visible; a reset failure rolls back its complete scope and exits non-zero.
+- Once-per-run tracking is in memory. Replaying one saved unfinished session in another process creates another run.
 
-Add:
+## Verification
 
-```text
-sudoku db reset-history --history <acquisition|completion|all>
-                        [--level <easy|medium|hard|expert|evil>]
-                        [--db <path>] [--yes]
-```
-
-`--history` is required so the destructive scope is explicit:
-
-- `acquisition` sets `play_count = 0` and `last_played_at = NULL`;
-- `completion` sets `completion_count = 0` and `last_completed_at = NULL`;
-- `all` resets both dimensions in one transaction.
-
-Before mutation, print the selected database, optional grade filter, affected puzzle count, and counters that will be cleared. In an interactive terminal, require an exact affirmative confirmation; any other response cancels without mutation. In non-interactive use, require `--yes` after printing the preview. An empty selection succeeds without writing.
-
-Reset never deletes puzzle rows, changes difficulty/classification/source, alters normalized keys, or touches explicit save files and recovery records. A concurrent acquisition or completion either happens before or after the reset transaction; no partial counter/timestamp pair is visible. After an acquisition reset, selection again prefers every zero-count puzzle. After a completion reset, a still-running play may record a later completion normally.
-
-## How Completion Persistence Integrates
-
-Introduce a small frontend-neutral tracker around `game.Game.Apply`:
-
-1. `cmd.createSession` resolves the database path and normalized puzzle key and constructs one tracker per play run.
-2. The tracker delegates the typed action to `game.Game.Apply`.
-3. After a successful non-`ActionSolve` result first reaches `StatusSolved`, it atomically records completion and marks that run as recorded.
-4. CLI, TUI, and API action paths call the tracker; rendering and protocol responses continue to consume the same `game.Result`.
-5. A database failure does not roll back the already accepted game action. The frontend surfaces one concise warning and the tracker may retry only when another accepted action again reaches solved without having recorded the run.
-
-This keeps SQLite concerns out of `game`, centralizes once-per-run behavior, and gives package tests a deterministic recorder seam. `cli/controller.go`, `tui/model.go`, and `webapi/server.go` remain presentation/protocol adapters rather than independent statistics implementations.
-
-## Failure, Compatibility, And Privacy Boundaries
-
-- Existing databases and session files remain readable; new completion columns default safely.
-- Existing `play_count`/`last_played_at` selection semantics do not change.
-- Statistics are local to the selected SQLite file. No telemetry, account identifier, or network reporting is added.
-- Completion updates use the existing bounded SQLite busy timeout and return promptly under lock contention.
-- A statistics write failure warns but never changes whether the puzzle is solved.
-- A reset failure rolls back the complete requested scope and exits non-zero.
-- Exact once-per-run is an in-memory guarantee. Replaying the same saved unfinished session in a later process is another run and may produce another completion; no durable attempt identity is introduced in this increment.
-
-## Verification Plan
-
-Package tests cover additive migration, atomic completion increments, filtered aggregate snapshots, reset scopes, rollback/error behavior, missing normalized rows, `ActionSolve` exclusion, hints, undo/re-solve suppression, and concurrent increments.
-
-Built-binary scenarios in `.aidoc/designs/e2e-database-scenarios.md` cover:
-
-- separate acquisition and completion output;
-- unfinished and solver-completed runs not incrementing completion;
-- one player completion incrementing once;
-- normalized duplicates sharing one statistics row;
-- grade-filtered preview/reset and explicit confirmation;
-- preservation of puzzle rows, classifications, save files, and the non-reset history dimension;
-- line CLI, TUI, and API completion consistency where each public boundary applies.
-
-The implementation PR must update the executable scenario harnesses and run every affected unit, race, vet, lint, API-contract, and built-binary E2E lane before review.
+Package tests cover migration, atomic increments, filtered snapshots, reset scopes, rollback, missing normalized rows, automatic-solve exclusion, hints, undo/re-solve suppression, and concurrency. Built-binary scenarios cover separate history dimensions, frontend consistency, normalized identity, grade filtering, explicit confirmation, preserved data, and failure reporting; `.aidoc/designs/e2e-database-scenarios.md` is the canonical scenario list.
 
 ## Deferred Decisions
 
-- Abandonment and give-up definitions.
-- Elapsed solving duration, pause/idle policy, and timing across restore.
-- Durable play-attempt identities or append-only event history.
-- Player/account attribution or telemetry.
-- Broader SQLite mixed-workload stress, large-import changes, minimum-clue policy, and full Sudoku-symmetry canonicalization.
+Abandonment, elapsed duration, durable attempt identities, player attribution, telemetry, large-import behavior, minimum-clue policy, and full Sudoku-symmetry canonicalization remain separate decisions.

@@ -98,12 +98,12 @@ The approved rating contract fixes these invariants:
 
 Future calibration proposals still require review of technique-tier or weight changes, budget defaults, storage treatment of strategy-unsolved puzzles, and target-hit, reproducibility, latency, and coverage acceptance thresholds. Every proposal must state rejected alternatives and compare current and candidate behavior on exploratory and held-out data.
 
-## Delivery Sequence
+## Maintenance Invariants
 
-1. Preserve deterministic classification semantics with regression tests.
-2. Maintain immutable corpus manifests, append-only observations, and deterministic reports without tuning product policy.
-3. Expand only pilot strata whose target-hit, coverage, or rare-failure estimates remain unstable.
-4. Propose any policy change with before-and-after comparisons under the fixed strategy contract.
-5. Preserve the approved best-effort, actual-grade, hard-deadline, and explicit-fallback policy with unit coverage and applicable built-binary E2E scenarios.
+- Regression tests preserve deterministic classification semantics.
+- Corpus manifests remain immutable; observations remain append-only; reports remain deterministic.
+- Corpus expansion targets only strata whose target-hit, coverage, or rare-failure estimates remain unstable.
+- Policy changes include before-and-after comparisons under the fixed strategy contract.
+- Unit and built-binary E2E coverage preserve best-effort generation, actual-grade storage, hard deadlines, and explicit fallback behavior.
 
 Primary code boundaries are `calibration.Run`, `cmd.newCalibrateCommand`, `solver.ClassifyPuzzle`, `solver.StrategyTierForTechnique`, `solver.ScorePuzzle`, `generator.Difficulty`, `generator.GenerateBestEffort`, and `solver/config.go`.

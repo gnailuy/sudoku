@@ -26,9 +26,9 @@ Background autosave protects active TUI games from process, terminal, and host f
 | `.aidoc/designs/cli-sessions.md` | Existing atomic transport and player-owned save contract |
 | `.aidoc/designs/e2e-tui-scenarios.md` | Black-box recovery, cleanup, failure, and compatibility scenarios |
 
-## Why Recovery Is Next
+## Why Local Recovery Exists
 
-The TUI now supports longer games, notes, history, candidates, and explicit saves, but an interrupted process can still lose every change since the last manual save. Local recovery provides more immediate value than a network frontend and validates session lifecycle policy before cloud sync or multi-device state adds conflicts outside one host.
+The TUI supports longer games, notes, history, candidates, and explicit saves, but an interrupted process can lose every change since the last manual save. Local recovery protects that state without introducing the conflict model required by cloud sync or multi-device storage.
 
 Background recovery deliberately changes the TUI's no-surprise-file policy. The change is acceptable only with a documented private location, clear startup and discard behavior, bounded retention, and an opt-out. The line-oriented CLI remains script-friendly and keeps explicit persistence only.
 
@@ -68,7 +68,7 @@ Recovery files are never merged. Separate randomly identified records avoid writ
 
 Recovery and model tests cover secure path selection, wrapper bounds and versions, symlink rejection, retention pruning, concurrent record isolation, debounce coalescing, stale completion, retry behavior, selection, and cleanup decisions. The pseudo-terminal harness covers gameplay compatibility, explicit save/resume, crash recovery, durable-record selection, private modes, cleanup, and opt-out behavior.
 
-Applicable root CLI black-box scenarios verify unchanged output, flags, save bytes, and no recovery-file creation. Build, package tests, vet, lint, diff checks, documentation audit, pseudo-terminal scenarios, black-box scenarios, and GitHub CI must pass before review.
+Applicable root CLI black-box scenarios verify unchanged output, flags, save bytes, and no recovery-file creation. Repository verification also covers build, package tests, vet, lint, documentation structure, pseudo-terminal behavior, and black-box compatibility.
 
 ## Deferred Work
 

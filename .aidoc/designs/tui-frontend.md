@@ -23,9 +23,9 @@ The optional full-screen terminal interface is the smallest second frontend for 
 | `.aidoc/designs/cli-sessions.md` | Existing CLI behavior and explicit persistence policy |
 | `.aidoc/designs/e2e-tui-scenarios.md` | Black-box compatibility and TUI scenarios |
 
-## Why the TUI Is Next
+## Why the TUI Exists
 
-A TUI reuses the Go engine directly and adds no network, browser, service, or cross-language boundary. The TUI is therefore the lowest-risk way to validate the frontend contract before a web or mobile client introduces an API or WebAssembly decision.
+A TUI reuses the Go engine directly without adding a network, browser, service, or cross-language boundary. The terminal frontend validates the presentation contract while web and mobile clients remain separate product decisions.
 
 The existing CLI remains valuable for scripts, redirected input, and minimal terminals. The `sudoku tui` command complements rather than replaces the root play command, so established commands and output remain compatible.
 
