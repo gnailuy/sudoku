@@ -1,6 +1,6 @@
 ---
 domain: Designs
-status: Draft
+status: Active
 entry_points:
   - db/db.go
   - db/puzzle.go
@@ -40,7 +40,7 @@ An explicit connection and contention contract keeps local database behavior pre
 - Atomic operations retain their existing meaning under contention: acquisition selects and increments one row, completion increments are not lost, statistics rows agree with their overall snapshot, and reset exposes either the state before or after its full transaction.
 - Closing and reopening the database preserves committed rows and counters. SQLite integrity checks must report `ok` after the workload.
 
-The implementation should configure the connection limit before migration and use connection-wide driver configuration for the busy timeout where supported. Tests must fail if a newly opened pooled connection silently loses the timeout. No application-level mutex may coordinate separate handles or processes.
+`db.Open` limits each handle to one pooled connection before migration and configures the busy timeout in the driver data source so a replacement connection retains the policy. No application-level mutex coordinates separate handles or processes.
 
 ## Deterministic Stress Model
 
@@ -58,7 +58,7 @@ Tests use barriers and held transactions to create contention deliberately. They
 
 ## Built-Binary Acceptance
 
-Extend `scripts/e2e_cli.py` with a deterministic multi-process case against one temporary database:
+`scripts/e2e_cli.py` runs a deterministic multi-process case against one temporary database:
 
 - start several `sudoku import` processes with overlapping fixed fixture files;
 - run `sudoku db stats` readers while imports are active;

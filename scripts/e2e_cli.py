@@ -15,18 +15,23 @@ PUZZLE_DOTS = "..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8.
 PUZZLE_ZEROS = PUZZLE_DOTS.replace(".", "0")
 SOLUTION = "483921657967345821251876493548132976729564138136798245372689514814253769695417382"
 MULTIPLE_SOLUTIONS = "....7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+UNIQUE_SECOND = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
 
 
-def run(binary, args, root, input_text=None, expected=0, timeout=20):
+def isolated_env(root):
     env = os.environ.copy()
     env["XDG_DATA_HOME"] = str(root / "data")
     env["XDG_STATE_HOME"] = str(root / "state")
+    return env
+
+
+def run(binary, args, root, input_text=None, expected=0, timeout=20):
     result = subprocess.run(
         [binary, *args],
         input=input_text,
         capture_output=True,
         text=True,
-        env=env,
+        env=isolated_env(root),
         timeout=timeout,
     )
     output = result.stdout + result.stderr
@@ -379,6 +384,55 @@ def main():
             raise AssertionError("history reset deleted a puzzle")
         if not os.path.isfile(session):
             raise AssertionError("history reset changed an explicit save file")
+
+        # Independent processes import overlapping fixtures and read snapshots
+        # through the public command boundary against one SQLite file.
+        concurrent_database = root / "concurrent.db"
+        import_a = root / "concurrent-a.txt"
+        import_b = root / "concurrent-b.txt"
+        import_a.write_text((PUZZLE_DOTS + "\n" + UNIQUE_SECOND + "\n") * 6, encoding="utf-8")
+        import_b.write_text((UNIQUE_SECOND + "\n" + PUZZLE_DOTS + "\n") * 6, encoding="utf-8")
+        run(binary, ["import", "--file", str(import_a), "--db", str(concurrent_database)], root, timeout=30)
+        commands = [
+            [binary, "import", "--file", str(import_a), "--source", "concurrent-a", "--db", str(concurrent_database)],
+            [binary, "import", "--file", str(import_b), "--source", "concurrent-b", "--db", str(concurrent_database)],
+            [binary, "db", "stats", "--db", str(concurrent_database)],
+            [binary, "db", "stats", "--db", str(concurrent_database)],
+        ]
+        processes = [
+            subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=isolated_env(root))
+            for command in commands
+        ]
+        for command, process in zip(commands, processes):
+            try:
+                stdout, stderr = process.communicate(timeout=30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate()
+                raise AssertionError(f"concurrent process timed out: {' '.join(command[1:])}")
+            output = stdout + stderr
+            if process.returncode != 0 or "database error" in output.lower():
+                raise AssertionError(f"concurrent process failed: {' '.join(command[1:])}\n{output[-4000:]}")
+            if command[1:3] == ["db", "stats"]:
+                contains(output, "ACQUISITIONS", "COMPLETIONS", "overall")
+        rows = puzzle_rows(concurrent_database)
+        if len(rows) != 2:
+            raise AssertionError(f"overlapping concurrent imports stored {len(rows)} rows, want 2: {rows}")
+        with sqlite3.connect(concurrent_database) as connection:
+            by_difficulty = connection.execute(
+                "SELECT difficulty, COUNT(*) FROM puzzles GROUP BY difficulty ORDER BY difficulty"
+            ).fetchall()
+        for difficulty, count in by_difficulty:
+            for _ in range(count):
+                contains(
+                    run(binary, ["--from-db", "--level", difficulty, "--db", str(concurrent_database)], root, "q\n"),
+                    "Exiting the game.",
+                )
+        with sqlite3.connect(concurrent_database) as connection:
+            acquisitions = connection.execute("SELECT SUM(play_count) FROM puzzles").fetchone()[0]
+            integrity = connection.execute("PRAGMA quick_check").fetchone()[0]
+        if acquisitions != 2 or integrity != "ok":
+            raise AssertionError(f"post-contention state acquisitions={acquisitions}, quick_check={integrity}")
 
         # Generation validation and a tightly bounded real-worker smoke run.
         contains(run(binary, ["generate", "--count", "0"], root, expected=1), "count must be positive")

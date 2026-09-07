@@ -49,7 +49,7 @@ Pull-request CI separates unit tests, race detection, vet, lint, API contract ch
 
 Storage and command-wiring tests use fixed classified puzzles through the `cmd.batchGenerateWith` generation seam. Real randomized generation remains covered in `generator`, while `cmd` tests prove reporting and SQLite composition without waiting for a target difficulty. Solver fallback fixtures use `solver.Backtracker.SolveDeterministic`; randomized `solver.Backtracker.Solve` remains available for diverse full-board generation without making race-test duration depend on a lucky search path. These boundaries keep `go test -race -count=1 ./...` viable as a mandatory gate without weakening generation or fallback coverage.
 
-The API, TUI, and line-CLI harnesses build and execute the real binary with isolated temporary state. The line-CLI lane covers parsing, gameplay/history, durable sessions, import normalization and deduplication, bounded generation, and SQLite-visible composition. The public `--from-db` boundary deterministically covers exact-grade acquisition, migration, and balanced reuse; generated-fallback accounting uses focused package coverage.
+The API, TUI, and line-CLI harnesses build and execute the real binary with isolated temporary state. The line-CLI lane covers parsing, gameplay/history, durable sessions, import normalization and deduplication, bounded generation, and SQLite-visible composition. Its multi-process database case runs overlapping fixed-fixture imports and statistics readers against one file, then verifies acquisition counters and SQLite integrity after all writers close. The public `--from-db` boundary deterministically covers exact-grade acquisition, migration, and balanced reuse; generated-fallback accounting uses focused package coverage.
 
 ### Maintain Boundary Unit and Integration Coverage
 
@@ -64,10 +64,6 @@ The API, TUI, and line-CLI harnesses build and execute the real binary with isol
 Calibration runs from the stable CI baseline with deterministic classifier semantics and versioned mixed corpora. Easy through Evil are canonical strategy grades rather than predictions of player experience; score orders puzzles within a grade, clue count guides generation, and strategy-unsolved remains separate. `.aidoc/designs/difficulty-calibration.md` owns the current evidence, corpus contract, reproducibility metadata, measurements, and remaining decision gates.
 
 Calibration output remains local and telemetry-free. The 101-record corpus separates target-alignment failures from strategy-inventory stalls. Batch generation remains best-effort and stores each completed puzzle under its actual grade; per-puzzle wall-clock budgets are hard deadlines. Interactive play first uses an exact requested-grade result or database puzzle, then explicitly reports any actual-grade fallback. Technique-inventory changes remain separate; human data may support a later empirical player-difficulty layer but is not a prerequisite for strategy calibration.
-
-### Strengthen Concurrent SQLite Reliability
-
-`.aidoc/designs/database-concurrency.md` defines the active database increment: apply SQLite connection policy predictably across pooled connections and prove deterministic mixed access from goroutines, independent handles, and built-binary processes. The work preserves the schema and commands.
 
 ### Keep Later Database Decisions Separate
 
