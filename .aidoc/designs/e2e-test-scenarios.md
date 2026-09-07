@@ -13,7 +13,7 @@ dependencies:
 
 # E2E Test Scenarios
 
-The E2E index maps every black-box acceptance boundary to a focused scenario catalog and executable harness. `AGENT.md` requires contributors to choose and run every affected catalog before review.
+The E2E index maps every black-box acceptance boundary to a focused scenario catalog and executable harness. `AGENT.md` owns the contributor verification requirements.
 
 ## Related Docs
 
@@ -46,7 +46,7 @@ End-to-end tests treat the built Sudoku binary as a user would, outside Go packa
 
 Every automated black-box entry point builds or receives the repository binary and owns isolated temporary XDG roots. `scripts/e2e_cli.py` covers root play, sessions, calibration, generation, import, and SQLite composition. `scripts/e2e_tui.py` owns pseudo-terminal behavior and recovery. `scripts/e2e_api.py` owns the running HTTP lifecycle, while `scripts/check-api-contract.sh` validates OpenAPI compatibility.
 
-The harnesses use fixed puzzle fixtures whenever deterministic assertions matter. Generation smoke tests bound real generation and verify command, worker, and database composition without asserting a random difficulty result. The public `--from-db` boundary provides deterministic exact-grade acquisition and migration coverage; focused package tests cover generated-fallback accounting. The proposed play-statistics increment extends the database catalog across the line CLI, TUI, and API so completion semantics cannot drift between frontends.
+The harnesses use fixed puzzle fixtures whenever deterministic assertions matter. Generation smoke tests bound real generation and verify command, worker, and database composition without asserting a random difficulty result. The public `--from-db` boundary provides deterministic exact-grade acquisition and migration coverage; focused package tests cover generated-fallback accounting. Play-statistics coverage spans the line CLI, TUI, and API so completion semantics cannot drift between frontends.
 
 ## Running the Catalogs
 

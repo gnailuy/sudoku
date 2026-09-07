@@ -71,4 +71,4 @@ Automatic candidates use two implementation layers:
 1. Extend detached snapshots with computed legal candidates and contract tests for empty, filled, invalid-visible, changed, restored, and mutation-isolation cases.
 2. Add the TUI toggle, combined note/candidate rendering, help text, theme tests, and pseudo-terminal black-box coverage.
 
-Package tests verify deterministic candidate derivation and rendering in dark, light, and no-color modes. Black-box tests verify toggle default and keyboard behavior, value and clear updates, undo/redo, hint application, reset, save/resume, invalid-entry suppression, resize, dirty-state neutrality, and coexistence with legal and stale manual notes. Existing CLI and TUI scenarios remain green, and GitHub CI must pass before review.
+Package tests verify deterministic candidate derivation and rendering in dark, light, and no-color modes. Black-box tests verify toggle default and keyboard behavior, value and clear updates, undo/redo, hint application, reset, save/resume, invalid-entry suppression, resize, dirty-state neutrality, and coexistence with legal and stale manual notes.

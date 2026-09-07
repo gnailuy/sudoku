@@ -63,8 +63,13 @@ go build && go test ./...
 
 ### Documentation
 
-- Keep `.aidoc/` docs in sync with code changes in the same PR.
+- Maintain `.aidoc/` throughout development; every code or workflow change updates affected docs in the same PR rather than deferring documentation cleanup.
 - Follow DocGuidelines: docs capture the *why* and *constraints*, not the *how* that code already expresses.
+- Describe only current state and approved future direction. Git owns history; remove completed work from the roadmap and remove superseded proposal or delivery language from other docs.
+- Keep active contributor instructions, review gates, and execution checklists in `AGENT.md`; design docs retain rationale, invariants, and verification facts.
+- Keep documents near 100 lines. Split or compress documents over 120 lines unless an index or reference map clearly benefits from the extra length.
+- Make each paragraph self-contained by naming its subject instead of relying on context-dependent pronouns.
+- Audit every affected `.aidoc/` document against all DocGuidelines before review; documentation-wide changes require a full `.aidoc/` audit.
 - `README.md` is for humans; `.aidoc/` is for AI agents.
 
 ## Domain Context
