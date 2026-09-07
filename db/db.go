@@ -5,8 +5,10 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -16,7 +18,11 @@ type DB struct {
 	conn *sql.DB
 }
 
-const busyTimeoutMilliseconds = 5000
+const (
+	busyTimeoutMilliseconds  = 5000
+	sqliteBusyCode           = 5
+	journalModeRetryInterval = 10 * time.Millisecond
+)
 
 // Open opens (or creates) a SQLite database at the given path and runs
 // schema migrations. Use ":memory:" for an in-memory database.
@@ -31,8 +37,11 @@ func Open(path string) (*DB, error) {
 	conn.SetMaxOpenConns(1)
 	conn.SetMaxIdleConns(1)
 
-	// Enable WAL mode for better concurrent read performance.
-	if _, err := conn.Exec("PRAGMA journal_mode=WAL"); err != nil {
+	// Enable WAL mode for better concurrent read performance. SQLite can
+	// return SQLITE_BUSY before its busy handler while another connection is
+	// changing journal mode, so keep this initialization retry bounded by the
+	// same timeout as ordinary lock waits.
+	if err := enableWAL(conn, path == ":memory:"); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("set WAL mode: %w", err)
 	}
@@ -133,6 +142,29 @@ func tableColumns(queryer queryContext, table string) (map[string]bool, error) {
 		columns[name] = true
 	}
 	return columns, rows.Err()
+}
+
+func enableWAL(conn *sql.DB, inMemory bool) error {
+	deadline := time.Now().Add(time.Duration(busyTimeoutMilliseconds) * time.Millisecond)
+	for {
+		var mode string
+		err := conn.QueryRow(`PRAGMA journal_mode=WAL`).Scan(&mode)
+		if err == nil {
+			if strings.EqualFold(mode, "wal") || inMemory && strings.EqualFold(mode, "memory") {
+				return nil
+			}
+			return fmt.Errorf("journal mode is %q", mode)
+		}
+		if !isSQLiteBusy(err) || time.Now().Add(journalModeRetryInterval).After(deadline) {
+			return err
+		}
+		time.Sleep(journalModeRetryInterval)
+	}
+}
+
+func isSQLiteBusy(err error) bool {
+	var coded interface{ Code() int }
+	return errors.As(err, &coded) && coded.Code()&0xff == sqliteBusyCode
 }
 
 func sqliteDataSource(path string) string {

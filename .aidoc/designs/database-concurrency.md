@@ -42,7 +42,7 @@ An explicit connection and contention contract keeps local database behavior pre
 - Atomic operations retain their existing meaning under contention: acquisition selects and increments one row, completion increments are not lost, statistics rows agree with their overall snapshot, and reset exposes either the state before or after its full transaction.
 - Closing and reopening the database preserves committed rows and counters. SQLite integrity checks must report `ok` after the workload.
 
-`db.Open` limits each handle to one pooled connection before migration and configures the busy timeout in the driver data source so a replacement connection retains the policy. No application-level mutex coordinates separate handles or processes.
+`db.Open` limits each handle to one pooled connection before migration and configures the busy timeout in the driver data source so a replacement connection retains the policy. Journal-mode initialization confirms WAL and retries only `SQLITE_BUSY` within the same five-second bound because SQLite may bypass its busy handler while another connection changes journal mode. No application-level mutex coordinates separate handles or processes.
 
 ## Deterministic Stress Model
 
