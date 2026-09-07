@@ -9,6 +9,7 @@ dependencies:
   - .aidoc/designs/database-puzzle-selection.md
   - .aidoc/designs/database-play-statistics.md
   - .aidoc/designs/e2e-database-scenarios.md
+  - .aidoc/designs/database-large-import.md
 ---
 
 # Concurrent SQLite Reliability
@@ -22,6 +23,7 @@ Sudoku treats one SQLite file as a safe local coordination boundary for concurre
 | `.aidoc/designs/database-puzzle-selection.md` | Defines atomic exact-grade acquisition and balanced reuse |
 | `.aidoc/designs/database-play-statistics.md` | Defines completion, snapshot, and atomic reset semantics |
 | `.aidoc/designs/e2e-database-scenarios.md` | Owns black-box multi-process acceptance scenarios |
+| `.aidoc/designs/database-large-import.md` | Builds bounded import transactions and partial success on this lock contract |
 | `.aidoc/designs/roadmap.md` | Sequences this reliability increment before import-policy changes |
 
 ## Why Concurrency Needs an Explicit Contract
@@ -85,7 +87,6 @@ The harness uses isolated XDG roots, a fixed process count, subprocess deadlines
 
 ## Deferred Decisions
 
-- Large-import progress and batching policy.
 - Minimum-clue, uniqueness, and solver-cost admission policy.
 - Backup/restore commands, corruption recovery, and operational maintenance.
 - Network filesystems, distributed databases, accounts, and multi-tenant storage.
