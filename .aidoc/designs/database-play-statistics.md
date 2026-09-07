@@ -84,4 +84,4 @@ Package tests cover migration, atomic increments, filtered snapshots, reset scop
 
 ## Deferred Decisions
 
-Abandonment, elapsed duration, durable attempt identities, player attribution, telemetry, minimum-clue policy, and full Sudoku-symmetry canonicalization remain separate decisions. `.aidoc/designs/database-large-import.md` owns the independently reviewed import behavior.
+Abandonment, elapsed duration, durable attempt identities, player attribution, telemetry, minimum-clue policy, and full Sudoku-symmetry canonicalization remain separate decisions that require a concrete product need.

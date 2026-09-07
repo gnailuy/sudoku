@@ -7,7 +7,6 @@ entry_points:
 dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/game-engine.md
-  - .aidoc/designs/database-large-import.md
 ---
 
 # E2E Import Scenarios
@@ -19,7 +18,6 @@ The import scenario catalog verifies file parsing, normalization, source labels,
 | Document | Relationship |
 |----------|-------------|
 | `.aidoc/designs/e2e-test-scenarios.md` | E2E discovery map, isolation rules, and automation entry points |
-| `.aidoc/designs/database-large-import.md` | Defines multi-batch, interruption, partial-success, and resource-bound behavior |
 | `AGENT.md` | Required black-box verification discipline |
 
 ## Why This Boundary
@@ -55,25 +53,5 @@ Import accepts mixed external text and writes persistent records. Black-box cove
 ### 5.7 Import Dedup
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
 **Expected:** Second import reports all as duplicates.
-
-### 5.8 Large Multi-Batch Import
-**Action:** Execute the matching case in `scripts/e2e_cli.py` with a fixed input spanning several internal batches.
-**Expected:** Progress exposes processed and committed counters; the final report and database contain the exact unique, duplicate, and invalid totals.
-
-### 5.9 Interrupted Import and Rerun
-**Action:** Start a fixed multi-batch import, send Ctrl-C after a committed progress update, then rerun the same file.
-**Expected:** The interrupted process reports committed and pending totals and exits interrupted. The rerun completes all rows through deduplication without changing existing history.
-
-### 5.10 Database Failure After Partial Success
-**Action:** Hold a write lock after at least one import batch commits and keep it beyond the bounded busy timeout.
-**Expected:** The active batch rolls back, the command prints a partial report and exits non-zero, earlier batches remain durable, and rerun completes the file.
-
-### 5.11 Import Resource Bounds
-**Action:** Import a file containing an oversized line, then attempt a non-regular input and an input larger than the file-size limit.
-**Expected:** The oversized line is skipped with its line number while later valid lines succeed. Unsupported or oversized files fail before database mutation.
-
-### 5.12 Import Integrity After Resume
-**Action:** Inspect the database after interruption, failure, and successful rerun using the standard-library SQLite client.
-**Expected:** Row and history counters match the exact oracle, no partial batch is visible, and `PRAGMA quick_check` returns `ok`.
 
 ---
