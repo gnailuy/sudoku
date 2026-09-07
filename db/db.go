@@ -3,8 +3,10 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -14,24 +16,26 @@ type DB struct {
 	conn *sql.DB
 }
 
+const busyTimeoutMilliseconds = 5000
+
 // Open opens (or creates) a SQLite database at the given path and runs
 // schema migrations. Use ":memory:" for an in-memory database.
 func Open(path string) (*DB, error) {
-	conn, err := sql.Open("sqlite", path)
+	conn, err := sql.Open("sqlite", sqliteDataSource(path))
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+
+	// One pooled connection keeps each handle's operation order explicit. The
+	// DSN reapplies the busy timeout if database/sql replaces that connection.
+	conn.SetMaxOpenConns(1)
+	conn.SetMaxIdleConns(1)
 
 	// Enable WAL mode for better concurrent read performance.
 	if _, err := conn.Exec("PRAGMA journal_mode=WAL"); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("set WAL mode: %w", err)
 	}
-	if _, err := conn.Exec("PRAGMA busy_timeout=5000"); err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("set busy timeout: %w", err)
-	}
-
 	db := &DB{conn: conn}
 	if err := db.migrate(); err != nil {
 		conn.Close()
@@ -47,8 +51,22 @@ func (db *DB) Close() error {
 }
 
 // migrate creates the puzzles table and applies additive schema changes.
-func (db *DB) migrate() error {
-	if _, err := db.conn.Exec(`
+func (db *DB) migrate() (err error) {
+	conn, err := db.conn.Conn(context.Background())
+	if err != nil {
+		return fmt.Errorf("acquire migration connection: %w", err)
+	}
+	defer conn.Close()
+	if _, err = conn.ExecContext(context.Background(), `BEGIN IMMEDIATE`); err != nil {
+		return fmt.Errorf("begin migration: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_, _ = conn.ExecContext(context.Background(), `ROLLBACK`)
+		}
+	}()
+
+	if _, err = conn.ExecContext(context.Background(), `
 		CREATE TABLE IF NOT EXISTS puzzles (
 			puzzle         TEXT PRIMARY KEY,
 			difficulty     TEXT NOT NULL,
@@ -62,39 +80,44 @@ func (db *DB) migrate() error {
 			created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
 	`); err != nil {
-		return err
+		return fmt.Errorf("create puzzles table: %w", err)
 	}
 
-	columns, err := db.tableColumns("puzzles")
+	columns, err := tableColumns(conn, "puzzles")
 	if err != nil {
 		return err
 	}
-	if !columns["play_count"] {
-		if _, err := db.conn.Exec(`ALTER TABLE puzzles ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0`); err != nil {
-			return fmt.Errorf("add play_count: %w", err)
+	additions := []struct {
+		name string
+		sql  string
+	}{
+		{"play_count", `ALTER TABLE puzzles ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0`},
+		{"last_played_at", `ALTER TABLE puzzles ADD COLUMN last_played_at TIMESTAMP`},
+		{"completion_count", `ALTER TABLE puzzles ADD COLUMN completion_count INTEGER NOT NULL DEFAULT 0`},
+		{"last_completed_at", `ALTER TABLE puzzles ADD COLUMN last_completed_at TIMESTAMP`},
+	}
+	for _, addition := range additions {
+		if !columns[addition.name] {
+			if _, err = conn.ExecContext(context.Background(), addition.sql); err != nil {
+				return fmt.Errorf("add %s: %w", addition.name, err)
+			}
 		}
 	}
-	if !columns["last_played_at"] {
-		if _, err := db.conn.Exec(`ALTER TABLE puzzles ADD COLUMN last_played_at TIMESTAMP`); err != nil {
-			return fmt.Errorf("add last_played_at: %w", err)
-		}
+	if _, err = conn.ExecContext(context.Background(), `CREATE INDEX IF NOT EXISTS puzzles_acquisition_idx ON puzzles (difficulty, play_count, last_played_at)`); err != nil {
+		return fmt.Errorf("create acquisition index: %w", err)
 	}
-	if !columns["completion_count"] {
-		if _, err := db.conn.Exec(`ALTER TABLE puzzles ADD COLUMN completion_count INTEGER NOT NULL DEFAULT 0`); err != nil {
-			return fmt.Errorf("add completion_count: %w", err)
-		}
+	if _, err = conn.ExecContext(context.Background(), `COMMIT`); err != nil {
+		return fmt.Errorf("commit migration: %w", err)
 	}
-	if !columns["last_completed_at"] {
-		if _, err := db.conn.Exec(`ALTER TABLE puzzles ADD COLUMN last_completed_at TIMESTAMP`); err != nil {
-			return fmt.Errorf("add last_completed_at: %w", err)
-		}
-	}
-	_, err = db.conn.Exec(`CREATE INDEX IF NOT EXISTS puzzles_acquisition_idx ON puzzles (difficulty, play_count, last_played_at)`)
-	return err
+	return nil
 }
 
-func (db *DB) tableColumns(table string) (map[string]bool, error) {
-	rows, err := db.conn.Query(`PRAGMA table_info(` + table + `)`)
+type queryContext interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
+func tableColumns(queryer queryContext, table string) (map[string]bool, error) {
+	rows, err := queryer.QueryContext(context.Background(), `PRAGMA table_info(`+table+`)`)
 	if err != nil {
 		return nil, fmt.Errorf("inspect %s columns: %w", table, err)
 	}
@@ -110,4 +133,15 @@ func (db *DB) tableColumns(table string) (map[string]bool, error) {
 		columns[name] = true
 	}
 	return columns, rows.Err()
+}
+
+func sqliteDataSource(path string) string {
+	if path == ":memory:" {
+		path = "file::memory:?mode=memory&cache=private"
+	}
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+	return fmt.Sprintf("%s%s_pragma=busy_timeout%%3d%d", path, separator, busyTimeoutMilliseconds)
 }
