@@ -9,7 +9,6 @@ dependencies:
   - .aidoc/designs/difficulty-model.md
   - .aidoc/designs/database-play-statistics.md
   - .aidoc/designs/database-concurrency.md
-  - .aidoc/designs/database-large-import.md
   - .aidoc/designs/e2e-database-scenarios.md
 ---
 
@@ -24,9 +23,8 @@ Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, an
 | `.aidoc/designs/difficulty-model.md` | Defines the exact strategy-grade contract used by selection |
 | `.aidoc/designs/database-play-statistics.md` | Keeps completion counters and history reset separate from acquisition semantics |
 | `.aidoc/designs/database-concurrency.md` | Extends atomic acquisition into a mixed-handle and multi-process reliability contract |
-| `.aidoc/designs/database-large-import.md` | Preserves normalized identity and history across batched imports and reruns |
 | `.aidoc/designs/e2e-database-scenarios.md` | Owns black-box acceptance scenarios for acquisition and migration |
-| `.aidoc/designs/roadmap.md` | Sequences this behavior before other database enhancements |
+| `.aidoc/designs/roadmap.md` | Maintains the quality gates that protect this selection baseline |
 
 ## Why Track Acquisition
 
@@ -81,4 +79,4 @@ Existing rows receive a zero count and no timestamp, so the first post-upgrade c
 - If acquisition or played-state persistence fails, default play follows its existing generated fallback. `--from-db` reports the database error because it has no permitted alternate source.
 - Statistics continue to report stored puzzle counts. `.aidoc/designs/database-play-statistics.md` defines the separately reviewed acquisition/completion statistics and reset increment.
 
-Minimum-clue and uniqueness-admission policy remain separate follow-ups. Large-import behavior preserves this document's identity and history semantics.
+Puzzle-admission changes, including minimum-clue and uniqueness policy, require a separately approved product need. The current identity and history semantics remain the maintained database baseline.

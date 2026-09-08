@@ -54,12 +54,11 @@ The project index provides reading chains for common starting points and a compl
 15. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and migration contract
 16. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
 17. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
-18. `.aidoc/designs/database-large-import.md` — measurement, transaction, interruption, progress, and rerun contract
-19. `db/db.go` — SQLite database open/close/migrate
-20. `db/puzzle.go` — puzzle CRUD, random query by difficulty, dedup
-21. `cmd/play.go` — fallback flow (generator → DB lookup → graceful degradation) and auto-store
-22. `cmd/generate.go` — batch generation CLI (parallel workers, progress, report)
-23. `cmd/import.go` — import CLI (file parsing, normalization, dedup, report)
+18. `db/db.go` — SQLite database open/close/migrate
+19. `db/puzzle.go` — puzzle CRUD, random query by difficulty, dedup
+20. `cmd/play.go` — fallback flow (generator → DB lookup → graceful degradation) and auto-store
+21. `cmd/generate.go` — batch generation CLI (parallel workers, progress, report)
+22. `cmd/import.go` — import CLI (file parsing, normalization, dedup, report)
 
 ### Understanding the Roadmap
 1. `.aidoc/designs/roadmap.md` — stabilization priorities, sequencing, and exit criteria
@@ -69,14 +68,13 @@ The project index provides reading chains for common starting points and a compl
 5. `.aidoc/designs/database-puzzle-selection.md` — current database behavior, migration, and acceptance boundary
 6. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and explicit reset behavior
 7. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
-8. `.aidoc/designs/database-large-import.md` — measured batching, partial success, progress, and safe rerun contract
-9. `.aidoc/designs/future-directions.md` — deliberately non-priority product and production directions
-10. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
-11. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
-12. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
-13. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
-14. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
-15. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+8. `.aidoc/designs/future-directions.md` — evidence-gated database, product, and production directions
+9. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
+10. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
+11. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
+12. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
+13. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
+14. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
@@ -110,7 +108,6 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/database-puzzle-selection.md` | Current exact-grade acquisition, played-state recycling, migration, and acceptance contract |
 | `.aidoc/designs/database-play-statistics.md` | Current completion counters, acquisition/completion statistics, and explicit history reset |
 | `.aidoc/designs/database-concurrency.md` | SQLite connection policy, mixed-workload stress, and multi-process acceptance contract |
-| `.aidoc/designs/database-large-import.md` | Measured transaction batching, partial success, interruption, progress, and safe rerun contract |
 | `.aidoc/designs/future-directions.md` | Non-priority product and production directions with decision gates |
 | `.aidoc/designs/web-api.md` | Contract-first OpenAPI workflow, resources, revisions, recovery, client access, and network security boundary |
 | `.aidoc/designs/background-autosave.md` | Background autosave lifecycle, privacy, retention, and conflict design |
