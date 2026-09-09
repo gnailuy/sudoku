@@ -697,7 +697,7 @@ func validateJSONRequest(path string, data []byte) error {
 			return errors.New("source kind is required")
 		}
 		if kind == "difficulty" {
-			if err := requireKeys(source, "kind", "value"); err != nil {
+			if err := requireKeys(source, "kind", "difficulty"); err != nil {
 				return err
 			}
 		} else if kind == "puzzle" {

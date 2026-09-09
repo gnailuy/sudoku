@@ -90,6 +90,15 @@ def main():
             session_id = created["id"]
             expect(created["revision"], 0, "initial revision")
 
+            status, difficulty_session, _ = request(
+                base,
+                "POST",
+                "/api/v1/sessions",
+                {"source": {"kind": "difficulty", "difficulty": "easy"}},
+            )
+            expect(status, 201, "create by canonical difficulty source")
+            expect(difficulty_session["revision"], 0, "difficulty initial revision")
+
             expect(request(base, "POST", "/api/v1/sessions", b"{}", headers={"Origin": ORIGIN})[2].get("Access-Control-Allow-Origin"), ORIGIN, "allowed origin")
             expect(request(base, "OPTIONS", "/api/v1/sessions", headers={"Origin": "http://denied.example", "Access-Control-Request-Method": "POST"})[0], 403, "denied origin")
             expect(request(base, "POST", "/api/v1/sessions", {"source": {"kind": "puzzle", "puzzle": PUZZLE}, "extra": True})[0], 400, "unknown field")
