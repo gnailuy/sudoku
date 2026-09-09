@@ -69,6 +69,14 @@ func createTestSession(t *testing.T, handler http.Handler, headers map[string]st
 	return session
 }
 
+func TestCreateSessionAcceptsCanonicalDifficultySource(t *testing.T) {
+	handler, _, _ := testHandler(t, "", nil)
+	w := request(t, handler, http.MethodPost, "/api/v1/sessions", "application/json", `{"source":{"kind":"difficulty","difficulty":"easy"}}`, nil)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
 func TestSessionLifecycleRecoveryAndTransfer(t *testing.T) {
 	handler, recoveryStore, options := testHandler(t, "", nil)
 	session := createTestSession(t, handler, nil)
