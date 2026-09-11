@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -161,6 +162,26 @@ func TestSecurityCORSAndRequestValidation(t *testing.T) {
 	large := strings.Repeat("x", MaxRequestBytes+1)
 	if w := request(t, handler, http.MethodPost, "/api/v1/sessions", "application/json", large, auth); w.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("large status=%d", w.Code)
+	}
+}
+
+func TestSetNotesActionReplacesNotesInOneRevision(t *testing.T) {
+	handler, _, _ := testHandler(t, "", nil)
+	session := createTestSession(t, handler, nil)
+	path := "/api/v1/sessions/" + session.Id + "/actions"
+	w := request(t, handler, http.MethodPost, path, "application/json", `{"kind":"set-notes","expected_revision":0,"row":1,"column":1,"values":[1,3,9]}`, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("set-notes status=%d body=%s", w.Code, w.Body.String())
+	}
+	var response ActionResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Revision != 1 || response.Result.Action != "set-notes" || !slices.Equal(response.Snapshot.Notes[0][0], []int{1, 3, 9}) {
+		t.Fatalf("unexpected response: %+v", response)
+	}
+	if duplicate := request(t, handler, http.MethodPost, path, "application/json", `{"kind":"set-notes","expected_revision":1,"row":1,"column":1,"values":[2,2]}`, nil); duplicate.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("duplicate values status=%d body=%s", duplicate.Code, duplicate.Body.String())
 	}
 }
 

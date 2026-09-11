@@ -46,8 +46,8 @@ The harness calls the running `sudoku api` process rather than importing Go hand
 **Expected:** The OpenAPI 3.1.1 contract is valid and lint-clean, generation is reproducible, no unapproved breaking change is reported, documented examples match runtime responses, and no implemented route is absent from the contract.
 
 ### 11.4 Actions, Hints, and Revision Conflicts
-**Action:** Enter values and notes, preview/apply a hint, undo/redo, and submit two actions with the same expected revision.
-**Expected:** Accepted mutations increment revisions once and match engine semantics. Hint preview is read-only. The delayed mutation returns `409` with current state and never overwrites the accepted action.
+**Action:** Enter values, atomically replace a cell's complete note set, preview/apply a hint, undo/redo, and submit two actions with the same expected revision.
+**Expected:** Accepted mutations increment revisions once and match engine semantics. A multi-digit note replacement produces one revision and one undo record. Hint preview is read-only. The delayed mutation returns `409` with current state and never overwrites the accepted action.
 
 ### 11.5 Restart Recovery and Discard
 **Action:** Mutate two API sessions, stop and restart the server, reconnect to both, then discard one.

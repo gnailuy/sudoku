@@ -62,6 +62,7 @@ const (
 	ActionRedo       ActionKind = "redo"
 	ActionApplyHint  ActionKind = "apply-hint"
 	ActionToggleNote ActionKind = "toggle-note"
+	ActionSetNotes   ActionKind = "set-notes"
 	ActionClearNotes ActionKind = "clear-notes"
 	ActionRepair     ActionKind = "repair"
 	ActionSolve      ActionKind = "solve"
@@ -113,6 +114,14 @@ type ToggleNote struct {
 }
 
 func (ToggleNote) actionKind() ActionKind { return ActionToggleNote }
+
+// SetNotes atomically replaces all manual notes on an editable empty cell.
+type SetNotes struct {
+	Position core.Position
+	Values   []int
+}
+
+func (SetNotes) actionKind() ActionKind { return ActionSetNotes }
 
 // ClearNotes removes all manual notes from an editable empty cell.
 type ClearNotes struct{ Position core.Position }
@@ -276,6 +285,8 @@ func (game *Game) Apply(action Action) (Result, error) {
 		}
 	case ToggleNote:
 		err = game.toggleNote(typed.Position, typed.Value)
+	case SetNotes:
+		err = game.setNotes(typed.Position, typed.Values)
 	case ClearNotes:
 		err = game.clearNotes(typed.Position)
 	case Repair:
@@ -349,6 +360,26 @@ func (game *Game) toggleNote(position core.Position, value int) error {
 	} else {
 		game.notes[position.Row][position.Column].Add(value)
 	}
+	game.recordTransition(before)
+	return nil
+}
+
+func (game *Game) setNotes(position core.Position, values []int) error {
+	if !position.IsValid() {
+		return invalidCellError(position, 0)
+	}
+	if err := game.validateNoteCell(position); err != nil {
+		return err
+	}
+	var notes core.CandidateSet
+	for _, value := range values {
+		if value < 1 || value > 9 || notes.Has(value) {
+			return invalidCellError(position, value)
+		}
+		notes.Add(value)
+	}
+	before := game.captureState()
+	game.notes[position.Row][position.Column] = notes
 	game.recordTransition(before)
 	return nil
 }

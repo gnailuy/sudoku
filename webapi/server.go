@@ -540,6 +540,19 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 			return nil, 0, e
 		}
 		return game.ToggleNote{Position: p, Value: v.Value}, v.ExpectedRevision, nil
+	case "set-notes":
+		v, e := body.AsSetNotesAction()
+		if e != nil {
+			return nil, 0, e
+		}
+		p, e := position(v.Row, v.Column)
+		if e != nil {
+			return nil, 0, e
+		}
+		if e = validRevision(v.ExpectedRevision); e != nil {
+			return nil, 0, e
+		}
+		return game.SetNotes{Position: p, Values: append([]int(nil), v.Values...)}, v.ExpectedRevision, nil
 	case "clear-notes":
 		v, e := body.AsClearNotesAction()
 		if e != nil {
@@ -716,6 +729,8 @@ func validateJSONRequest(path string, data []byte) error {
 		switch kind {
 		case "set-value", "toggle-note":
 			keys = append(keys, "row", "column", "value")
+		case "set-notes":
+			keys = append(keys, "row", "column", "values")
 		case "clear-value", "clear-notes":
 			keys = append(keys, "row", "column")
 		case "reset", "undo", "redo", "apply-hint", "repair", "solve":

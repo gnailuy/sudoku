@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/gnailuy/sudoku/core"
@@ -170,6 +171,36 @@ func TestApplyValueActionsAndHistory(t *testing.T) {
 		t.Fatalf("Apply(ClearValue) returned error: %v", err)
 	}
 	assertSingleChange(t, result, position, 4, 0)
+}
+
+func TestApplySetNotesIsAtomicAndUndoable(t *testing.T) {
+	game := newTestGame()
+	position := core.NewPosition(0, 2)
+
+	result, err := game.Apply(SetNotes{Position: position, Values: []int{1, 3, 9}})
+	if err != nil {
+		t.Fatalf("Apply(SetNotes) returned error: %v", err)
+	}
+	if result.Action != ActionSetNotes || len(result.Changes) != 1 {
+		t.Fatalf("unexpected set-notes result: %+v", result)
+	}
+	if got, want := result.Changes[0].NotesAfter.Values(), []int{1, 3, 9}; !slices.Equal(got, want) {
+		t.Fatalf("notes=%v, want %v", got, want)
+	}
+	if _, err := game.Apply(Undo{}); err != nil {
+		t.Fatal(err)
+	}
+	if !game.Snapshot().Notes[0][2].IsEmpty() {
+		t.Fatal("undo did not restore notes")
+	}
+
+	before := game.Snapshot()
+	if _, err := game.Apply(SetNotes{Position: position, Values: []int{2, 2}}); !errors.Is(err, &EngineError{Code: ErrorInvalidCell}) {
+		t.Fatalf("duplicate notes returned %v", err)
+	}
+	if after := game.Snapshot(); after != before {
+		t.Fatal("invalid set-notes action mutated the game")
+	}
 }
 
 func TestApplyReturnsTypedErrorsWithoutMutation(t *testing.T) {

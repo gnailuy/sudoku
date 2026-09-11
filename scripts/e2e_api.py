@@ -106,10 +106,11 @@ def main():
             path = f"/api/v1/sessions/{session_id}"
             expect(request(base, "GET", path)[0], 200, "get")
             expect(request(base, "GET", path + "/hint")[0], 200, "hint")
-            action = {"kind": "toggle-note", "expected_revision": 0, "row": 1, "column": 1, "value": 1}
+            action = {"kind": "set-notes", "expected_revision": 0, "row": 1, "column": 1, "values": [1, 3, 9]}
             status, changed, _ = request(base, "POST", path + "/actions", action)
-            expect(status, 200, "action")
-            expect(changed["revision"], 1, "mutated revision")
+            expect(status, 200, "batch note action")
+            expect(changed["revision"], 1, "single batch-note revision")
+            expect(changed["snapshot"]["notes"][0][0], [1, 3, 9], "authoritative batch notes")
             expect(request(base, "POST", path + "/actions", action)[0], 409, "stale revision")
 
             status, completion, _ = request(base, "POST", "/api/v1/sessions", {"source": {"kind": "puzzle", "puzzle": NEARLY_SOLVED}})
