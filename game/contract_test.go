@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/gnailuy/sudoku/core"
@@ -80,7 +81,7 @@ func TestSnapshotCandidatesFollowSolverSafeBoard(t *testing.T) {
 		t.Fatal("test board needs a row peer that initially allows 4")
 	}
 
-	if _, err := game.Apply(ToggleNote{Position: target, Value: 9}); err != nil {
+	if _, err := game.Apply(SetNotes{Position: target, Values: []int{9}}); err != nil {
 		t.Fatal(err)
 	}
 	if got := game.Snapshot().Candidates; got != initial.Candidates {
@@ -170,6 +171,36 @@ func TestApplyValueActionsAndHistory(t *testing.T) {
 		t.Fatalf("Apply(ClearValue) returned error: %v", err)
 	}
 	assertSingleChange(t, result, position, 4, 0)
+}
+
+func TestApplySetNotesIsAtomicAndUndoable(t *testing.T) {
+	game := newTestGame()
+	position := core.NewPosition(0, 2)
+
+	result, err := game.Apply(SetNotes{Position: position, Values: []int{1, 3, 9}})
+	if err != nil {
+		t.Fatalf("Apply(SetNotes) returned error: %v", err)
+	}
+	if result.Action != ActionSetNotes || len(result.Changes) != 1 {
+		t.Fatalf("unexpected set-notes result: %+v", result)
+	}
+	if got, want := result.Changes[0].NotesAfter.Values(), []int{1, 3, 9}; !slices.Equal(got, want) {
+		t.Fatalf("notes=%v, want %v", got, want)
+	}
+	if _, err := game.Apply(Undo{}); err != nil {
+		t.Fatal(err)
+	}
+	if !game.Snapshot().Notes[0][2].IsEmpty() {
+		t.Fatal("undo did not restore notes")
+	}
+
+	before := game.Snapshot()
+	if _, err := game.Apply(SetNotes{Position: position, Values: []int{2, 2}}); !errors.Is(err, &EngineError{Code: ErrorInvalidCell}) {
+		t.Fatalf("duplicate notes returned %v", err)
+	}
+	if after := game.Snapshot(); after != before {
+		t.Fatal("invalid set-notes action mutated the game")
+	}
 }
 
 func TestApplyReturnsTypedErrorsWithoutMutation(t *testing.T) {
@@ -281,11 +312,11 @@ func TestNoteActionsAndUnifiedHistory(t *testing.T) {
 	game := newTestGame()
 	position := core.NewPosition(0, 2)
 
-	result, err := game.Apply(ToggleNote{Position: position, Value: 4})
+	result, err := game.Apply(SetNotes{Position: position, Values: []int{4}})
 	if err != nil {
-		t.Fatalf("Apply(ToggleNote) returned error: %v", err)
+		t.Fatalf("Apply(SetNotes) returned error: %v", err)
 	}
-	if result.Action != ActionToggleNote || !result.Changes[0].NotesAfter.Has(4) {
+	if result.Action != ActionSetNotes || !result.Changes[0].NotesAfter.Has(4) {
 		t.Fatalf("unexpected toggle result: %+v", result)
 	}
 	if !game.Snapshot().Notes[0][2].Has(4) {
@@ -332,7 +363,7 @@ func TestSetValueCleansPeerNotesAtomically(t *testing.T) {
 	nonPeer := core.NewPosition(4, 1)
 
 	for _, position := range append(peers, target, nonPeer) {
-		if _, err := game.Apply(ToggleNote{Position: position, Value: 4}); err != nil {
+		if _, err := game.Apply(SetNotes{Position: position, Values: []int{4}}); err != nil {
 			t.Fatalf("add note at %v: %v", position, err)
 		}
 	}
@@ -364,16 +395,16 @@ func TestSetValueCleansPeerNotesAtomically(t *testing.T) {
 	}
 }
 
-func TestClearNotesAndRedoTruncation(t *testing.T) {
+func TestSetNotesAndRedoTruncation(t *testing.T) {
 	game := newTestGame()
 	position := core.NewPosition(0, 2)
-	if _, err := game.Apply(ToggleNote{Position: position, Value: 3}); err != nil {
+	if _, err := game.Apply(SetNotes{Position: position, Values: []int{3}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := game.Apply(ToggleNote{Position: position, Value: 4}); err != nil {
+	if _, err := game.Apply(SetNotes{Position: position, Values: []int{3, 4}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := game.Apply(ClearNotes{Position: position}); err != nil {
+	if _, err := game.Apply(SetNotes{Position: position}); err != nil {
 		t.Fatal(err)
 	}
 	if !game.Snapshot().Notes[0][2].IsEmpty() {
@@ -382,7 +413,7 @@ func TestClearNotesAndRedoTruncation(t *testing.T) {
 	if _, err := game.Apply(Undo{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := game.Apply(ToggleNote{Position: position, Value: 5}); err != nil {
+	if _, err := game.Apply(SetNotes{Position: position, Values: []int{3, 4, 5}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := game.Apply(Redo{}); !errors.Is(err, &EngineError{Code: ErrorNoRedo}) {
@@ -402,10 +433,10 @@ func TestNoteErrorsDoNotMutateGame(t *testing.T) {
 		action Action
 		code   ErrorCode
 	}{
-		{ToggleNote{Position: core.NewPosition(0, 0), Value: 4}, ErrorImmutableCell},
-		{ToggleNote{Position: filled, Value: 4}, ErrorNoteNotAllowed},
-		{ToggleNote{Position: core.NewPosition(0, 3), Value: 0}, ErrorInvalidCell},
-		{ClearNotes{Position: core.Position{Row: 9, Column: 0}}, ErrorInvalidCell},
+		{SetNotes{Position: core.NewPosition(0, 0), Values: []int{4}}, ErrorImmutableCell},
+		{SetNotes{Position: filled, Values: []int{4}}, ErrorNoteNotAllowed},
+		{SetNotes{Position: core.NewPosition(0, 3), Values: []int{0}}, ErrorInvalidCell},
+		{SetNotes{Position: core.Position{Row: 9, Column: 0}}, ErrorInvalidCell},
 	}
 	for _, test := range tests {
 		if _, err := game.Apply(test.action); !errors.Is(err, &EngineError{Code: test.code}) {

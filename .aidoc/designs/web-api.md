@@ -69,7 +69,7 @@ API snapshots use explicit JSON fields for givens, visible values, invalid marke
 
 ## Actions, Revisions, and Errors
 
-Action requests contain `expected_revision`, an action kind, and only the fields required by that action. The API translates accepted action kinds to `game.Action`; unknown kinds or extra fields fail before the engine is called. Presentation preferences such as theme, focus, or candidate visibility remain client-owned and have no API action.
+Action requests contain `expected_revision`, an action kind, and only the fields required by that action. The API translates accepted action kinds to `game.Action`; unknown kinds or extra fields fail before the engine is called. The `set-notes` action is the single manual-note mutation: an empty, one-digit, or multi-digit set clears, adds, or replaces a cell's notes atomically. Clients may debounce rapid local edits into one revision-checked mutation and reconcile from the authoritative response; separate toggle and clear wire actions would duplicate this contract. Presentation preferences such as theme, focus, or candidate visibility remain client-owned and have no API action.
 
 Every accepted mutation increments the session revision exactly once and returns the resulting snapshot, action result, and new revision. Rejected actions leave both game state and revision unchanged. A stale `expected_revision` returns HTTP `409 Conflict` with the current revision and snapshot so delayed clients cannot silently overwrite newer state.
 

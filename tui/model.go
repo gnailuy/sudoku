@@ -259,7 +259,7 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "0", "backspace", "delete":
 		position := core.NewPosition(m.row, m.column)
 		if m.mode == noteMode {
-			command = m.apply(game.ClearNotes{Position: position})
+			command = m.apply(game.SetNotes{Position: position})
 		} else {
 			command = m.apply(game.ClearValue{Position: position})
 		}
@@ -268,7 +268,13 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			value := int(key.Runes[0] - '0')
 			position := core.NewPosition(m.row, m.column)
 			if m.mode == noteMode {
-				command = m.apply(game.ToggleNote{Position: position, Value: value})
+				notes := m.snapshot.Notes[m.row][m.column]
+				if notes.Has(value) {
+					notes.Remove(value)
+				} else {
+					notes.Add(value)
+				}
+				command = m.apply(game.SetNotes{Position: position, Values: notes.Values()})
 			} else {
 				command = m.apply(game.SetValue{Position: position, Value: value})
 			}

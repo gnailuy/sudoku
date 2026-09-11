@@ -15,8 +15,8 @@ func TestSerializeRestoreRoundTripPreservesStateAndHistory(t *testing.T) {
 	peer := core.NewPosition(0, 3)
 
 	actions := []Action{
-		ToggleNote{Position: target, Value: 4},
-		ToggleNote{Position: peer, Value: 4},
+		SetNotes{Position: target, Values: []int{4}},
+		SetNotes{Position: peer, Values: []int{4}},
 		SetValue{Position: target, Value: 4},
 		SetValue{Position: peer, Value: 5}, // Conflicts with the row and remains visible as invalid input.
 		Undo{},
@@ -148,10 +148,10 @@ func TestRestoreRejectsInvalidPuzzleAndSession(t *testing.T) {
 
 func TestRestoreRejectsInvalidHistory(t *testing.T) {
 	game := newTestGame()
-	if _, err := game.Apply(ToggleNote{Position: core.NewPosition(0, 2), Value: 4}); err != nil {
+	if _, err := game.Apply(SetNotes{Position: core.NewPosition(0, 2), Values: []int{4}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := game.Apply(ToggleNote{Position: core.NewPosition(0, 3), Value: 4}); err != nil {
+	if _, err := game.Apply(SetNotes{Position: core.NewPosition(0, 3), Values: []int{4}}); err != nil {
 		t.Fatal(err)
 	}
 	base := decodeSerializedGame(t, mustSerialize(t, game))
@@ -178,7 +178,7 @@ func TestRestoreRejectsInvalidHistory(t *testing.T) {
 
 func TestSerializeRestorePreservesStateOutsideActionHistory(t *testing.T) {
 	original := newTestGame()
-	if _, err := original.Apply(ToggleNote{Position: core.NewPosition(0, 2), Value: 4}); err != nil {
+	if _, err := original.Apply(SetNotes{Position: core.NewPosition(0, 2), Values: []int{4}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := original.Apply(SetValue{Position: core.NewPosition(0, 3), Value: 5}); err != nil {
