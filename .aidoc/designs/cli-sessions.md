@@ -34,8 +34,8 @@ Explicit persistence is the smallest reliable first workflow. A player chooses w
 
 Interactive commands extend the current vocabulary without changing existing aliases or bare three-digit value input:
 
-- `note`, `n <row><column><value>` toggles one digit through `game.ToggleNote`.
-- `notes-clear`, `x <row><column>` clears one cell through `game.ClearNotes`.
+- `note`, `n <row><column><value>` computes the cell’s next complete note set and submits `game.SetNotes`.
+- `notes-clear`, `x <row><column>` submits an empty `game.SetNotes` value for the cell.
 - `save <path>` serializes the current game and atomically replaces the destination.
 - `quit`, `q` continues to exit without an implicit save.
 

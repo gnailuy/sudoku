@@ -47,7 +47,7 @@ The harness calls the running `sudoku api` process rather than importing Go hand
 
 ### 11.4 Actions, Hints, and Revision Conflicts
 **Action:** Enter values, atomically replace a cell's complete note set, preview/apply a hint, undo/redo, and submit two actions with the same expected revision.
-**Expected:** Accepted mutations increment revisions once and match engine semantics. A multi-digit note replacement produces one revision and one undo record. Hint preview is read-only. The delayed mutation returns `409` with current state and never overwrites the accepted action.
+**Expected:** Accepted mutations increment revisions once and match engine semantics. Empty, one-digit, and multi-digit note replacements use the same action and each accepted replacement produces one revision and one undo record. Legacy toggle and clear note kinds are rejected as unknown actions. Hint preview is read-only. The delayed mutation returns `409` with current state and never overwrites the accepted action.
 
 ### 11.5 Restart Recovery and Discard
 **Action:** Mutate two API sessions, stop and restart the server, reconnect to both, then discard one.

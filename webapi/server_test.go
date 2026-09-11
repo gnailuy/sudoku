@@ -183,6 +183,14 @@ func TestSetNotesActionReplacesNotesInOneRevision(t *testing.T) {
 	if duplicate := request(t, handler, http.MethodPost, path, "application/json", `{"kind":"set-notes","expected_revision":1,"row":1,"column":1,"values":[2,2]}`, nil); duplicate.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("duplicate values status=%d body=%s", duplicate.Code, duplicate.Body.String())
 	}
+	for _, legacy := range []string{
+		`{"kind":"toggle-note","expected_revision":1,"row":1,"column":1,"value":2}`,
+		`{"kind":"clear-notes","expected_revision":1,"row":1,"column":1}`,
+	} {
+		if response := request(t, handler, http.MethodPost, path, "application/json", legacy, nil); response.Code != http.StatusBadRequest {
+			t.Fatalf("legacy note action status=%d body=%s", response.Code, response.Body.String())
+		}
+	}
 }
 
 func TestConcurrentRevisionConflict(t *testing.T) {

@@ -445,9 +445,7 @@ components:
         - undo
         - redo
         - apply-hint
-        - toggle-note
         - set-notes
-        - clear-notes
         - repair
         - solve
 
@@ -702,9 +700,7 @@ components:
         - $ref: "#/components/schemas/UndoAction"
         - $ref: "#/components/schemas/RedoAction"
         - $ref: "#/components/schemas/ApplyHintAction"
-        - $ref: "#/components/schemas/ToggleNoteAction"
         - $ref: "#/components/schemas/SetNotesAction"
-        - $ref: "#/components/schemas/ClearNotesAction"
         - $ref: "#/components/schemas/RepairAction"
         - $ref: "#/components/schemas/SolveAction"
       discriminator:
@@ -716,9 +712,7 @@ components:
           undo: "#/components/schemas/UndoAction"
           redo: "#/components/schemas/RedoAction"
           apply-hint: "#/components/schemas/ApplyHintAction"
-          toggle-note: "#/components/schemas/ToggleNoteAction"
           set-notes: "#/components/schemas/SetNotesAction"
-          clear-notes: "#/components/schemas/ClearNotesAction"
           repair: "#/components/schemas/RepairAction"
           solve: "#/components/schemas/SolveAction"
 
@@ -762,27 +756,6 @@ components:
           minimum: 1
           maximum: 9
 
-    ToggleNoteAction:
-      type: object
-      additionalProperties: false
-      required: [expected_revision, kind, row, column, value]
-      properties:
-        expected_revision:
-          $ref: "#/components/schemas/Revision"
-        kind:
-          type: string
-          const: toggle-note
-        row:
-          type: integer
-          minimum: 1
-          maximum: 9
-        column:
-          type: integer
-          minimum: 1
-          maximum: 9
-        value:
-          $ref: "#/components/schemas/Digit"
-
     SetNotesAction:
       type: object
       additionalProperties: false
@@ -803,25 +776,6 @@ components:
           maximum: 9
         values:
           $ref: "#/components/schemas/DigitSet"
-
-    ClearNotesAction:
-      type: object
-      additionalProperties: false
-      required: [expected_revision, kind, row, column]
-      properties:
-        expected_revision:
-          $ref: "#/components/schemas/Revision"
-        kind:
-          type: string
-          const: clear-notes
-        row:
-          type: integer
-          minimum: 1
-          maximum: 9
-        column:
-          type: integer
-          minimum: 1
-          maximum: 9
 
     ResetAction:
       $ref: "#/components/schemas/NoArgumentResetAction"

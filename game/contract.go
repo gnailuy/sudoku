@@ -61,9 +61,7 @@ const (
 	ActionUndo       ActionKind = "undo"
 	ActionRedo       ActionKind = "redo"
 	ActionApplyHint  ActionKind = "apply-hint"
-	ActionToggleNote ActionKind = "toggle-note"
 	ActionSetNotes   ActionKind = "set-notes"
-	ActionClearNotes ActionKind = "clear-notes"
 	ActionRepair     ActionKind = "repair"
 	ActionSolve      ActionKind = "solve"
 )
@@ -107,14 +105,6 @@ type ApplyHint struct{}
 
 func (ApplyHint) actionKind() ActionKind { return ActionApplyHint }
 
-// ToggleNote adds or removes one manual note on an editable empty cell.
-type ToggleNote struct {
-	Position core.Position
-	Value    int
-}
-
-func (ToggleNote) actionKind() ActionKind { return ActionToggleNote }
-
 // SetNotes atomically replaces all manual notes on an editable empty cell.
 type SetNotes struct {
 	Position core.Position
@@ -122,11 +112,6 @@ type SetNotes struct {
 }
 
 func (SetNotes) actionKind() ActionKind { return ActionSetNotes }
-
-// ClearNotes removes all manual notes from an editable empty cell.
-type ClearNotes struct{ Position core.Position }
-
-func (ClearNotes) actionKind() ActionKind { return ActionClearNotes }
 
 // Repair removes invalid player entries by returning to the most recent
 // valid history state.
@@ -283,12 +268,8 @@ func (game *Game) Apply(action Action) (Result, error) {
 				Reason:    hint.Reason,
 			}
 		}
-	case ToggleNote:
-		err = game.toggleNote(typed.Position, typed.Value)
 	case SetNotes:
 		err = game.setNotes(typed.Position, typed.Values)
-	case ClearNotes:
-		err = game.clearNotes(typed.Position)
 	case Repair:
 		if game.repair() == 0 {
 			err = &EngineError{Code: ErrorInvalidAction, Detail: "no invalid input to repair"}
@@ -347,23 +328,6 @@ func resultFromSnapshots(kind ActionKind, before, after Snapshot) Result {
 	return result
 }
 
-func (game *Game) toggleNote(position core.Position, value int) error {
-	if !position.IsValid() || value < 1 || value > 9 {
-		return invalidCellError(position, value)
-	}
-	if err := game.validateNoteCell(position); err != nil {
-		return err
-	}
-	before := game.captureState()
-	if game.notes[position.Row][position.Column].Has(value) {
-		game.notes[position.Row][position.Column].Remove(value)
-	} else {
-		game.notes[position.Row][position.Column].Add(value)
-	}
-	game.recordTransition(before)
-	return nil
-}
-
 func (game *Game) setNotes(position core.Position, values []int) error {
 	if !position.IsValid() {
 		return invalidCellError(position, 0)
@@ -380,19 +344,6 @@ func (game *Game) setNotes(position core.Position, values []int) error {
 	}
 	before := game.captureState()
 	game.notes[position.Row][position.Column] = notes
-	game.recordTransition(before)
-	return nil
-}
-
-func (game *Game) clearNotes(position core.Position) error {
-	if !position.IsValid() {
-		return invalidCellError(position, 0)
-	}
-	if err := game.validateNoteCell(position); err != nil {
-		return err
-	}
-	before := game.captureState()
-	game.notes[position.Row][position.Column] = 0
 	game.recordTransition(before)
 	return nil
 }

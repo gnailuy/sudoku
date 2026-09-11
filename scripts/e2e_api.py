@@ -112,6 +112,15 @@ def main():
             expect(changed["revision"], 1, "single batch-note revision")
             expect(changed["snapshot"]["notes"][0][0], [1, 3, 9], "authoritative batch notes")
             expect(request(base, "POST", path + "/actions", action)[0], 409, "stale revision")
+            status, changed, _ = request(base, "POST", path + "/actions", {"kind": "set-notes", "expected_revision": 1, "row": 1, "column": 1, "values": []})
+            expect(status, 200, "clear notes through complete-set action")
+            expect(changed["snapshot"]["notes"][0][0], [], "authoritative empty note set")
+            status, changed, _ = request(base, "POST", path + "/actions", {"kind": "set-notes", "expected_revision": 2, "row": 1, "column": 1, "values": [2]})
+            expect(status, 200, "single note through complete-set action")
+            expect(changed["revision"], 3, "single-note revision")
+            expect(changed["snapshot"]["notes"][0][0], [2], "authoritative single note")
+            expect(request(base, "POST", path + "/actions", {"kind": "toggle-note", "expected_revision": 3, "row": 1, "column": 1, "value": 2})[0], 400, "legacy toggle-note rejected")
+            expect(request(base, "POST", path + "/actions", {"kind": "clear-notes", "expected_revision": 3, "row": 1, "column": 1})[0], 400, "legacy clear-notes rejected")
 
             status, completion, _ = request(base, "POST", "/api/v1/sessions", {"source": {"kind": "puzzle", "puzzle": NEARLY_SOLVED}})
             expect(status, 201, "create completion session")
@@ -140,7 +149,7 @@ def main():
 
         process, base = start(binary, state, free_port(), ["--db", database])
         try:
-            expect(request(base, "GET", path)[1]["revision"], 1, "restart recovery")
+            expect(request(base, "GET", path)[1]["revision"], 3, "restart recovery")
             status, imported, _ = request(base, "POST", "/api/v1/sessions/import", exported, "application/vnd.sudoku.session+json")
             expect(status, 201, "import")
             expect(request(base, "GET", "/api/v1/sessions")[0], 200, "list")

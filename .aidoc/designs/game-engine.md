@@ -49,7 +49,7 @@ The stable contract is organized around four concepts:
 
 - `Game` is the authoritative mutable session owned by one caller at a time.
 - `Snapshot` is a detached read model containing givens, visible values, invalid markers, manual notes, derived legal candidates, status, and undo/redo availability. Mutating a snapshot cannot mutate the game.
-- `Action` is a typed player intent: set or clear a value, toggle or clear notes, reset, repair, solve, undo, redo, or apply a hint. Frontends submit actions instead of reproducing rules.
+- `Action` is a typed player intent: set or clear a value, replace a cell’s complete note set, reset, repair, solve, undo, redo, or apply a hint. An empty, one-digit, or multi-digit `SetNotes` value is the single engine mutation for manual notes; frontends translate toggle-style input into a complete set instead of expanding the engine contract.
 - `Result` describes the accepted transition, changed cells, current status, undo/redo availability, and the recommendation used by an applied hint. Invalid actions return typed errors and leave state unchanged.
 
 `Hint` remains a query: it returns a structured recommendation with position, value, technique, and explanation. Applying the recommendation is a separate action so hints participate in history exactly like player moves.
