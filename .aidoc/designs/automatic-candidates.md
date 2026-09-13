@@ -13,7 +13,7 @@ dependencies:
 
 # Automatic Candidates
 
-Automatic candidates provide opt-in legal-candidate assistance without changing manual notes or persisted game state. Candidate calculation belongs to the game-engine read boundary, while each frontend owns whether and how the derived data is displayed.
+Automatic candidates provide opt-in legal-candidate assistance and an explicit atomic transition into editable manual notes. Candidate calculation belongs to the game engine, while each frontend owns whether the derived data is previewed and when a player gesture invokes adoption.
 
 ## Related Docs
 
@@ -28,7 +28,7 @@ Automatic candidates provide opt-in legal-candidate assistance without changing 
 
 Legal candidates answer which digits remain possible under the accepted Sudoku values. Manual notes record a player's own reasoning and may intentionally be incomplete or temporarily wrong. Treating automatic candidates as notes would erase that distinction, create surprising history changes, and require synchronization rules during every action.
 
-The engine therefore exposes legal candidates as detached, read-only snapshot data computed from the solver-safe play board. Automatic candidates are never actions, never history entries, and never part of the dirty-session calculation. Existing version 1 session files remain compatible because no candidate data or frontend preference is serialized.
+The engine therefore exposes legal candidates as detached snapshot data computed from the solver-safe play board. Merely displaying automatic candidates is not an action, history entry, or dirty-state change. A deliberate `AdoptCandidatesAsNotes` action materializes the current candidate grid as player-owned notes, applies the initiating digit toggle, and enters history. Existing version 1 session files remain compatible because candidate data and frontend preferences are not serialized.
 
 ## Engine Read Contract
 
@@ -42,7 +42,7 @@ Snapshot candidate arrays are value data and remain detached from `game.Game`. M
 
 Every new snapshot reflects the current accepted board. Candidate sets therefore update after value entry, clear, undo, redo, hint application, solve, repair, reset, and restore without a candidate-specific transition or event.
 
-Manual-note actions do not alter legal candidates. Automatic candidate changes do not appear in `game.Result.Changes`, because results describe accepted mutable-state transitions rather than recomputed read data. Frontends already refresh from the post-action snapshot and must not incrementally reconstruct candidate rules.
+Direct manual-note actions do not alter legal candidates. Automatic candidate changes do not appear in `game.Result.Changes`, because results describe accepted mutable-state transitions rather than recomputed read data. `AdoptCandidatesAsNotes` is the exception: the engine computes every legal candidate set, replaces notes on every editable visibly empty cell, toggles the initiating digit, and returns all changed notes in one result. Frontends refresh from the post-action snapshot and never reconstruct candidate rules.
 
 ## TUI Interaction
 
@@ -62,7 +62,7 @@ The renderer must keep the current cell dimensions, board alignment, resize thre
 
 Candidate derivation has no recoverable runtime failure path: the engine operates on a validated 9×9 board and `core.Board.Candidates` already defines legal-candidate behavior. An empty candidate set on an editable cell is valid when the accepted board leaves no legal digit; the TUI renders the empty mini-grid and existing board status remains authoritative.
 
-Automatic candidates do not add candidate persistence, automatic note population, note cleanup beyond existing value actions, solver-technique explanations, background computation, a new dependency, or a serialization version. Automatic candidates do not change root CLI output, save bytes, restore validation, hint selection, or solve behavior.
+Automatic candidates do not add candidate persistence, background computation, a new dependency, or a serialization version. Adoption changes manual notes only when a frontend explicitly submits the action; existing TUI and line-CLI gestures do not invoke it, so their rendering, root CLI output, save bytes, restore validation, hint selection, and solve behavior remain unchanged.
 
 ## Delivery and Verification
 

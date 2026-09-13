@@ -49,7 +49,7 @@ The stable contract is organized around four concepts:
 
 - `Game` is the authoritative mutable session owned by one caller at a time.
 - `Snapshot` is a detached read model containing givens, visible values, invalid markers, manual notes, derived legal candidates, status, and undo/redo availability. Mutating a snapshot cannot mutate the game.
-- `Action` is a typed player intent: set or clear a value, replace a cell’s complete note set, reset, repair, solve, undo, redo, or apply a hint. An empty, one-digit, or multi-digit `SetNotes` value is the single engine mutation for manual notes; frontends translate toggle-style input into a complete set instead of expanding the engine contract.
+- `Action` is a typed player intent: set or clear a value, replace a cell’s complete note set, adopt the legal candidate grid as notes with one initiating toggle, reset, repair, solve, undo, redo, or apply a hint. An empty, one-digit, or multi-digit `SetNotes` value remains the direct mutation for one cell; `AdoptCandidatesAsNotes` is the whole-board transition from derived assistance to player-owned notes.
 - `Result` describes the accepted transition, changed cells, current status, undo/redo availability, and the recommendation used by an applied hint. Invalid actions return typed errors and leave state unchanged.
 
 `Hint` remains a query: it returns a structured recommendation with position, value, technique, and explanation. Applying the recommendation is a separate action so hints participate in history exactly like player moves.
@@ -73,7 +73,7 @@ Notes are player annotations, distinct from `core.Board.Candidates`, which compu
 
 Notes are allowed only on editable empty cells and contain digits 1–9. Setting any visible value clears notes in that cell. Only a value accepted into the solver-safe board removes that value from notes in peer cells; a visible invalid entry does not constrain legal candidates and therefore must not prune peer notes. Clearing a value does not recreate notes. Every automatic note cleanup is part of the same action delta, so undo restores the exact previous notes.
 
-`Game.Snapshot` derives legal candidates from the solver-safe play board through `core.Board.Candidates`. Derived candidates remain separate from manual notes, actions, history, dirty state, and serialization; frontends decide whether to display them.
+`Game.Snapshot` derives legal candidates from the solver-safe play board through `core.Board.Candidates`. Derived candidates remain separate from manual notes, dirty state, and serialization until a player explicitly adopts them. `AdoptCandidatesAsNotes` replaces the complete manual-note map for every editable visibly empty cell, toggles the initiating digit, and records the result as one atomic history transition; one Undo restores the complete prior note map.
 
 ## Serialization Contract
 
@@ -101,6 +101,6 @@ Serialization failures, invalid actions, unavailable undo/redo, and attempts to 
 
 ## Verification
 
-Engine tests cover every action, typed error, atomic rollback, note cleanup, mixed value/note undo-redo sequences, redo truncation, immutable snapshots, and serialization round trips. Restoration tests include malformed and unsupported versions.
+Engine tests cover every action, typed error, atomic rollback, note cleanup, whole-board candidate adoption, mixed value/note undo-redo sequences, redo truncation, immutable snapshots, and serialization round trips. Restoration tests include malformed and unsupported versions.
 
 The CLI boundary is verified against `.aidoc/designs/e2e-play-scenarios.md` by building the binary and exercising it as a black box. Package tests cover repair, solve, applied-hint metadata, typed errors, and snapshot isolation; package tests, `go vet`, golangci-lint, and CI must remain green.

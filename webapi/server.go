@@ -540,6 +540,19 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 			return nil, 0, e
 		}
 		return game.SetNotes{Position: p, Values: append([]int(nil), v.Values...)}, v.ExpectedRevision, nil
+	case "adopt-candidates-as-notes":
+		v, e := body.AsAdoptCandidatesAsNotesAction()
+		if e != nil {
+			return nil, 0, e
+		}
+		p, e := position(v.Row, v.Column)
+		if e != nil || v.Value < 1 || v.Value > 9 {
+			return nil, 0, errors.New("invalid adopt-candidates-as-notes action")
+		}
+		if e = validRevision(v.ExpectedRevision); e != nil {
+			return nil, 0, e
+		}
+		return game.AdoptCandidatesAsNotes{Position: p, Value: v.Value}, v.ExpectedRevision, nil
 	case "reset":
 		v, e := body.AsResetAction()
 		if e != nil {
@@ -701,7 +714,7 @@ func validateJSONRequest(path string, data []byte) error {
 		}
 		keys := []string{"kind", "expected_revision"}
 		switch kind {
-		case "set-value":
+		case "set-value", "adopt-candidates-as-notes":
 			keys = append(keys, "row", "column", "value")
 		case "set-notes":
 			keys = append(keys, "row", "column", "values")

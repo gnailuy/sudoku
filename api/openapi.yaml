@@ -446,6 +446,7 @@ components:
         - redo
         - apply-hint
         - set-notes
+        - adopt-candidates-as-notes
         - repair
         - solve
 
@@ -701,6 +702,7 @@ components:
         - $ref: "#/components/schemas/RedoAction"
         - $ref: "#/components/schemas/ApplyHintAction"
         - $ref: "#/components/schemas/SetNotesAction"
+        - $ref: "#/components/schemas/AdoptCandidatesAsNotesAction"
         - $ref: "#/components/schemas/RepairAction"
         - $ref: "#/components/schemas/SolveAction"
       discriminator:
@@ -713,6 +715,7 @@ components:
           redo: "#/components/schemas/RedoAction"
           apply-hint: "#/components/schemas/ApplyHintAction"
           set-notes: "#/components/schemas/SetNotesAction"
+          adopt-candidates-as-notes: "#/components/schemas/AdoptCandidatesAsNotesAction"
           repair: "#/components/schemas/RepairAction"
           solve: "#/components/schemas/SolveAction"
 
@@ -776,6 +779,27 @@ components:
           maximum: 9
         values:
           $ref: "#/components/schemas/DigitSet"
+
+    AdoptCandidatesAsNotesAction:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, kind, row, column, value]
+      properties:
+        expected_revision:
+          $ref: "#/components/schemas/Revision"
+        kind:
+          type: string
+          const: adopt-candidates-as-notes
+        row:
+          type: integer
+          minimum: 1
+          maximum: 9
+        column:
+          type: integer
+          minimum: 1
+          maximum: 9
+        value:
+          $ref: "#/components/schemas/Digit"
 
     ResetAction:
       $ref: "#/components/schemas/NoArgumentResetAction"

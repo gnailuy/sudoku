@@ -122,6 +122,42 @@ def main():
             expect(request(base, "POST", path + "/actions", {"kind": "toggle-note", "expected_revision": 3, "row": 1, "column": 1, "value": 2})[0], 400, "legacy toggle-note rejected")
             expect(request(base, "POST", path + "/actions", {"kind": "clear-notes", "expected_revision": 3, "row": 1, "column": 1})[0], 400, "legacy clear-notes rejected")
 
+            status, adoption_session, _ = request(base, "POST", "/api/v1/sessions", {"source": {"kind": "puzzle", "puzzle": PUZZLE}})
+            expect(status, 201, "create candidate-adoption session")
+            adoption_path = f"/api/v1/sessions/{adoption_session['id']}/actions"
+            initiating_digit = adoption_session["snapshot"]["candidates"][0][0][0]
+            status, adoption_with_note, _ = request(base, "POST", adoption_path, {
+                "kind": "set-notes",
+                "expected_revision": 0,
+                "row": 1,
+                "column": 2,
+                "values": [9],
+            })
+            expect(status, 200, "seed hidden manual note before candidate adoption")
+            expect(adoption_with_note["snapshot"]["notes"][0][1], [9], "seeded manual note")
+            status, adopted, _ = request(base, "POST", adoption_path, {
+                "kind": "adopt-candidates-as-notes",
+                "expected_revision": 1,
+                "row": 1,
+                "column": 1,
+                "value": initiating_digit,
+            })
+            expect(status, 200, "adopt candidates as notes")
+            expect(adopted["revision"], 2, "single adoption revision")
+            expect(adopted["result"]["action"], "adopt-candidates-as-notes", "adoption action kind")
+            if initiating_digit in adopted["snapshot"]["notes"][0][0]:
+                raise AssertionError("initiating note edit did not toggle the selected candidate")
+            if not adopted["snapshot"]["notes"][0][1]:
+                raise AssertionError("candidate adoption did not materialize the full editable board")
+            status, adoption_undone, _ = request(base, "POST", adoption_path, {"kind": "undo", "expected_revision": 2})
+            expect(status, 200, "undo candidate adoption")
+            expect(adoption_undone["snapshot"]["notes"][0][1], [9], "one undo restores hidden manual note")
+            if any(notes for row_index, row in enumerate(adoption_undone["snapshot"]["notes"]) for column_index, notes in enumerate(row) if (row_index, column_index) != (0, 1)):
+                raise AssertionError("one undo did not restore the complete prior note map")
+            status, adoption_redone, _ = request(base, "POST", adoption_path, {"kind": "redo", "expected_revision": 3})
+            expect(status, 200, "redo candidate adoption")
+            expect(adoption_redone["snapshot"]["notes"], adopted["snapshot"]["notes"], "redo restores adopted notes")
+
             candidates_before_invalid = changed["snapshot"]["candidates"]
             status, invalid, _ = request(base, "POST", path + "/actions", {"kind": "set-value", "expected_revision": 3, "row": 1, "column": 2, "value": 2})
             expect(status, 200, "visible invalid value")

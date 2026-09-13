@@ -55,15 +55,16 @@ func (err *EngineError) Is(target error) bool {
 type ActionKind string
 
 const (
-	ActionSetValue   ActionKind = "set-value"
-	ActionClearValue ActionKind = "clear-value"
-	ActionReset      ActionKind = "reset"
-	ActionUndo       ActionKind = "undo"
-	ActionRedo       ActionKind = "redo"
-	ActionApplyHint  ActionKind = "apply-hint"
-	ActionSetNotes   ActionKind = "set-notes"
-	ActionRepair     ActionKind = "repair"
-	ActionSolve      ActionKind = "solve"
+	ActionSetValue               ActionKind = "set-value"
+	ActionClearValue             ActionKind = "clear-value"
+	ActionReset                  ActionKind = "reset"
+	ActionUndo                   ActionKind = "undo"
+	ActionRedo                   ActionKind = "redo"
+	ActionApplyHint              ActionKind = "apply-hint"
+	ActionSetNotes               ActionKind = "set-notes"
+	ActionAdoptCandidatesAsNotes ActionKind = "adopt-candidates-as-notes"
+	ActionRepair                 ActionKind = "repair"
+	ActionSolve                  ActionKind = "solve"
 )
 
 // Action is a typed player intent. Its unexported method keeps the set of
@@ -112,6 +113,18 @@ type SetNotes struct {
 }
 
 func (SetNotes) actionKind() ActionKind { return ActionSetNotes }
+
+// AdoptCandidatesAsNotes replaces every editable empty cell's manual notes
+// with its current legal candidates, then toggles one initiating note. The
+// complete adoption is recorded as one atomic history transition.
+type AdoptCandidatesAsNotes struct {
+	Position core.Position
+	Value    int
+}
+
+func (AdoptCandidatesAsNotes) actionKind() ActionKind {
+	return ActionAdoptCandidatesAsNotes
+}
 
 // Repair removes invalid player entries by returning to the most recent
 // valid history state.
@@ -270,6 +283,8 @@ func (game *Game) Apply(action Action) (Result, error) {
 		}
 	case SetNotes:
 		err = game.setNotes(typed.Position, typed.Values)
+	case AdoptCandidatesAsNotes:
+		err = game.adoptCandidatesAsNotes(typed.Position, typed.Value)
 	case Repair:
 		if game.repair() == 0 {
 			err = &EngineError{Code: ErrorInvalidAction, Detail: "no invalid input to repair"}
@@ -343,6 +358,37 @@ func (game *Game) setNotes(position core.Position, values []int) error {
 		notes.Add(value)
 	}
 	before := game.captureState()
+	game.notes[position.Row][position.Column] = notes
+	game.recordTransition(before)
+	return nil
+}
+
+func (game *Game) adoptCandidatesAsNotes(position core.Position, value int) error {
+	if !position.IsValid() || value < 1 || value > 9 {
+		return invalidCellError(position, value)
+	}
+	if err := game.validateNoteCell(position); err != nil {
+		return err
+	}
+
+	before := game.captureState()
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			candidatePosition := core.NewPosition(row, column)
+			if game.problemBoard.Get(candidatePosition) != 0 || game.Get(candidatePosition) != 0 {
+				game.notes[row][column] = 0
+				continue
+			}
+			game.notes[row][column] = game.playBoard.Candidates(candidatePosition)
+		}
+	}
+
+	notes := game.notes[position.Row][position.Column]
+	if notes.Has(value) {
+		notes.Remove(value)
+	} else {
+		notes.Add(value)
+	}
 	game.notes[position.Row][position.Column] = notes
 	game.recordTransition(before)
 	return nil

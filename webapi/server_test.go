@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -189,6 +190,44 @@ func TestSetNotesActionReplacesNotesInOneRevision(t *testing.T) {
 	} {
 		if response := request(t, handler, http.MethodPost, path, "application/json", legacy, nil); response.Code != http.StatusBadRequest {
 			t.Fatalf("legacy note action status=%d body=%s", response.Code, response.Body.String())
+		}
+	}
+}
+
+func TestAdoptCandidatesAsNotesActionUsesOneRevision(t *testing.T) {
+	handler, _, _ := testHandler(t, "", nil)
+	session := createTestSession(t, handler, nil)
+	path := "/api/v1/sessions/" + session.Id + "/actions"
+	candidate := session.Snapshot.Candidates[0][0][0]
+	body := fmt.Sprintf(`{"kind":"adopt-candidates-as-notes","expected_revision":0,"row":1,"column":1,"value":%d}`, candidate)
+	w := request(t, handler, http.MethodPost, path, "application/json", body, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("adopt-candidates-as-notes status=%d body=%s", w.Code, w.Body.String())
+	}
+	var response ActionResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Revision != 1 || response.Result.Action != "adopt-candidates-as-notes" || slices.Contains(response.Snapshot.Notes[0][0], candidate) {
+		t.Fatalf("unexpected adoption response: %+v", response)
+	}
+	if len(response.Snapshot.Notes[0][1]) == 0 {
+		t.Fatal("adoption did not materialize candidates in another editable empty cell")
+	}
+
+	undo := request(t, handler, http.MethodPost, path, "application/json", `{"kind":"undo","expected_revision":1}`, nil)
+	if undo.Code != http.StatusOK {
+		t.Fatalf("undo status=%d body=%s", undo.Code, undo.Body.String())
+	}
+	var undone ActionResponse
+	if err := json.Unmarshal(undo.Body.Bytes(), &undone); err != nil {
+		t.Fatal(err)
+	}
+	for row := range undone.Snapshot.Notes {
+		for column := range undone.Snapshot.Notes[row] {
+			if len(undone.Snapshot.Notes[row][column]) != 0 {
+				t.Fatal("one undo did not restore the prior note map")
+			}
 		}
 	}
 }
