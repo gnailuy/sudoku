@@ -618,7 +618,7 @@ func apiSession(id string, e *entry) Session {
 func apiStatus(v game.Status) GameStatus { return GameStatus(v) }
 func digits(set core.CandidateSet) []int { return set.Values() }
 func apiSnapshot(v game.Snapshot) Snapshot {
-	o := Snapshot{Status: apiStatus(v.Status), CanUndo: v.CanUndo, CanRedo: v.CanRedo, Givens: make(ValueGrid, 9), Values: make(ValueGrid, 9), Invalid: make(BooleanGrid, 9), Notes: make(DigitSetGrid, 9), Candidates: make(DigitSetGrid, 9)}
+	o := Snapshot{Status: apiStatus(v.Status), Mistakes: v.Mistakes, CanUndo: v.CanUndo, CanRedo: v.CanRedo, Givens: make(ValueGrid, 9), Values: make(ValueGrid, 9), Invalid: make(BooleanGrid, 9), Notes: make(DigitSetGrid, 9), Candidates: make(DigitSetGrid, 9)}
 	for r := 0; r < 9; r++ {
 		o.Givens[r] = make(ValueRow, 9)
 		o.Values[r] = make(ValueRow, 9)

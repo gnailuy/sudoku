@@ -556,6 +556,7 @@ components:
         - invalid
         - notes
         - candidates
+        - mistakes
         - status
         - can_undo
         - can_redo
@@ -570,6 +571,10 @@ components:
           $ref: "#/components/schemas/DigitSetGrid"
         candidates:
           $ref: "#/components/schemas/DigitSetGrid"
+        mistakes:
+          type: integer
+          minimum: 0
+          description: Count of server-confirmed invalid value submissions in this session.
         status:
           $ref: "#/components/schemas/GameStatus"
         can_undo:

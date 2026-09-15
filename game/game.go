@@ -26,6 +26,7 @@ type Game struct {
 	playBoard       core.Board
 	invalidInput    core.Board              // Put the invalid input in another board to keep the play board solvable.
 	notes           [9][9]core.CandidateSet // Manual player notes, independent of solver candidates.
+	mistakes        int                     // Confirmed invalid value submissions; deliberately outside undo/redo history.
 	inputSequence   []historyRecord         // Atomic value and note transitions.
 	inputCursor     int                     // The cursor of the current transition.
 	completeSolver  solver.CompleteSolver   // The complete solver for judging input and solving, must be reliable.
