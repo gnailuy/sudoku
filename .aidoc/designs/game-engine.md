@@ -48,7 +48,7 @@ Frontends own presentation, command parsing, keyboard or pointer gestures, acces
 The stable contract is organized around four concepts:
 
 - `Game` is the authoritative mutable session owned by one caller at a time.
-- `Snapshot` is a detached read model containing givens, visible values, invalid markers, manual notes, derived legal candidates, status, and undo/redo availability. Mutating a snapshot cannot mutate the game.
+- `Snapshot` is a detached read model containing givens, visible values, invalid markers, manual notes, derived legal candidates, a cumulative mistake count, status, and undo/redo availability. Mutating a snapshot cannot mutate the game.
 - `Action` is a typed player intent: set or clear a value, replace a cell’s complete note set, adopt the legal candidate grid as notes with one initiating toggle, reset, repair, solve, undo, redo, or apply a hint. An empty, one-digit, or multi-digit `SetNotes` value remains the direct mutation for one cell; `AdoptCandidatesAsNotes` is the whole-board transition from derived assistance to player-owned notes.
 - `Result` describes the accepted transition, changed cells, current status, undo/redo availability, and the recommendation used by an applied hint. Invalid actions return typed errors and leave state unchanged.
 
@@ -63,6 +63,7 @@ The stable contract is organized around four concepts:
 - New actions after an undo discard the redo tail.
 - Undo and redo restore the complete prior state, including invalid markers and all note changes caused by an action.
 - User mistakes remain observable for rendering but never contaminate the solver's valid board.
+- Each accepted `SetValue` that the engine confirms as invalid increments the session's cumulative mistake count. Notes, hints, erase, Undo, and Redo do not change it; undo history therefore cannot reduce or replay mistakes.
 - Public input errors return typed errors; panics remain reserved for violated internal invariants.
 - Snapshots are self-consistent and safe for asynchronous rendering after the engine advances.
 - A `Game` is not concurrently mutable. Frontends serialize actions and may pass snapshots between goroutines.
@@ -83,6 +84,7 @@ Version 1 has these fields:
 
 - `version`: schema version, currently `1`;
 - `puzzle`: the original 81-character puzzle string;
+- `mistakes`: the cumulative count of confirmed invalid value submissions;
 - `current`: the current player-controlled state;
 - `history`: ordered before/after state records;
 - `cursor`: the applied history record, or `-1` when no record is applied.

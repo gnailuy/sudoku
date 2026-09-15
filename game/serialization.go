@@ -49,11 +49,12 @@ func (err *StateError) Is(target error) bool {
 }
 
 type serializedGame struct {
-	Version int                       `json:"version"`
-	Puzzle  string                    `json:"puzzle"`
-	Current serializedSessionState    `json:"current"`
-	History []serializedHistoryRecord `json:"history"`
-	Cursor  int                       `json:"cursor"`
+	Version  int                       `json:"version"`
+	Puzzle   string                    `json:"puzzle"`
+	Mistakes int                       `json:"mistakes"`
+	Current  serializedSessionState    `json:"current"`
+	History  []serializedHistoryRecord `json:"history"`
+	Cursor   int                       `json:"cursor"`
 }
 
 type serializedSessionState struct {
@@ -78,11 +79,12 @@ type serializedHistoryRecord struct {
 // restoring the session.
 func (game *Game) Serialize() ([]byte, error) {
 	payload := serializedGame{
-		Version: StateVersion,
-		Puzzle:  game.problemBoard.ToString(),
-		Current: serializeSessionState(game.problemBoard, game.captureState()),
-		History: make([]serializedHistoryRecord, len(game.inputSequence)),
-		Cursor:  game.inputCursor,
+		Version:  StateVersion,
+		Puzzle:   game.problemBoard.ToString(),
+		Mistakes: game.mistakes,
+		Current:  serializeSessionState(game.problemBoard, game.captureState()),
+		History:  make([]serializedHistoryRecord, len(game.inputSequence)),
+		Cursor:   game.inputCursor,
 	}
 	for index, record := range game.inputSequence {
 		payload.History[index] = serializedHistoryRecord{
@@ -107,6 +109,9 @@ func Restore(data []byte, options Options) (Game, error) {
 	}
 	if payload.Version != StateVersion {
 		return Game{}, stateError(StateErrorUnsupportedVersion, fmt.Sprintf("unsupported game state version %d", payload.Version), nil)
+	}
+	if payload.Mistakes < 0 {
+		return Game{}, stateError(StateErrorInvalidSession, "serialized mistake count is invalid", nil)
 	}
 
 	problem, err := boardFromString(payload.Puzzle)
@@ -140,6 +145,7 @@ func Restore(data []byte, options Options) (Game, error) {
 	}
 
 	game := NewGame(problem, options)
+	game.mistakes = payload.Mistakes
 	game.restoreState(current)
 	game.inputSequence = history
 	game.inputCursor = payload.Cursor

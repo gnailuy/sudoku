@@ -353,6 +353,39 @@ func TestApplyHintAndReset(t *testing.T) {
 	}
 }
 
+func TestMistakeCountTracksConfirmedInvalidValuesOutsideHistory(t *testing.T) {
+	game := newTestGame()
+	position := core.NewPosition(0, 2)
+
+	if snapshot := game.Snapshot(); snapshot.Mistakes != 0 {
+		t.Fatalf("new game mistakes = %d, want 0", snapshot.Mistakes)
+	}
+	if _, err := game.Apply(SetValue{Position: position, Value: 9}); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot := game.Snapshot(); snapshot.Mistakes != 1 || !snapshot.Invalid[0][2] {
+		t.Fatalf("invalid value snapshot = %+v", snapshot)
+	}
+	for _, action := range []Action{Undo{}, Redo{}, ClearValue{Position: position}, SetNotes{Position: position, Values: []int{4}}, ApplyHint{}} {
+		if _, err := game.Apply(action); err != nil {
+			t.Fatalf("Apply(%T) returned error: %v", action, err)
+		}
+	}
+	if snapshot := game.Snapshot(); snapshot.Mistakes != 1 {
+		t.Fatalf("non-mistake actions changed count to %d", snapshot.Mistakes)
+	}
+	if _, err := game.Apply(Reset{}); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot := game.Snapshot(); snapshot.Mistakes != 1 {
+		t.Fatalf("reset of the same puzzle changed count to %d", snapshot.Mistakes)
+	}
+	newGame := newTestGame()
+	if snapshot := newGame.Snapshot(); snapshot.Mistakes != 0 {
+		t.Fatalf("new puzzle mistakes = %d, want 0", snapshot.Mistakes)
+	}
+}
+
 func TestApplyRepairAndSolve(t *testing.T) {
 	game := newTestGame()
 	position := core.NewPosition(0, 2)

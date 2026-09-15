@@ -163,6 +163,7 @@ def main():
             expect(status, 200, "visible invalid value")
             expect(invalid["revision"], 4, "invalid-value revision")
             expect(invalid["snapshot"]["invalid"][0][1], True, "invalid marker")
+            expect(invalid["snapshot"]["mistakes"], 1, "confirmed mistake count")
             expect(invalid["snapshot"]["notes"][0][0], [2], "invalid value preserves peer note")
             expect(invalid["snapshot"]["candidates"], candidates_before_invalid, "invalid value preserves solver-safe candidates")
 
@@ -193,7 +194,9 @@ def main():
 
         process, base = start(binary, state, free_port(), ["--db", database])
         try:
-            expect(request(base, "GET", path)[1]["revision"], 4, "restart recovery")
+            recovered = request(base, "GET", path)[1]
+            expect(recovered["revision"], 4, "restart recovery")
+            expect(recovered["snapshot"]["mistakes"], 1, "restart mistake recovery")
             status, imported, _ = request(base, "POST", "/api/v1/sessions/import", exported, "application/vnd.sudoku.session+json")
             expect(status, 201, "import")
             expect(request(base, "GET", "/api/v1/sessions")[0], 200, "list")

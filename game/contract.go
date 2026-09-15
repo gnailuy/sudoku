@@ -145,6 +145,7 @@ type Snapshot struct {
 	Invalid    [9][9]bool
 	Notes      [9][9]core.CandidateSet
 	Candidates [9][9]core.CandidateSet
+	Mistakes   int
 	Status     Status
 	CanUndo    bool
 	CanRedo    bool
@@ -229,6 +230,7 @@ func (game *Game) Snapshot() Snapshot {
 		}
 	}
 	snapshot.Status = game.status()
+	snapshot.Mistakes = game.mistakes
 	snapshot.CanUndo = game.inputCursor >= 0
 	snapshot.CanRedo = game.inputCursor < len(game.inputSequence)-1
 	return snapshot
@@ -257,6 +259,9 @@ func (game *Game) Apply(action Action) (Result, error) {
 			return Result{}, invalidCellError(typed.Position, typed.Value)
 		}
 		err = game.addInputAndRecordHistory(core.Cell{Position: typed.Position, Value: typed.Value})
+		if err == nil && game.invalidInput.Get(typed.Position) != 0 {
+			game.mistakes++
+		}
 	case ClearValue:
 		if !typed.Position.IsValid() {
 			return Result{}, invalidCellError(typed.Position, 0)

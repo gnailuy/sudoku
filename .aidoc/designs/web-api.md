@@ -65,7 +65,7 @@ All JSON endpoints live below `/api/v1`; `/healthz` is outside the API namespace
 
 Create requests use a tagged source object so difficulty and puzzle input cannot conflict. Import and export transfer bounded validated bytes; no endpoint accepts or returns an arbitrary host filesystem path.
 
-API snapshots use explicit JSON fields for givens, visible values, invalid markers, manual notes, legal candidates, status, and undo/redo availability. Rows and columns are numbered 1 through 9 at the transport boundary. API models do not expose Go type names, internal history records, frontend view models, or the version 1 persistence document.
+API snapshots use explicit JSON fields for givens, visible values, invalid markers, manual notes, legal candidates, cumulative confirmed mistakes, status, and undo/redo availability. Rows and columns are numbered 1 through 9 at the transport boundary. API models do not expose Go type names, internal history records, frontend view models, or the version 1 persistence document.
 
 ## Actions, Revisions, and Errors
 
