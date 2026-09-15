@@ -31,11 +31,11 @@ The existing CLI remains valuable for scripts, redirected input, and minimal ter
 
 ## Interaction Model
 
-The TUI presents one focused cell, the board, game status, available history, a concise key guide, and a message area. Arrow keys and `h`/`j`/`k`/`l` move focus within the board without wrapping. Digit keys set values in value mode and toggle manual notes in note mode; `0`, Backspace, or Delete clears the focused value or its notes according to the active mode.
+The TUI presents one focused cell, the board, game status, the authoritative cumulative Mistakes count, available history, a concise key guide, and a message area. Arrow keys and `h`/`j`/`k`/`l` move focus within the board without wrapping. Digit keys set values in value mode and toggle manual notes in note mode; `0`, Backspace, or Delete clears the focused value or its notes according to the active mode.
 
 The following global actions remain available when no modal is open:
 
-- `n` toggles value and note modes;
+- `n` toggles value and note modes; the first digit edit while automatic candidates are visible atomically adopts the candidate grid, applies that digit toggle, and hides the automatic preview without confirmation;
 - `a` toggles derived legal-candidate display without mutating or dirtying the session;
 - `u` and `r` submit undo and redo;
 - `i` requests a hint preview, while Enter applies the displayed hint;
@@ -73,10 +73,10 @@ The terminal dependencies are confined to the `tui` package and `cmd/tui.go`. Th
 
 ## Verification
 
-Package tests cover key-to-action translation, focus boundaries, note mode, automatic-candidate display, modal confirmations and help, dirty-state tracking, save transport, hint preview/apply, small-terminal fallback, clean cell rendering, theme selection, no-color accessibility, and deterministic rendering. The model injects its persistence function for isolated save tests.
+Package tests cover key-to-action translation, focus boundaries, note mode, automatic-candidate display, authoritative mistake-count rendering, modal confirmations and help, dirty-state tracking, save transport, hint preview/apply, small-terminal fallback, clean cell rendering, theme selection, no-color accessibility, and deterministic rendering. The model injects its persistence function for isolated save tests.
 
 `scripts/e2e_tui.py` is a standard-library pseudo-terminal harness that starts the built binary, sends keys, resizes the terminal, and inspects stable screen text. Black-box scenarios cover startup from input and saved state, value and note entry, undo/redo, hint preview/apply, explicit save, invalid restore rejection, quit confirmation, and CLI backward compatibility.
 
 ## Deferred Work
 
-Automatic note population, mouse support, localization, web and mobile frontends, network protocols, cloud sync, and multi-user play remain separate product decisions. Later TUI work should not expand the engine contract unless the TUI exposes a concrete missing capability that cannot be expressed through snapshots, actions, hints, or serialization.
+Mouse support, localization, web and mobile frontends, network protocols, cloud sync, and multi-user play remain separate product decisions. Later TUI work should not expand the engine contract unless the TUI exposes a concrete missing capability that cannot be expressed through snapshots, actions, hints, or serialization.

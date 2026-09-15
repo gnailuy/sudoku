@@ -76,6 +76,14 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 **Action:** Enter an invalid value with candidates enabled, then clear or repair it.
 **Expected:** The invalid cell shows its visible value, its peers ignore that value during candidate calculation, and candidates reappear in the cell after clear or repair.
 
+### 9.12 Candidate Adoption
+**Action:** Enable automatic candidates and note mode, then enter a digit in an editable empty cell and use Undo followed by Redo.
+**Expected:** The first edit copies the complete candidate grid, applies the initiating digit toggle, switches the display to `AUTO OFF`, and remains in note mode without confirmation. One Undo restores the complete prior note map, and one Redo reapplies the replacement.
+
+### 9.13 Mistake Count
+**Action:** Start a new TUI game, enter a confirmed invalid value, then use Undo.
+**Expected:** The status starts at `Mistakes: 0`, changes to `Mistakes: 1` after the invalid value, and remains at one after Undo because the authoritative count is cumulative rather than part of history.
+
 ---
 
 ## 10. TUI Autosave and Recovery

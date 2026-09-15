@@ -79,6 +79,60 @@ func TestAutomaticCandidateToggleIsPresentationOnly(t *testing.T) {
 	}
 }
 
+func TestStatusDisplaysAuthoritativeMistakeCount(t *testing.T) {
+	model := testModel(t)
+	if view := ansi.Strip(model.View()); !strings.Contains(view, "Mistakes: 0") {
+		t.Fatalf("initial view omitted mistake count: %q", view)
+	}
+
+	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	if !model.snapshot.Invalid[0][0] || model.snapshot.Mistakes != 1 {
+		t.Fatalf("invalid input snapshot = %+v", model.snapshot)
+	}
+	if view := ansi.Strip(model.View()); !strings.Contains(view, "Mistakes: 1") {
+		t.Fatalf("updated view omitted mistake count: %q", view)
+	}
+
+	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+	if view := ansi.Strip(model.View()); !strings.Contains(view, "Mistakes: 1") {
+		t.Fatalf("undo incorrectly changed displayed mistake count: %q", view)
+	}
+}
+
+func TestFirstNoteEditAdoptsAutomaticCandidatesAtomically(t *testing.T) {
+	model := testModel(t)
+	model.autoCandidates = true
+	model.mode = noteMode
+	target := core.NewPosition(0, 0)
+	before := model.snapshot
+	value := 1
+
+	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{rune('0' + value)}})
+
+	if model.autoCandidates || model.mode != noteMode {
+		t.Fatal("candidate adoption did not enter manual-note editing")
+	}
+	if model.snapshot.Notes[target.Row][target.Column].Has(value) == before.Candidates[target.Row][target.Column].Has(value) {
+		t.Fatal("candidate adoption did not apply the initiating note toggle")
+	}
+	peer := core.NewPosition(0, 1)
+	if model.snapshot.Notes[peer.Row][peer.Column] != before.Candidates[peer.Row][peer.Column] {
+		t.Fatal("candidate adoption did not copy the complete candidate grid")
+	}
+	if !model.dirty || !strings.Contains(model.message, "Candidates copied") {
+		t.Fatalf("adoption dirty=%v message=%q", model.dirty, model.message)
+	}
+
+	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+	if model.snapshot.Notes != before.Notes {
+		t.Fatal("one undo did not restore the complete prior note map")
+	}
+	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	if model.snapshot.Notes[target.Row][target.Column].Has(value) == before.Candidates[target.Row][target.Column].Has(value) {
+		t.Fatal("one redo did not reapply candidate adoption")
+	}
+}
+
 func TestAutomaticCandidatesRefreshAndCoexistWithNotes(t *testing.T) {
 	model := testModel(t)
 	model.autoCandidates = true
