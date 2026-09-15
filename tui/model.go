@@ -268,13 +268,22 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			value := int(key.Runes[0] - '0')
 			position := core.NewPosition(m.row, m.column)
 			if m.mode == noteMode {
-				notes := m.snapshot.Notes[m.row][m.column]
-				if notes.Has(value) {
-					notes.Remove(value)
+				if m.autoCandidates {
+					before := m.snapshot
+					command = m.apply(game.AdoptCandidatesAsNotes{Position: position, Value: value})
+					if m.snapshot != before {
+						m.autoCandidates = false
+						m.message = "Candidates copied. Notes on."
+					}
 				} else {
-					notes.Add(value)
+					notes := m.snapshot.Notes[m.row][m.column]
+					if notes.Has(value) {
+						notes.Remove(value)
+					} else {
+						notes.Add(value)
+					}
+					command = m.apply(game.SetNotes{Position: position, Values: notes.Values()})
 				}
-				command = m.apply(game.SetNotes{Position: position, Values: notes.Values()})
 			} else {
 				command = m.apply(game.SetValue{Position: position, Value: value})
 			}

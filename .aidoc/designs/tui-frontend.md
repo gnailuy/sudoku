@@ -35,7 +35,7 @@ The TUI presents one focused cell, the board, game status, available history, a 
 
 The following global actions remain available when no modal is open:
 
-- `n` toggles value and note modes;
+- `n` toggles value and note modes; the first digit edit while automatic candidates are visible atomically adopts the candidate grid, applies that digit toggle, and hides the automatic preview without confirmation;
 - `a` toggles derived legal-candidate display without mutating or dirtying the session;
 - `u` and `r` submit undo and redo;
 - `i` requests a hint preview, while Enter applies the displayed hint;
@@ -79,4 +79,4 @@ Package tests cover key-to-action translation, focus boundaries, note mode, auto
 
 ## Deferred Work
 
-Automatic note population, mouse support, localization, web and mobile frontends, network protocols, cloud sync, and multi-user play remain separate product decisions. Later TUI work should not expand the engine contract unless the TUI exposes a concrete missing capability that cannot be expressed through snapshots, actions, hints, or serialization.
+Mouse support, localization, web and mobile frontends, network protocols, cloud sync, and multi-user play remain separate product decisions. Later TUI work should not expand the engine contract unless the TUI exposes a concrete missing capability that cannot be expressed through snapshots, actions, hints, or serialization.

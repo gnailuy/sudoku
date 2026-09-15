@@ -48,7 +48,7 @@ Direct manual-note actions do not alter legal candidates. Automatic candidate ch
 
 The full-screen TUI adds `a` as the automatic-candidate toggle when no modal or text prompt is active. Automatic candidates start off for every process, including resumed sessions, so the existing uncluttered board remains the default. Toggling the display does not mark the session dirty and does not create an undo entry.
 
-The help overlay and one-line key guide expose the toggle. The line-oriented CLI has no candidate command: a dense candidate board would complicate its stable text format without improving scriptability, while the shared snapshot contract remains available to future frontends.
+The help overlay and one-line key guide expose the toggle. When note mode and the automatic preview are both active, the first digit edit submits `AdoptCandidatesAsNotes`, hides the preview after success, and remains in note mode. The transition needs no confirmation because the engine records the complete replacement as one Undo/Redo step. A rejected adoption leaves the preview visible and the prior note map unchanged. The line-oriented CLI has no candidate command: a dense candidate board would complicate its stable text format without improving scriptability, while the shared snapshot contract remains available to future frontends.
 
 ## Rendering and Manual Notes
 
@@ -62,7 +62,7 @@ The renderer must keep the current cell dimensions, board alignment, resize thre
 
 Candidate derivation has no recoverable runtime failure path: the engine operates on a validated 9×9 board and `core.Board.Candidates` already defines legal-candidate behavior. An empty candidate set on an editable cell is valid when the accepted board leaves no legal digit; the TUI renders the empty mini-grid and existing board status remains authoritative.
 
-Automatic candidates do not add candidate persistence, background computation, a new dependency, or a serialization version. Adoption changes manual notes only when a frontend explicitly submits the action; existing TUI and line-CLI gestures do not invoke it, so their rendering, root CLI output, save bytes, restore validation, hint selection, and solve behavior remain unchanged.
+Automatic candidates do not add candidate persistence, background computation, a new dependency, or a serialization version. Adoption changes manual notes only when a frontend explicitly submits the action. The TUI's first note edit while the preview is visible invokes it; the line CLI remains unchanged, as do root CLI output, save bytes, restore validation, hint selection, and solve behavior.
 
 ## Delivery and Verification
 
