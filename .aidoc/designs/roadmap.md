@@ -2,73 +2,63 @@
 domain: Designs
 status: Active
 entry_points:
+  - cmd/api.go
+  - webapi/server.go
   - .github/workflows/ci.yml
-  - scripts/e2e_api.py
-  - scripts/e2e_cli.py
-  - scripts/e2e_tui.py
-  - scripts/coverage_report.py
-  - solver/config.go
 dependencies:
+  - .aidoc/designs/web-api.md
   - .aidoc/designs/e2e-test-scenarios.md
-  - .aidoc/designs/difficulty-model.md
-  - .aidoc/designs/difficulty-calibration.md
   - .aidoc/designs/future-directions.md
-  - .aidoc/designs/database-puzzle-selection.md
-  - .aidoc/designs/database-play-statistics.md
-  - .aidoc/designs/database-concurrency.md
 ---
 
 # Roadmap
 
-The roadmap contains only ongoing maintenance and approved future work. Current product contracts live in their dedicated design documents; Git records completed delivery history.
+The next approved milestone hardens the current single-operator deployment before any broader product expansion. Delivery proceeds in independently reversible slices while the existing engine, clients, and quality gates remain stable.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/e2e-test-scenarios.md` | Canonical black-box behavior catalog and current automation pointers |
-| `.aidoc/designs/difficulty-model.md` | Strategy-grade invariants and the calibration boundary |
-| `.aidoc/designs/difficulty-calibration.md` | Strategy measurement methodology, report artifacts, and review decisions |
-| `.aidoc/designs/future-directions.md` | Deliberately non-priority product and production directions |
-| `.aidoc/designs/web-api.md` | Current HTTP contract, security boundary, and deployment defaults |
-| `.aidoc/designs/database-puzzle-selection.md` | Current played-state selection and migration boundary |
-| `.aidoc/designs/database-play-statistics.md` | Current completion counters, statistics, and explicit history reset |
-| `.aidoc/designs/database-concurrency.md` | Current database reliability design: connection policy and deterministic mixed-workload stress |
+| `.aidoc/designs/web-api.md` | Current HTTP contract, security boundary, and safe defaults |
+| `.aidoc/designs/e2e-test-scenarios.md` | Maintained black-box verification baseline |
+| `.aidoc/designs/future-directions.md` | Deferred product, hosting, and technical directions |
+| [Sudoku UI roadmap](https://github.com/gnailuy/sudoku-ui/blob/master/.aidoc/designs/roadmap.md) | Coordinated browser-client and static-release responsibilities |
 
-## Why Quality Gates Remain
+## Why Deployment Hardening Comes Next
 
-The current product spans terminal interaction, durable local state, generation, SQLite, and a network API. Independent CI and black-box lanes keep changes to any one boundary from weakening the established baseline.
+The current private preview proves the browser and backend can run together, but an ad hoc preview is not an operational baseline. A dependable single-operator deployment needs an explicit access boundary, durable service lifecycle, actionable health signals, recoverable state, and a verified release rollback path before the project considers accounts or public multi-user hosting.
 
-The quality policy prioritizes repeatable evidence over speculative behavior. Reliable CI and deterministic black-box tests make calibration results meaningful and reduce the risk of changing database selection or import policy.
+The deployment milestone changes operations rather than gameplay. Accounts, account-scoped authorization, public multi-tenancy, collaboration, and shared games remain non-goals for this milestone.
 
-## Current and Future Work
+## Milestone 1: Deployment-Hardening Design
 
-### Maintain CI and Black-Box E2E
+The design defines one coordinated operating contract for the backend and browser client before host configuration changes begin:
 
-Pull-request CI separates unit tests, race detection, vet, lint, API contract checks, API E2E, and TUI E2E into independent jobs. Independent jobs keep a slow boundary from hiding fast failures and allow every gate to report its own timeout and diagnostics.
+1. **Exposure and authentication boundary:** state who may reach the single-operator deployment, where authentication is enforced, which routes are public for health checks, and how credentials are created, rotated, and revoked.
+2. **Durable service lifecycle:** define installation paths, process ownership, startup ordering, restart policy, graceful shutdown, state directories, and behavior after host reboot.
+3. **Health monitoring and alerts:** distinguish process liveness, API readiness, static-release availability, storage failures, and actionable operator alerts.
+4. **Backup and restore:** cover the Sudoku database, service configuration, and versioned release artifacts; define retention, integrity checks, and a timed restore drill.
+5. **Release, rollback, and recovery:** define immutable release identification, preflight checks, deployment order, rollback triggers, previous-release restoration, and final end-to-end recovery verification.
 
-Storage and command-wiring tests use fixed classified puzzles through the `cmd.batchGenerateWith` generation seam. Real randomized generation remains covered in `generator`, while `cmd` tests prove reporting and SQLite composition without waiting for a target difficulty. Solver fallback fixtures use `solver.Backtracker.SolveDeterministic`; randomized `solver.Backtracker.Solve` remains available for diverse full-board generation without making race-test duration depend on a lucky search path. These boundaries keep `go test -race -count=1 ./...` viable as a mandatory gate without weakening generation or fallback coverage.
+The design includes acceptance criteria, failure tests, rollback proof, ownership boundaries, and explicit non-goals. It does not modify Caddy, services, credentials, firewall rules, or public exposure.
 
-The API, TUI, and line-CLI harnesses build and execute the real binary with isolated temporary state. The line-CLI lane covers parsing, gameplay/history, durable sessions, import normalization and deduplication, bounded generation, and SQLite-visible composition. Its multi-process database case runs overlapping fixed-fixture imports and statistics readers against one file, then verifies acquisition counters and SQLite integrity after all writers close. The public `--from-db` boundary deterministically covers exact-grade acquisition, migration, and balanced reuse; generated-fallback accounting uses focused package coverage.
+## Milestone 2: Reversible Implementation Slices
 
-### Maintain Boundary Unit and Integration Coverage
+Implementation follows the reviewed design in this order:
 
-- `webapi` tests cover malformed input, lifecycle and persistence failures, exact authentication and CORS boundaries, revision conflicts, concurrent sessions, and process-lock exclusion.
-- `cmd` tests cover deterministic generation/storage composition, session restoration and source rejection, API startup-policy validation, and process-lock ownership. CLI dispatch and Cobra workflows remain in built-binary E2E instead of being reimplemented in test-only controllers.
-- The unit job records a cross-package Go coverage profile and publishes a package summary through `scripts/coverage_report.py`. Coverage is review evidence rather than a pass/fail threshold.
-- Review prioritizes meaningful branches by risk: `webapi`, `cmd`, `recovery`, and `sessionfile` failure/lifecycle paths; `game` state invariants; and generator/solver correctness. Low-risk wrappers and generated boundary code do not justify artificial tests solely to raise a percentage.
-- Every fixed defect gains a regression test at the narrowest layer that proves the behavior.
+1. enforce and verify the exposure/authentication boundary;
+2. install durable backend and static-web service lifecycles with restart and reboot proof;
+3. add health monitoring and actionable failure alerts;
+4. automate bounded backups and complete a restore drill;
+5. publish a versioned release and prove rollback to the prior version;
+6. run the complete recovery exercise and record the operating evidence.
 
-### Preserve the Calibration Contract
+Each slice must be independently reviewable, include its own failure test, and leave a verified rollback path. Shared-host changes require explicit operator approval at the point of application.
 
-Calibration runs from the stable CI baseline with deterministic classifier semantics and versioned mixed corpora. Easy through Evil are canonical strategy grades rather than predictions of player experience; score orders puzzles within a grade, clue count guides generation, and strategy-unsolved remains separate. `.aidoc/designs/difficulty-calibration.md` owns the current evidence, corpus contract, reproducibility metadata, measurements, and remaining decision gates.
+## Maintained Delivery Gates
 
-Calibration output remains local and telemetry-free. The 101-record corpus separates target-alignment failures from strategy-inventory stalls. Batch generation remains best-effort and stores each completed puzzle under its actual grade; per-puzzle wall-clock budgets are hard deadlines. Interactive play first uses an exact requested-grade result or database puzzle, then explicitly reports any actual-grade fallback. Technique-inventory changes remain separate; human data may support a later empirical player-difficulty layer but is not a prerequisite for strategy calibration.
-
-## Maintained Stabilization Gates
-
-- Pull-request CI runs race detection, API E2E, TUI PTY E2E, and automated line-CLI/command E2E.
-- Boundary failures and lifecycles in `webapi` and `cmd` have focused regression coverage without duplicating black-box command tests.
-- CI publishes reproducible package coverage for risk-based review without a global threshold.
-- All black-box lanes run against built artifacts with isolated state and deterministic fixtures.
-- Calibration evidence and policy proposals begin from a green, stable baseline.
+- Pull-request CI keeps unit, race, vet, lint, API contract, API E2E, line-CLI E2E, and TUI PTY E2E independent and green.
+- Black-box verification runs against built artifacts with isolated deterministic state.
+- Deployment changes preserve loopback-safe backend defaults and the client-neutral API contract.
+- Documentation and operating procedures remain portable; repository files contain no private hostnames, credentials, user paths, or environment-specific secrets.
+- The milestone is complete only after access, restart, alert, restore, rollback, and full recovery evidence all pass.

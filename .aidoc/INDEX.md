@@ -14,7 +14,7 @@ The project index provides reading chains for common starting points and a compl
 | Document | Relationship |
 |----------|-------------|
 | `AGENT.md` | Active repository rules and operator entry point |
-| `.aidoc/designs/roadmap.md` | Current priorities and maintained delivery gates |
+| `.aidoc/designs/roadmap.md` | Approved deployment-hardening sequence and maintained delivery gates |
 | `.aidoc/architecture/guidelines.md` | Package boundaries and cross-cutting design constraints |
 
 ## Reading Chains
@@ -61,14 +61,14 @@ The project index provides reading chains for common starting points and a compl
 22. `cmd/import.go` — import CLI (file parsing, normalization, dedup, report)
 
 ### Understanding the Roadmap
-1. `.aidoc/designs/roadmap.md` — stabilization priorities, sequencing, and exit criteria
+1. `.aidoc/designs/roadmap.md` — deployment-hardening milestones, sequencing, and exit criteria
 2. `.aidoc/designs/e2e-test-scenarios.md` — compatibility and black-box acceptance scenarios
 3. `.aidoc/designs/difficulty-model.md` — calibration boundary and strategy-grade invariants
 4. `.aidoc/designs/difficulty-calibration.md` — strategy measurement methodology, report contract, and product decisions
 5. `.aidoc/designs/database-puzzle-selection.md` — current database behavior, migration, and acceptance boundary
 6. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and explicit reset behavior
 7. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
-8. `.aidoc/designs/future-directions.md` — evidence-gated database, product, and production directions
+8. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
 9. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
 10. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
 11. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
@@ -104,7 +104,7 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/architecture/guidelines.md` | Design constraints, layer boundaries, solver contract |
 | `.aidoc/designs/difficulty-model.md` | Strategy-grade contract, within-grade scoring, clue guidance, and calibration boundary |
 | `.aidoc/designs/difficulty-calibration.md` | Strategy calibration methodology, corpus contract, evidence, reports, and decision gates |
-| `.aidoc/designs/roadmap.md` | Stabilization priorities, sequencing, and exit criteria |
+| `.aidoc/designs/roadmap.md` | Deployment-hardening milestones, sequencing, and exit criteria |
 | `.aidoc/designs/database-puzzle-selection.md` | Current exact-grade acquisition, played-state recycling, migration, and acceptance contract |
 | `.aidoc/designs/database-play-statistics.md` | Current completion counters, acquisition/completion statistics, and explicit history reset |
 | `.aidoc/designs/database-concurrency.md` | SQLite connection policy, mixed-workload stress, and multi-process acceptance contract |

@@ -22,7 +22,7 @@ Automatic candidates provide opt-in legal-candidate assistance and an explicit a
 | `.aidoc/designs/game-engine.md` | Defines the detached snapshot and the distinction between engine state and derived queries |
 | `.aidoc/designs/tui-frontend.md` | Defines the keyboard, rendering, theme, and accessibility boundaries used by the first consumer |
 | `.aidoc/designs/e2e-tui-scenarios.md` | Defines the black-box behaviors that protect candidate assistance |
-| `.aidoc/designs/roadmap.md` | Defines current stabilization priorities |
+| `.aidoc/designs/roadmap.md` | Defines approved project priorities |
 
 ## Why Automatic Candidates Are Derived
 
@@ -48,7 +48,7 @@ Direct manual-note actions do not alter legal candidates. Automatic candidate ch
 
 The full-screen TUI adds `a` as the automatic-candidate toggle when no modal or text prompt is active. Automatic candidates start off for every process, including resumed sessions, so the existing uncluttered board remains the default. Toggling the display does not mark the session dirty and does not create an undo entry.
 
-The help overlay and one-line key guide expose the toggle. When note mode and the automatic preview are both active, the first digit edit submits `AdoptCandidatesAsNotes`, hides the preview after success, and remains in note mode. The transition needs no confirmation because the engine records the complete replacement as one Undo/Redo step. A rejected adoption leaves the preview visible and the prior note map unchanged. The line-oriented CLI has no candidate command: a dense candidate board would complicate its stable text format without improving scriptability, while the shared snapshot contract remains available to future frontends.
+The help overlay and one-line key guide expose the toggle. When note mode and the automatic preview are both active, the first digit edit submits `AdoptCandidatesAsNotes`, hides the preview after success, and remains in note mode. The transition needs no confirmation because the engine records the complete replacement as one Undo/Redo step. A rejected adoption leaves the preview visible and the prior note map unchanged. The line-oriented CLI has no candidate command: a dense candidate board would complicate its stable text format without improving scriptability, while the shared snapshot contract remains frontend-neutral.
 
 ## Rendering and Manual Notes
 
@@ -68,7 +68,7 @@ Automatic candidates do not add candidate persistence, background computation, a
 
 Automatic candidates use two implementation layers:
 
-1. Extend detached snapshots with computed legal candidates and contract tests for empty, filled, invalid-visible, changed, restored, and mutation-isolation cases.
-2. Add the TUI toggle, combined note/candidate rendering, help text, theme tests, and pseudo-terminal black-box coverage.
+1. Detached snapshots expose computed legal candidates, with contract tests for empty, filled, invalid-visible, changed, restored, and mutation-isolation cases.
+2. The TUI owns the toggle, combined note/candidate rendering, help text, theme tests, and pseudo-terminal black-box coverage.
 
 Package tests verify deterministic candidate derivation and rendering in dark, light, and no-color modes. Black-box tests verify toggle default and keyboard behavior, value and clear updates, undo/redo, hint application, reset, save/resume, invalid-entry suppression, resize, dirty-state neutrality, and coexistence with legal and stale manual notes.

@@ -82,9 +82,3 @@ The harness uses isolated XDG roots, a fixed process count, subprocess deadlines
 - The built-binary multi-process database scenario passes three consecutive local runs with no leaked process or state outside its temporary directory.
 - `go test -race -count=1 ./...`, vet, lint, API contract, and all built-binary E2E lanes pass.
 - Database docs and the E2E matrix describe the maintained concurrency boundary and its explicit exclusions.
-
-## Deferred Decisions
-
-- Minimum-clue, uniqueness, and solver-cost admission policy.
-- Backup/restore commands, corruption recovery, and operational maintenance.
-- Network filesystems, distributed databases, accounts, and multi-tenant storage.

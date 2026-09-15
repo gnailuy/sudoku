@@ -20,7 +20,7 @@ dependencies:
 | Document | Relationship |
 |----------|-------------|
 | `.aidoc/architecture/guidelines.md` | Current package boundaries that the engine must preserve |
-| `.aidoc/designs/roadmap.md` | Current frontend delivery order |
+| `.aidoc/designs/roadmap.md` | Approved project priorities and sequencing |
 | `.aidoc/designs/e2e-play-scenarios.md` | Black-box CLI behavior that must remain compatible |
 
 ## Why the Engine Boundary Exists
@@ -93,7 +93,7 @@ Each player-controlled state stores separate 81-character `values` and `invalid`
 
 Restoration rejects malformed JSON, unknown fields, unsupported versions, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid note records, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Current state is stored independently from the cursor because temporary compatibility adapters may change state outside the stable action history; restoration preserves that state and the adapter's existing undo/redo behavior. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `unsupported-version`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
 
-Unknown future schema versions fail explicitly; migrations can be added per version. `Game.ToString` remains diagnostic text and is not a persistence format.
+Unknown schema versions fail explicitly, and each supported migration is version-specific. `Game.ToString` remains diagnostic text and is not a persistence format.
 
 ## Compatibility and Failure Boundaries
 
