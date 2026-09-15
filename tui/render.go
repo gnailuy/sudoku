@@ -45,7 +45,7 @@ func render(m Model) string {
 	}
 
 	title := center(m.width, styles.title.Render("SUDOKU"), styles.canvas)
-	status := fmt.Sprintf("%s  •  %s  •  r%dc%d", mode, m.snapshot.Status, m.row+1, m.column+1)
+	status := fmt.Sprintf("%s  •  %s  •  Mistakes: %d  •  r%dc%d", mode, m.snapshot.Status, m.snapshot.Mistakes, m.row+1, m.column+1)
 	if m.autoCandidates {
 		status = "AUTO ON  •  " + status
 	} else {

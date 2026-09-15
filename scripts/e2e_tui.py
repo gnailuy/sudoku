@@ -51,6 +51,11 @@ def main():
         )
         os.close(slave)
         output = drain(master, 0.8)
+        # A confirmed invalid value increments the authoritative count, and
+        # Undo restores the board without decrementing that cumulative count.
+        for keys in (b"3", b"u"):
+            os.write(master, keys)
+            output += drain(master)
         # Resize below and back above the minimum; game state must survive.
         fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 20, 40, 0, 0))
         process.send_signal(signal.SIGWINCH)
@@ -79,7 +84,7 @@ def main():
         finally:
             os.close(master)
         text = ANSI.sub(b"", output).decode("utf-8", "replace")
-        required = ("SUDOKU", "AUTO ON", "AUTO OFF", "Candidates copied. Notes on.", "NOTE  ", "KEYBOARD HELP", "Hint preview:", "Saved to ", "unsaved", "Unsaved changes")
+        required = ("SUDOKU", "Mistakes: 0", "Mistakes: 1", "AUTO ON", "AUTO OFF", "Candidates copied. Notes on.", "NOTE  ", "KEYBOARD HELP", "Hint preview:", "Saved to ", "unsaved", "Unsaved changes")
         missing = [value for value in required if value not in text]
         if missing:
             raise AssertionError(f"screen output missing {missing}\n{text[-4000:]}")
