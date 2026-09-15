@@ -28,7 +28,7 @@ The database keeps completion and acquisition histories as separate concepts, ex
 | `.aidoc/designs/game-engine.md` | Solved status and typed actions used to detect completion |
 | `.aidoc/designs/e2e-database-scenarios.md` | Black-box statistics and reset acceptance scenarios |
 | `.aidoc/designs/database-concurrency.md` | Mixed-workload snapshot/reset contention and lock bounds |
-| `.aidoc/designs/roadmap.md` | Current and future database work |
+| `.aidoc/designs/roadmap.md` | Approved project priorities and maintained quality gates |
 
 ## Why Completion Is Separate From Acquisition
 
@@ -81,7 +81,3 @@ Reset preserves puzzle rows, classification, source, normalized keys, explicit s
 ## Verification
 
 Package tests cover migration, atomic increments, filtered snapshots, reset scopes, rollback, missing normalized rows, automatic-solve exclusion, hints, undo/re-solve suppression, and concurrency. Built-binary scenarios cover separate history dimensions, frontend consistency, normalized identity, grade filtering, explicit confirmation, preserved data, and failure reporting; `.aidoc/designs/e2e-database-scenarios.md` is the canonical scenario list.
-
-## Deferred Decisions
-
-Abandonment, elapsed duration, durable attempt identities, player attribution, telemetry, minimum-clue policy, and full Sudoku-symmetry canonicalization remain separate decisions that require a concrete product need.

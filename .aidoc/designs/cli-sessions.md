@@ -19,7 +19,7 @@ The CLI exposes manual notes and durable game sessions through the existing comm
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/roadmap.md` | Current stabilization priorities and sequencing |
+| `.aidoc/designs/roadmap.md` | Approved project priorities and sequencing |
 | `.aidoc/designs/game-engine.md` | Canonical note, history, snapshot, and serialization semantics |
 | `.aidoc/designs/e2e-session-scenarios.md` | Black-box scenarios for notes and restored sessions |
 | `.aidoc/architecture/guidelines.md` | Package boundaries that keep I/O out of the engine |
@@ -64,7 +64,7 @@ Session JSON remains engine-owned and opaque to `cmd` and `cli`. Frontend code c
 - `cmd` owns root flags, file selection, restore startup, and construction of solver options.
 - A small persistence helper owns bounded reads and atomic writes so filesystem mechanics do not become controller behavior.
 
-Persistence helpers accept explicit paths and byte slices and return errors. Persistence helpers do not choose default locations, print messages, or depend on Cobra, which keeps the transport independently testable and reusable by a later frontend.
+Persistence helpers accept explicit paths and byte slices and return errors. Persistence helpers do not choose default locations, print messages, or depend on Cobra, which keeps the transport independently testable and frontend-neutral.
 
 ## Failure and Compatibility Rules
 

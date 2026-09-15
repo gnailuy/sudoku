@@ -27,7 +27,7 @@ Easy through Evil are deterministic strategy grades assigned from the highest te
 
 Human difficulty depends on experience, recognition speed, interface, and play conditions that this repository does not observe. A canonical strategy trace is objective, reproducible, explainable, and under product control, so the trace provides the authoritative rating contract.
 
-The familiar Easy through Evil names remain public, but their meaning is strictly solver-relative. Human ratings or telemetry may support a separately named player-difficulty model in the future; player evidence is neither a prerequisite for strategy grades nor grounds for silently changing them.
+The familiar Easy through Evil names remain public, but their meaning is strictly solver-relative. Human ratings and telemetry are outside the current model; player evidence is neither a prerequisite for strategy grades nor grounds for silently changing them. `.aidoc/designs/future-directions.md` owns any player-difficulty proposal.
 
 ## Strategy Grade Contract
 

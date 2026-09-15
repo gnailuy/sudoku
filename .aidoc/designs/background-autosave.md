@@ -20,7 +20,7 @@ Background autosave protects active TUI games from process, terminal, and host f
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/roadmap.md` | Current stabilization priorities and sequencing |
+| `.aidoc/designs/roadmap.md` | Approved project priorities and sequencing |
 | `.aidoc/designs/game-engine.md` | Canonical serialized gameplay state restored from recovery data |
 | `.aidoc/designs/tui-frontend.md` | Event-loop, dirty-state, modal, and explicit-save behavior |
 | `.aidoc/designs/cli-sessions.md` | Existing atomic transport and player-owned save contract |
@@ -69,7 +69,3 @@ Recovery files are never merged. Separate randomly identified records avoid writ
 Recovery and model tests cover secure path selection, wrapper bounds and versions, symlink rejection, retention pruning, concurrent record isolation, debounce coalescing, stale completion, retry behavior, selection, and cleanup decisions. The pseudo-terminal harness covers gameplay compatibility, explicit save/resume, crash recovery, durable-record selection, private modes, cleanup, and opt-out behavior.
 
 Applicable root CLI black-box scenarios verify unchanged output, flags, save bytes, and no recovery-file creation. Repository verification also covers build, package tests, vet, lint, documentation structure, pseudo-terminal behavior, and black-box compatibility.
-
-## Deferred Work
-
-Recovery does not add cloud sync, cross-device merge, account identity, encryption beyond operating-system file permissions, periodic snapshots, recovery history, or line-oriented CLI autosave. Those capabilities require separate product and threat-model decisions.

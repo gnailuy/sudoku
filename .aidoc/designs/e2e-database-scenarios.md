@@ -91,7 +91,3 @@ Database behavior crosses generation, classification, persistence, and startup. 
 ### Deterministic Lock Bound
 **Action:** Hold a write transaction in a package test and write through another handle before and after releasing the lock.
 **Expected:** The blocked write returns within the configured five-second bound without partial mutation; the later write succeeds.
-
-## Deferred Database Scenarios
-
-Large-import acceptance belongs to `.aidoc/designs/e2e-import-scenarios.md`. Minimum-clue and uniqueness policy remain separate decisions with their own future acceptance scenarios.

@@ -18,14 +18,14 @@ The optional full-screen terminal interface is the smallest second frontend for 
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/roadmap.md` | Current stabilization priorities and sequencing |
+| `.aidoc/designs/roadmap.md` | Approved project priorities and sequencing |
 | `.aidoc/designs/game-engine.md` | Canonical actions, snapshots, hints, notes, and serialization |
 | `.aidoc/designs/cli-sessions.md` | Existing CLI behavior and explicit persistence policy |
 | `.aidoc/designs/e2e-tui-scenarios.md` | Black-box compatibility and TUI scenarios |
 
 ## Why the TUI Exists
 
-A TUI reuses the Go engine directly without adding a network, browser, service, or cross-language boundary. The terminal frontend validates the presentation contract while web and mobile clients remain separate product decisions.
+The TUI reuses the Go engine directly without adding a network, browser, service, or cross-language boundary. The terminal frontend validates the presentation contract; the browser client is a separate repository, and this repository contains no mobile client.
 
 The existing CLI remains valuable for scripts, redirected input, and minimal terminals. The `sudoku tui` command complements rather than replaces the root play command, so established commands and output remain compatible.
 
@@ -57,7 +57,7 @@ The filesystem transport lives in the presentation-neutral `sessionfile` package
 
 ## Rendering and Terminal Boundaries
 
-The first TUI supports terminals large enough to show a 9×9 board, status, messages, and help. A too-small terminal renders a resize instruction and accepts only resize and quit events until the minimum layout fits.
+The TUI supports terminals large enough to show a 9×9 board, status, messages, and help. A too-small terminal renders a resize instruction and accepts only resize and quit events until the minimum layout fits.
 
 Given cells, player values, invalid entries, the focused cell, and peer cells remain semantically distinct without punctuation around digits. Focus uses a strong background, peers use a quieter background, 3×3 boundaries are heavier than cell boundaries, and manual notes and opt-in automatic candidates share fixed candidate positions without placeholder dots. Manual styling wins for overlapping or stale notes. The title, status, board, messages, and one-line key guide center within the available width.
 
@@ -76,7 +76,3 @@ The terminal dependencies are confined to the `tui` package and `cmd/tui.go`. Th
 Package tests cover key-to-action translation, focus boundaries, note mode, automatic-candidate display, authoritative mistake-count rendering, modal confirmations and help, dirty-state tracking, save transport, hint preview/apply, small-terminal fallback, clean cell rendering, theme selection, no-color accessibility, and deterministic rendering. The model injects its persistence function for isolated save tests.
 
 `scripts/e2e_tui.py` is a standard-library pseudo-terminal harness that starts the built binary, sends keys, resizes the terminal, and inspects stable screen text. Black-box scenarios cover startup from input and saved state, value and note entry, undo/redo, hint preview/apply, explicit save, invalid restore rejection, quit confirmation, and CLI backward compatibility.
-
-## Deferred Work
-
-Mouse support, localization, web and mobile frontends, network protocols, cloud sync, and multi-user play remain separate product decisions. Later TUI work should not expand the engine contract unless the TUI exposes a concrete missing capability that cannot be expressed through snapshots, actions, hints, or serialization.

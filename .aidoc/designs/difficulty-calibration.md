@@ -20,8 +20,8 @@ Calibration tests whether the canonical strategy grades are reproducible, intern
 | Document | Relationship |
 |----------|--------------|
 | `.aidoc/designs/difficulty-model.md` | Strategy grades, weights, clue guidance, and configuration boundary |
-| `.aidoc/designs/roadmap.md` | Sequencing after baseline stabilization |
-| `.aidoc/designs/e2e-calibration-scenarios.md` | Black-box behavior catalog for later policy changes |
+| `.aidoc/designs/roadmap.md` | Approved project priorities and maintained quality gates |
+| `.aidoc/designs/e2e-calibration-scenarios.md` | Current black-box calibration behavior catalog |
 
 ## Why Calibration Exists
 
@@ -29,7 +29,7 @@ The current model combines technique tiers, accumulated HoDoKu-derived weights, 
 
 Calibration reports support policy decisions; calibration tooling does not silently make them. Technique-tier changes, weight changes, clue guidance, generation budgets, and fallback semantics require a separate proposal with before-and-after evidence.
 
-The strategy rating contract is intentionally narrower than human difficulty. Completion time, mistakes, hints, subjective ratings, and player experience may later inform a separately named empirical layer, but absence of that data does not block or weaken a canonical strategy grade.
+The strategy rating contract is intentionally narrower than human difficulty. Completion time, mistakes, hints, subjective ratings, and player experience are outside this contract; absence of that data does not block or weaken a canonical strategy grade. `.aidoc/designs/future-directions.md` owns any empirical player-difficulty direction.
 
 ## Measurement Preconditions
 
@@ -86,7 +86,7 @@ The external expansion still confirms that score is not a cross-grade boundary: 
 
 The v6 evidence supports the adopted bounded generator policy without retuning grades, weights, clues, or strategies. Batch generation remains best-effort, classifies and stores only completed puzzles under their actual grade, and reports target matches separately. Wall-clock generation budgets are hard caller deadlines. Interactive play uses a matching generated or database puzzle when available and otherwise names the actual generated grade explicitly. Technique-inventory changes remain separate and require diagnosis and regression fixtures for representative stalls.
 
-## Rating Contract and Remaining Decision Gates
+## Rating Contract
 
 The approved rating contract fixes these invariants:
 
@@ -94,9 +94,7 @@ The approved rating contract fixes these invariants:
 2. Score orders completed puzzles within a grade and never overrides the explicit grade hierarchy.
 3. Clue ranges guide generation but do not assign a grade.
 4. `strategy-unsolved` remains a separate outcome and is never relabeled Evil.
-5. Human observations, if collected later, belong to a separate empirical player-difficulty layer.
-
-Future calibration proposals still require review of technique-tier or weight changes, budget defaults, storage treatment of strategy-unsolved puzzles, and target-hit, reproducibility, latency, and coverage acceptance thresholds. Every proposal must state rejected alternatives and compare current and candidate behavior on exploratory and held-out data.
+5. Human observations do not redefine the deterministic strategy-grade contract.
 
 ## Maintenance Invariants
 

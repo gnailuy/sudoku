@@ -5,48 +5,53 @@ entry_points:
   - cmd/api.go
   - cmd/import.go
   - db/puzzle.go
-  - webapi/server.go
+  - solver/classify.go
 dependencies:
   - .aidoc/designs/roadmap.md
   - .aidoc/designs/database-concurrency.md
-  - .aidoc/designs/database-puzzle-selection.md
+  - .aidoc/designs/difficulty-calibration.md
   - .aidoc/designs/web-api.md
 ---
 
 # Future Directions
 
-Sudoku may eventually revisit evidence-gated database work or support hosted and multi-user use cases, but those capabilities are not current priorities. Each direction below changes product behavior, ownership, persistence, or security assumptions and therefore requires a separately approved design before implementation.
+This document is the only backend location for deliberately deferred product and technical directions. None of these items is committed work; each requires concrete evidence and a separately approved design before implementation.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/roadmap.md` | Current stabilization priorities and sequencing |
-| `.aidoc/designs/database-concurrency.md` | Maintained SQLite reliability and lock-behavior baseline |
-| `.aidoc/designs/database-puzzle-selection.md` | Maintained puzzle identity, acquisition, and history semantics |
-| `.aidoc/designs/web-api.md` | Existing API trust boundary and safe defaults |
-| `api/openapi.yaml` | Canonical external contract that future clients consume |
+| `.aidoc/designs/roadmap.md` | Approved deployment-hardening sequence |
+| `.aidoc/designs/web-api.md` | Current client-neutral API and trust boundary |
+| `.aidoc/designs/database-concurrency.md` | Maintained local SQLite reliability baseline |
+| `.aidoc/designs/difficulty-calibration.md` | Current deterministic strategy-grade evidence |
 
-## Product Directions
+## Product Expansion
 
-Possible later product work includes accounts and account-scoped authorization, multi-tenancy, cloud synchronization, shared games, cross-device merge, localization, mobile clients, and collaboration.
+Possible product directions include single-user saved-game portability, accounts, account-scoped authorization, public multi-user hosting, cloud synchronization, shared games, collaboration, localization, and native mobile clients.
 
-A TypeScript client and browser UI belong to a separate project. This Go repository remains client-neutral unless a future design establishes a backend capability that multiple clients need.
+Accounts and multi-user hosting form one product and security boundary. Any proposal must define identity, ownership, tenant isolation, authorization for every session operation, anonymous-player behavior, retention, abuse handling, and migration from the current single-operator model. A shared deployment credential is operational protection, not user identity.
 
-## Production Exposure
+The TypeScript browser client remains a separate repository. This Go repository stays client-neutral unless a reviewed capability is shared by multiple clients and belongs in the engine or API.
 
-The current API is suitable for deliberate deployment behind an operator-controlled boundary, but a public multi-user service needs additional controls. Before such exposure, a design should cover rate limiting, account-scoped authorization, operational metrics, backup and restore guidance, and a documented TLS reverse-proxy profile.
+## Deployment Beyond the Current Milestone
 
-Production design must also define tenant isolation, credential lifecycle, abuse handling, retention, upgrades, and recovery objectives. Loopback defaults, mandatory authentication for non-loopback binding, bounded requests, and exact-origin CORS remain baseline protections rather than substitutes for those controls.
+Public multi-user production is outside the single-operator deployment-hardening roadmap. A later public-service design must add account-scoped authorization, rate limits, abuse controls, tenant-safe observability, privacy and retention policy, capacity objectives, and multi-tenant backup and recovery.
 
-## Evidence-Gated Local Database Work
+Additional hosting models—network filesystems, distributed databases, active-active service replicas, or multi-region recovery—need measured availability or scale requirements. The current local SQLite and single-host contract does not imply support for those environments.
 
-The current per-puzzle import transaction is appropriate for a small local SQLite application. Large-import batching, resumable partial batches, expanded progress reporting, and synthetic throughput machinery are not active roadmap work because no real workload has demonstrated unacceptable import latency or lock behavior.
+## Evidence-Gated Database Work
 
-Import-performance work requires a reproducible user workload that shows a material problem on supported hardware. Any proposal must separate puzzle classification cost from SQLite write cost, preserve the existing identity and history semantics, and define a bounded black-box acceptance case before changing the importer.
+Large-import batching, resumable partial batches, expanded progress reporting, and throughput optimization require a reproducible user workload that demonstrates unacceptable latency or lock behavior on supported hardware. Any proposal must separate classification cost from SQLite write cost, preserve puzzle identity and history semantics, and define a bounded black-box acceptance case.
 
-Minimum-clue and uniqueness admission also require a concrete product need and separately approved semantics. Neither admission policy is necessary to complete or maintain the current database baseline.
+Minimum-clue and uniqueness admission require a concrete product need and explicit semantics. Full Sudoku-symmetry canonicalization, durable attempt identities, abandonment tracking, elapsed-duration statistics, player attribution, and telemetry likewise remain outside the current database contract.
+
+## Evidence-Gated Solver and Rating Work
+
+Technique-tier changes, strategy expansion, weight changes, generation-budget changes, and storage treatment of `strategy-unsolved` puzzles require representative fixtures and before-and-after evidence on exploratory and held-out corpora. Target-hit, reproducibility, latency, and coverage thresholds must be stated before tuning begins.
+
+Human observations may support a separately named player-difficulty model. Such a model needs a defined population, rating method, privacy boundary, sample-quality controls, and an explanation of how it coexists with deterministic strategy grades; it must not silently redefine Easy through Evil.
 
 ## Decision Gate
 
-Future work starts only when a concrete user need establishes ownership, threat model, data lifecycle, compatibility expectations, and test strategy. Until then, these directions remain context for design decisions, not committed roadmap items.
+Deferred work becomes a roadmap candidate only when a concrete user or workload establishes ownership, threat model, data lifecycle, compatibility expectations, measurable acceptance criteria, and test strategy. Until then, the maintained product and deployment roadmap remains unchanged.
