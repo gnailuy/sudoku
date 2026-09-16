@@ -15,6 +15,7 @@ The project index provides reading chains for common starting points and a compl
 |----------|-------------|
 | `AGENT.md` | Active repository rules and operator entry point |
 | `.aidoc/designs/roadmap.md` | Approved deployment-hardening sequence and maintained delivery gates |
+| `.aidoc/designs/deployment-hardening.md` | Canonical single-operator operating and paired-release contract |
 | `.aidoc/architecture/guidelines.md` | Package boundaries and cross-cutting design constraints |
 
 ## Reading Chains
@@ -62,19 +63,20 @@ The project index provides reading chains for common starting points and a compl
 
 ### Understanding the Roadmap
 1. `.aidoc/designs/roadmap.md` — deployment-hardening milestones, sequencing, and exit criteria
-2. `.aidoc/designs/e2e-test-scenarios.md` — compatibility and black-box acceptance scenarios
-3. `.aidoc/designs/difficulty-model.md` — calibration boundary and strategy-grade invariants
-4. `.aidoc/designs/difficulty-calibration.md` — strategy measurement methodology, report contract, and product decisions
-5. `.aidoc/designs/database-puzzle-selection.md` — current database behavior, migration, and acceptance boundary
-6. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and explicit reset behavior
-7. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
-8. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
-9. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
-10. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
-11. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
-12. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
-13. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
-14. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+2. `.aidoc/designs/deployment-hardening.md` — access, release, lifecycle, monitoring, backup, restore, and rollback contract
+3. `.aidoc/designs/e2e-test-scenarios.md` — compatibility and black-box acceptance scenarios
+4. `.aidoc/designs/difficulty-model.md` — calibration boundary and strategy-grade invariants
+5. `.aidoc/designs/difficulty-calibration.md` — strategy measurement methodology, report contract, and product decisions
+6. `.aidoc/designs/database-puzzle-selection.md` — current database behavior, migration, and acceptance boundary
+7. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and explicit reset behavior
+8. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
+9. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
+10. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
+11. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
+12. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
+13. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
+14. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
+15. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
@@ -105,6 +107,7 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/difficulty-model.md` | Strategy-grade contract, within-grade scoring, clue guidance, and calibration boundary |
 | `.aidoc/designs/difficulty-calibration.md` | Strategy calibration methodology, corpus contract, evidence, reports, and decision gates |
 | `.aidoc/designs/roadmap.md` | Deployment-hardening milestones, sequencing, and exit criteria |
+| `.aidoc/designs/deployment-hardening.md` | Single-operator exposure, paired releases, lifecycle, monitoring, backup, restore, and rollback |
 | `.aidoc/designs/database-puzzle-selection.md` | Current exact-grade acquisition, played-state recycling, migration, and acceptance contract |
 | `.aidoc/designs/database-play-statistics.md` | Current completion counters, acquisition/completion statistics, and explicit history reset |
 | `.aidoc/designs/database-concurrency.md` | SQLite connection policy, mixed-workload stress, and multi-process acceptance contract |
