@@ -6,6 +6,7 @@ entry_points:
   - webapi/server.go
   - .github/workflows/ci.yml
 dependencies:
+  - .aidoc/designs/deployment-hardening.md
   - .aidoc/designs/web-api.md
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/future-directions.md
@@ -19,6 +20,7 @@ The next approved milestone hardens the current single-operator deployment befor
 
 | Document | Relationship |
 |----------|-------------|
+| `.aidoc/designs/deployment-hardening.md` | Canonical operating, paired-release, recovery, and acceptance contract |
 | `.aidoc/designs/web-api.md` | Current HTTP contract, security boundary, and safe defaults |
 | `.aidoc/designs/e2e-test-scenarios.md` | Maintained black-box verification baseline |
 | `.aidoc/designs/future-directions.md` | Deferred product, hosting, and technical directions |
@@ -32,15 +34,11 @@ The deployment milestone changes operations rather than gameplay. Accounts, acco
 
 ## Milestone 1: Deployment-Hardening Design
 
-The design defines one coordinated operating contract for the backend and browser client before host configuration changes begin:
+The approved [deployment-hardening design](deployment-hardening.md) is the canonical operating contract for exposure, authentication, paired immutable releases, durable service ownership, monitoring, backup consistency, isolated restore, rollback, and the full recovery exercise. The companion browser design owns mount-aware static artifacts, cache behavior, and desktop/phone evidence.
 
-1. **Exposure and authentication boundary:** state who may reach the single-operator deployment, where authentication is enforced, which routes are public for health checks, and how credentials are created, rotated, and revoked.
-2. **Durable service lifecycle:** define installation paths, process ownership, startup ordering, restart policy, graceful shutdown, state directories, and behavior after host reboot.
-3. **Health monitoring and alerts:** distinguish process liveness, API readiness, static-release availability, storage failures, and actionable operator alerts.
-4. **Backup and restore:** cover the Sudoku database, service configuration, and versioned release artifacts; define retention, integrity checks, and a timed restore drill.
-5. **Release, rollback, and recovery:** define immutable release identification, preflight checks, deployment order, rollback triggers, previous-release restoration, and final end-to-end recovery verification.
+The design supports a dedicated origin or a path-prefixed Sudoku installation on a host shared with an unrelated site. Shared Caddy infrastructure does not couple application assets, processes, state, releases, checks, backups, or rollback.
 
-The design includes acceptance criteria, failure tests, rollback proof, ownership boundaries, and explicit non-goals. It does not modify Caddy, services, credentials, firewall rules, or public exposure.
+The design milestone changes documentation only. Caddy, services, credentials, firewall rules, public routes, and persistent state remain unchanged until a separately reviewed implementation slice is approved for the target host.
 
 ## Milestone 2: Reversible Implementation Slices
 
