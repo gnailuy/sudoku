@@ -52,7 +52,9 @@ Promotion records `previous`, switches the pair atomically, restarts the API gra
 
 One unprivileged service identity owns explicit working, data, recovery, and configuration locations. The service starts after networking, restarts unexpected failures with bounded backoff, honors the API's ten-second graceful shutdown budget, uses restrictive permissions, and starts after host reboot without an interactive login.
 
-Lifecycle proof covers a missing release, invalid permissions, occupied port, recovery-lock conflict, clean restart, forced termination, repeated failure, and host reboot. Every successful restart preserves an active game.
+`deploy/sudoku-api.service.example` keeps the paired `current` backend separate from persistent XDG data and recovery roots. `scripts/check_deployment.py` enforces the portable service contract, while `scripts/e2e_api.py` proves that clean restart and forced termination preserve an accepted active game. Enabling the user manager without an interactive login, repeated-failure behavior, and reboot proof are target-host acceptance steps because repository CI does not control the host service manager.
+
+Lifecycle acceptance also covers a missing release, invalid permissions, occupied port, recovery-lock conflict, and bounded restart failure. Every successful restart preserves an active game; no service operation changes a public route, credential, or neighboring application.
 
 ## Monitoring, Backup, and Restore
 

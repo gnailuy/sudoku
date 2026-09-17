@@ -72,6 +72,13 @@ def stop(process):
         raise RuntimeError(process.stderr.read())
 
 
+def kill(process):
+    process.kill()
+    process.wait(timeout=10)
+    if process.returncode != -signal.SIGKILL:
+        raise RuntimeError(f"API forced termination returned {process.returncode}")
+
+
 def expect(actual, expected, message):
     if actual != expected:
         raise AssertionError(f"{message}: got {actual!r}, want {expected!r}")
@@ -201,6 +208,16 @@ def main():
             expect(status, 201, "import")
             expect(request(base, "GET", "/api/v1/sessions")[0], 200, "list")
             expect(request(base, "DELETE", f"/api/v1/sessions/{imported['id']}")[0], 204, "discard")
+        except BaseException:
+            stop(process)
+            raise
+        kill(process)
+
+        process, base = start(binary, state, free_port(), ["--db", database])
+        try:
+            recovered_after_kill = request(base, "GET", path)[1]
+            expect(recovered_after_kill["revision"], 4, "forced-termination recovery")
+            expect(recovered_after_kill["snapshot"]["mistakes"], 1, "forced-termination mistake recovery")
         finally:
             stop(process)
 

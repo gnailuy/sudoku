@@ -44,8 +44,8 @@ The design milestone changes documentation only. Caddy, services, credentials, f
 
 Implementation follows the reviewed design in this order:
 
-1. enforce and verify the exposure/authentication boundary;
-2. install durable backend and static-web service lifecycles with restart and reboot proof;
+1. maintain the implemented exposure/authentication boundary across the backend and browser repositories;
+2. maintain the portable durable API service contract and built-binary graceful/forced-restart proof, then install it and prove unattended startup on an approved target host;
 3. add health monitoring and actionable failure alerts;
 4. automate bounded backups and complete a restore drill;
 5. publish a versioned release and prove rollback to the prior version;
