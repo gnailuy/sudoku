@@ -49,22 +49,28 @@ The harness calls the running `sudoku api` process rather than importing Go hand
 **Action:** Enter valid and invalid values, atomically replace a cell's complete note set, adopt the full legal-candidate grid with an initiating digit toggle, preview/apply a hint, undo/redo, and submit two actions with the same expected revision.
 **Expected:** Accepted mutations increment revisions once and match engine semantics. Empty, one-digit, and multi-digit note replacements use the same direct action. Candidate adoption materializes every editable visibly empty cell, applies the selected toggle, and creates one revision and one undo record; one Undo restores the complete prior note map and Redo restores the adopted map. A visible invalid value clears notes in its occupied cell but does not change solver-safe candidates or prune peer notes; only an accepted value performs peer-note cleanup. Every confirmed invalid `set-value` increments the cumulative mistake count, while notes, hints, erase, Undo, and Redo neither increment nor decrement it; restart recovery preserves the count. Legacy toggle and clear note kinds are rejected as unknown actions. Hint preview is read-only. The delayed mutation returns `409` with current state and never overwrites the accepted action.
 
-### 11.5 Restart Recovery and Discard
-**Action:** Mutate two API sessions, stop and restart the server, reconnect to both, then discard one.
-**Expected:** Both sessions restore from separate private records with complete values, notes, and history. Discard removes only the selected record, and another restart retains the other session.
+### 11.5 Restart, Forced-Termination Recovery, and Discard
+**Action:** Mutate two API sessions, stop and restart the server, reconnect to both, discard one, terminate the process without graceful shutdown, then start it again.
+**Expected:** Both sessions restore from separate private records with complete values, notes, history, and cumulative mistakes. Discard removes only the selected record. Graceful restart and forced termination both preserve the remaining session because accepted mutations are durable before their responses complete.
 
 ### 11.6 Concurrent Sessions and Process Lock
 **Action:** Mutate separate sessions concurrently, submit concurrent actions to one session, and start a second `sudoku api` process against the same state root.
 **Expected:** Different sessions proceed independently, one session remains revision-ordered, and the second process fails clearly without modifying recovery records.
 
-### 11.7 Origin Policy
+### 11.7 Durable Service Contract
+**Action:** Validate the portable user-service example and inspect its release, storage, shutdown, restart, and startup boundaries.
+**Expected:** The service executes only the paired `current` backend, binds the API to loopback, keeps data and recovery outside release directories, sends `SIGTERM` with the API's ten-second shutdown budget, uses bounded restart backoff, creates private files, and joins the user manager's default startup target. Repository artifacts contain no host path, hostname, credential, or bearer token.
+
+**Automation:** `scripts/check_deployment.py` validates `deploy/sudoku-api.service.example`; `scripts/e2e_api.py` proves graceful and forced-termination recovery against the built binary. Enabling the user manager at boot and rebooting a target host remain operator-approved acceptance steps because CI does not own a host service manager.
+
+### 11.8 Origin Policy
 **Action:** Send browser-style preflight and mutation requests with no configured origin, exact allowed local and remote HTTP/HTTPS origins, a different port, `null`, a wildcard, and a path-bearing origin.
 **Expected:** Cross-origin browser access is denied by default. Only exact configured origins succeed; responses never enable wildcard CORS, and authenticated preflight permits only the required authorization header.
 
-### 11.8 Authentication and Remote Access
+### 11.9 Authentication and Remote Access
 **Action:** Bind to a non-loopback address with no token, then with a configured token; call API resources with a missing, incorrect, and correct bearer credential.
 **Expected:** Unsafe startup is rejected. Missing and incorrect credentials receive bounded unauthorized responses, the correct credential succeeds, and logs never contain the token.
 
-### 11.9 Existing Frontend Compatibility
+### 11.10 Existing Frontend Compatibility
 **Action:** Run all applicable root CLI, TUI, serialization, candidate, and recovery scenarios after API tests.
 **Expected:** Existing output, actions, session bytes, recovery behavior, and terminal rendering remain compatible.

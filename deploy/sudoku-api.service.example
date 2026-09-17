@@ -1,0 +1,21 @@
+[Unit]
+Description=Sudoku API
+After=network.target
+StartLimitIntervalSec=30
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart=%h/.local/lib/sudoku/current/backend/sudoku api --listen 127.0.0.1:8080
+WorkingDirectory=%h/.local/share/sudoku
+Environment="XDG_DATA_HOME=%h/.local/share" "XDG_STATE_HOME=%h/.local/state"
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=10s
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
