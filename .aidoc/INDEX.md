@@ -14,8 +14,8 @@ The project index provides reading chains for common starting points and a compl
 | Document | Relationship |
 |----------|-------------|
 | `AGENT.md` | Active repository rules and operator entry point |
-| `.aidoc/designs/roadmap.md` | Approved deployment-hardening sequence and maintained delivery gates |
-| `.aidoc/designs/deployment-hardening.md` | Canonical single-operator operating and paired-release contract |
+| `.aidoc/designs/roadmap.md` | Approved portable build and deployment sequence |
+| `.aidoc/designs/deployment-hardening.md` | Canonical artifact, service, isolation, and replacement contract |
 | `.aidoc/architecture/guidelines.md` | Package boundaries and cross-cutting design constraints |
 
 ## Reading Chains
@@ -62,8 +62,8 @@ The project index provides reading chains for common starting points and a compl
 22. `cmd/import.go` — import CLI (file parsing, normalization, dedup, report)
 
 ### Understanding the Roadmap
-1. `.aidoc/designs/roadmap.md` — deployment-hardening milestones, sequencing, and exit criteria
-2. `.aidoc/designs/deployment-hardening.md` — access, release, lifecycle, monitoring, backup, restore, and rollback contract
+1. `.aidoc/designs/roadmap.md` — portable artifact and deployment sequence
+2. `.aidoc/designs/deployment-hardening.md` — artifact, service, isolation, access-policy, and replacement contract
 3. `.aidoc/designs/e2e-test-scenarios.md` — compatibility and black-box acceptance scenarios
 4. `.aidoc/designs/difficulty-model.md` — calibration boundary and strategy-grade invariants
 5. `.aidoc/designs/difficulty-calibration.md` — strategy measurement methodology, report contract, and product decisions
@@ -106,8 +106,8 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/architecture/guidelines.md` | Design constraints, layer boundaries, solver contract |
 | `.aidoc/designs/difficulty-model.md` | Strategy-grade contract, within-grade scoring, clue guidance, and calibration boundary |
 | `.aidoc/designs/difficulty-calibration.md` | Strategy calibration methodology, corpus contract, evidence, reports, and decision gates |
-| `.aidoc/designs/roadmap.md` | Deployment-hardening milestones, sequencing, and exit criteria |
-| `.aidoc/designs/deployment-hardening.md` | Single-operator exposure, paired releases, lifecycle, monitoring, backup, restore, and rollback |
+| `.aidoc/designs/roadmap.md` | Portable build, preview, default-branch deployment, and delivery gates |
+| `.aidoc/designs/deployment-hardening.md` | Backend artifact, service, isolation, access-policy, and failure contract |
 | `.aidoc/designs/database-puzzle-selection.md` | Current exact-grade acquisition, played-state recycling, migration, and acceptance contract |
 | `.aidoc/designs/database-play-statistics.md` | Current completion counters, acquisition/completion statistics, and explicit history reset |
 | `.aidoc/designs/database-concurrency.md` | SQLite connection policy, mixed-workload stress, and multi-process acceptance contract |

@@ -14,49 +14,42 @@ dependencies:
 
 # Roadmap
 
-The next approved milestone hardens the current single-operator deployment before any broader product expansion. Delivery proceeds in independently reversible slices while the existing engine, clients, and quality gates remain stable.
+The next approved milestone adds portable build and deployment support for a development-stage Sudoku service. The milestone favors simple replacement, verification, and isolation over production reliability ceremony.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/deployment-hardening.md` | Canonical operating, paired-release, recovery, and acceptance contract |
-| `.aidoc/designs/web-api.md` | Current HTTP contract, security boundary, and safe defaults |
+| `.aidoc/designs/deployment-hardening.md` | Canonical portable deployment and replacement contract |
+| `.aidoc/designs/web-api.md` | Current HTTP contract and loopback-safe defaults |
 | `.aidoc/designs/e2e-test-scenarios.md` | Maintained black-box verification baseline |
 | `.aidoc/designs/future-directions.md` | Deferred product, hosting, and technical directions |
-| [Sudoku UI roadmap](https://github.com/gnailuy/sudoku-ui/blob/master/.aidoc/designs/roadmap.md) | Coordinated browser-client and static-release responsibilities |
+| [Sudoku UI roadmap](https://github.com/gnailuy/sudoku-ui/blob/master/.aidoc/designs/roadmap.md) | Coordinated browser build and deployment responsibilities |
 
-## Why Deployment Hardening Comes Next
+## Why Portable Deployment Comes Next
 
-The current private preview proves the browser and backend can run together, but an ad hoc preview is not an operational baseline. A dependable single-operator deployment needs an explicit access boundary, durable service lifecycle, actionable health signals, recoverable state, and a verified release rollback path before the project considers accounts or public multi-user hosting.
+Sudoku remains a development project: refactoring, downtime, and replacement of active game sessions are acceptable. Deployment work exists to make each installation understandable and repeatable, not to imply production availability or compatibility guarantees.
 
-The deployment milestone changes operations rather than gameplay. Accounts, account-scoped authorization, public multi-tenancy, collaboration, and shared games remain non-goals for this milestone.
+A hosted Sudoku installation must remain isolated from unrelated applications on the same machine. The backend therefore keeps its own loopback listener, service, configuration, state, logs, and release location while a reverse proxy owns the bounded public route.
 
-## Milestone 1: Deployment-Hardening Design
+## Approved Delivery Sequence
 
-The approved [deployment-hardening design](deployment-hardening.md) is the canonical operating contract for exposure, authentication, paired immutable releases, durable service ownership, monitoring, backup consistency, isolated restore, rollback, and the full recovery exercise. The companion browser design owns mount-aware static artifacts, cache behavior, and desktop/phone evidence.
+1. Keep the backend build, tests, contract checks, and built-binary E2E lanes green.
+2. Publish a verifiable backend artifact from trusted branch workflows, with its Git commit and checksum available to the deployer.
+3. Provide a host-neutral service example whose listener, release location, state roots, and allowed browser origins are operator inputs.
+4. Define one serialized replacement flow: stage a frontend/backend pair, verify checksums, start and health-check the backend, verify the browser journey, then select the pair.
+5. Leave or restore the previous working pair when staging, startup, health, asset, or browser verification fails.
+6. Add automatic default-branch deployment only after the artifact and host-side replacement flow pass end to end.
 
-The design supports a dedicated origin or a path-prefixed Sudoku installation on a host shared with an unrelated site. Shared Caddy infrastructure does not couple application assets, processes, state, releases, checks, backups, or rollback.
-
-The design milestone changes documentation only. Caddy, services, credentials, firewall rules, public routes, and persistent state remain unchanged until a separately reviewed implementation slice is approved for the target host.
-
-## Milestone 2: Reversible Implementation Slices
-
-Implementation follows the reviewed design in this order:
-
-1. maintain the implemented exposure/authentication boundary across the backend and browser repositories;
-2. maintain the portable durable API service contract and built-binary graceful/forced-restart proof, then install it and prove unattended startup on an approved target host;
-3. add health monitoring and actionable failure alerts;
-4. automate bounded backups and complete a restore drill;
-5. publish a versioned release and prove rollback to the prior version;
-6. run the complete recovery exercise and record the operating evidence.
-
-Each slice must be independently reviewable, include its own failure test, and leave a verified rollback path. Shared-host changes require explicit operator approval at the point of application.
+Branch previews are deployment consumers rather than a backend automation requirement. An operator may install selected development-branch artifacts manually or with private host tooling without committing the preview hostname, port, branch selection, or host layout.
 
 ## Maintained Delivery Gates
 
 - Pull-request CI keeps unit, race, vet, lint, API contract, API E2E, line-CLI E2E, and TUI PTY E2E independent and green.
-- Black-box verification runs against built artifacts with isolated deterministic state.
-- Deployment changes preserve loopback-safe backend defaults and the client-neutral API contract.
-- Documentation and operating procedures remain portable; repository files contain no private hostnames, credentials, user paths, or environment-specific secrets.
-- The milestone is complete only after access, restart, alert, restore, rollback, and full recovery evidence all pass.
+- Deployment consumes only artifacts from trusted workflows; untrusted pull-request artifacts cannot replace a hosted installation.
+- The backend binds to loopback behind a reverse proxy unless an operator explicitly chooses and secures another network boundary.
+- A replacement verifies artifact identity, backend health, API session creation, and the companion desktop/mobile browser journey before completion.
+- Repository files contain no private hostname, credential, operator path, live port assignment, release identifier, or neighboring-application topology.
+- Authentication is an optional host policy until the application gains an account system; browser assets never contain host credentials or backend secrets.
+
+Monitoring platforms, scheduled browser checks, backup drills, immutable-release frameworks, availability objectives, and zero-downtime promotion are not part of this development milestone. Concrete operational problems may justify separately reviewed additions later.

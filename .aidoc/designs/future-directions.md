@@ -21,7 +21,7 @@ This document is the only backend location for deliberately deferred product and
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/roadmap.md` | Approved deployment-hardening sequence |
+| `.aidoc/designs/roadmap.md` | Approved portable build and deployment sequence |
 | `.aidoc/designs/web-api.md` | Current client-neutral API and trust boundary |
 | `.aidoc/designs/database-concurrency.md` | Maintained local SQLite reliability baseline |
 | `.aidoc/designs/difficulty-calibration.md` | Current deterministic strategy-grade evidence |
@@ -36,9 +36,9 @@ The TypeScript browser client remains a separate repository. This Go repository 
 
 ## Deployment Beyond the Current Milestone
 
-Public multi-user production is outside the single-operator deployment-hardening roadmap. A later public-service design must add account-scoped authorization, rate limits, abuse controls, tenant-safe observability, privacy and retention policy, capacity objectives, and multi-tenant backup and recovery.
+The portable deployment milestone deliberately excludes availability objectives, zero-downtime replacement, monitoring platforms, scheduled browser checks, backup drills, and release-management frameworks. A concrete operational failure or recovery requirement must justify any addition and define a proportionate acceptance test.
 
-Additional hosting models—network filesystems, distributed databases, active-active service replicas, or multi-region recovery—need measured availability or scale requirements. The current local SQLite and single-host contract does not imply support for those environments.
+Public multi-user hosting requires account-scoped authorization, rate limits, abuse controls, tenant-safe observability, privacy and retention policy, capacity objectives, and multi-tenant recovery. Network filesystems, distributed databases, active-active replicas, and multi-region recovery likewise need measured availability or scale requirements; the current local SQLite and single-host contract does not imply support.
 
 ## Evidence-Gated Database Work
 
@@ -54,4 +54,4 @@ Human observations may support a separately named player-difficulty model. Such 
 
 ## Decision Gate
 
-Deferred work becomes a roadmap candidate only when a concrete user or workload establishes ownership, threat model, data lifecycle, compatibility expectations, measurable acceptance criteria, and test strategy. Until then, the maintained product and deployment roadmap remains unchanged.
+Deferred work becomes a roadmap candidate only when a concrete user or workload establishes ownership, threat model, data lifecycle, compatibility expectations, measurable acceptance criteria, and test strategy. Until then, the maintained product and portable deployment roadmap remains unchanged.

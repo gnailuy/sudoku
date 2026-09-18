@@ -31,7 +31,7 @@ def main() -> None:
     require(
         service.get("Service", "ExecStart", fallback=None),
         "%h/.local/lib/sudoku/current/backend/sudoku api --listen 127.0.0.1:8080",
-        "immutable current release command",
+        "generic home-relative release command",
     )
     require(service.get("Service", "WorkingDirectory", fallback=None), "%h/.local/share/sudoku", "persistent working directory")
     require(

@@ -57,11 +57,11 @@ The harness calls the running `sudoku api` process rather than importing Go hand
 **Action:** Mutate separate sessions concurrently, submit concurrent actions to one session, and start a second `sudoku api` process against the same state root.
 **Expected:** Different sessions proceed independently, one session remains revision-ordered, and the second process fails clearly without modifying recovery records.
 
-### 11.7 Durable Service Contract
-**Action:** Validate the portable user-service example and inspect its release, storage, shutdown, restart, and startup boundaries.
-**Expected:** The service executes only the paired `current` backend, binds the API to loopback, keeps data and recovery outside release directories, sends `SIGTERM` with the API's ten-second shutdown budget, uses bounded restart backoff, creates private files, and joins the user manager's default startup target. Repository artifacts contain no host path, hostname, credential, or bearer token.
+### 11.7 Portable Service Contract
+**Action:** Validate the portable user-service example and inspect its application, storage, shutdown, restart, and startup boundaries.
+**Expected:** The example executes a backend from a generic home-relative release location, binds the API to loopback, keeps data and recovery outside application files, sends `SIGTERM` with the API's ten-second shutdown budget, uses bounded restart backoff, creates private files, and joins the user manager's default startup target. Operators may substitute their own release path and private listener. Repository artifacts contain no live host path, hostname, credential, external URL, or bearer token.
 
-**Automation:** `scripts/check_deployment.py` validates `deploy/sudoku-api.service.example`; `scripts/e2e_api.py` proves graceful and forced-termination recovery against the built binary. Enabling the user manager at boot and rebooting a target host remain operator-approved acceptance steps because CI does not own a host service manager.
+**Automation:** `scripts/check_deployment.py` validates `deploy/sudoku-api.service.example`; `scripts/e2e_api.py` proves graceful and forced-termination recovery against the built binary. Target-host startup remains operator verification because CI does not own a host service manager.
 
 ### 11.8 Origin Policy
 **Action:** Send browser-style preflight and mutation requests with no configured origin, exact allowed local and remote HTTP/HTTPS origins, a different port, `null`, a wildcard, and a path-bearing origin.
