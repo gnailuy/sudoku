@@ -74,3 +74,11 @@ The harness calls the running `sudoku api` process rather than importing Go hand
 ### 11.10 Existing Frontend Compatibility
 **Action:** Run all applicable root CLI, TUI, serialization, candidate, and recovery scenarios after API tests.
 **Expected:** Existing output, actions, session bytes, recovery behavior, and terminal rendering remain compatible.
+
+
+### 11.11 Trusted Release Artifact
+**Action:** Build the Linux executable, create a release with `scripts/package_release.py`, verify it against the expected commit, then exercise missing-file, unsafe-path, wrong-identity, and checksum-mismatch cases.
+
+**Expected:** The valid artifact contains one executable and a schema-versioned manifest bound to `gnailuy/sudoku`, the trusted workflow run, and the full commit. Every malformed or mismatched artifact is rejected before deployment.
+
+**Automation:** `python3 -m unittest scripts/test_package_release.py`; the `trusted-release` job publishes only after every maintained `main` CI job passes.

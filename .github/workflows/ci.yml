@@ -37,6 +37,9 @@ jobs:
       - name: Coverage report tests
         run: python3 -m unittest scripts/test_coverage_report.py
 
+      - name: Trusted release contract tests
+        run: python3 -m unittest scripts/test_package_release.py
+
   race:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -146,3 +149,33 @@ jobs:
       - uses: golangci/golangci-lint-action@v6
         with:
           version: latest
+
+
+  trusted-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [unit, race, vet, api-contract, api-e2e, tui-e2e, cli-e2e, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build Linux API binary
+        run: go build -trimpath -o build/sudoku .
+      - name: Package and verify trusted artifact
+        run: |
+          python3 scripts/package_release.py create \
+            --binary build/sudoku \
+            --output build/release \
+            --repository "$GITHUB_REPOSITORY" \
+            --workflow "$GITHUB_WORKFLOW" \
+            --run-id "$GITHUB_RUN_ID" \
+            --commit "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sudoku-backend-${{ github.sha }}
+          path: build/release/
+          if-no-files-found: error
+          retention-days: 30
