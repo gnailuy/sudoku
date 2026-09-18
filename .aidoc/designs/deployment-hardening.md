@@ -11,63 +11,59 @@ dependencies:
   - .aidoc/designs/e2e-api-scenarios.md
 ---
 
-# Single-Operator Deployment Hardening
+# Portable Deployment Contract
 
-The deployment contract promotes one immutable frontend/backend pair behind a reverse-proxy authentication boundary while keeping the Go API loopback-only. The contract supports either a dedicated origin or an operator-selected path prefix on a shared host without coupling Sudoku releases, state, or recovery to another site.
+The deployment contract packages the Go API for simple, verifiable installation behind a reverse proxy. It keeps service state and host policy outside build artifacts and supports safe replacement of one frontend/backend pair without prescribing an operator's domain, port, or filesystem layout.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/roadmap.md` | Delivery order and milestone exit gate |
-| `.aidoc/designs/web-api.md` | Current API, recovery, and network-security contract |
-| `.aidoc/designs/e2e-api-scenarios.md` | Existing built-binary API verification |
-| [Sudoku UI deployment design](https://github.com/gnailuy/sudoku-ui/blob/master/.aidoc/designs/deployment-hardening.md) | Static artifacts and browser verification |
+| `.aidoc/designs/roadmap.md` | Approved delivery order and scope |
+| `.aidoc/designs/web-api.md` | Current API, recovery, and network boundary |
+| `.aidoc/designs/e2e-api-scenarios.md` | Built-binary and service-example verification |
+| [Sudoku UI deployment design](https://github.com/gnailuy/sudoku-ui/blob/master/.aidoc/designs/deployment-hardening.md) | Static artifact, mount, and browser contract |
 
-## Why the Operating Contract Exists
+## Why the Deployment Boundary Exists
 
-The private preview proves connectivity but not safe promotion, durable restart, or recovery. A single operator needs reproducible releases and evidence that failure cannot expose the backend, lose active games, or leave frontend and backend versions mismatched.
+A development installation should be easy to reproduce without coupling Sudoku to one host. The deployment boundary separates repository-owned artifacts and checks from operator-owned routing, credentials, service configuration, state, and release selection.
 
-Sudoku may share a host and Caddy process with an unrelated site, but shared infrastructure does not create a shared application lifecycle. Sudoku owns a route namespace, release roots, service, state, configuration, logs, checks, and backups that can be changed or restored without replacing another site's assets or process.
+Sudoku may share a machine and reverse proxy with unrelated applications. Sudoku operations must affect only its bounded route, service, listener, state, and files; a Sudoku replacement must not rebuild, restart, roll back, or rewrite a neighboring application.
 
-## Exposure and Authentication Boundary
+## Network and Host Policy
 
-Caddy is the only public listener. The API binds to loopback, and the complete Sudoku surface—static shell and API routes—sits behind one host-owned, single-operator authentication policy. A payload-free health route may remain unauthenticated for liveness only; readiness and state checks run locally.
+The API binds to loopback by default. A reverse proxy may expose the static client and API at an origin root or normalized path prefix, forwarding only the selected API namespace and removing the mount prefix when required.
 
-The public mount is a deployment input: either an origin root or a normalized prefix such as `/sudoku/`. A prefixed deployment keeps the shell, API, and health route inside that namespace; the reverse proxy removes the mount prefix only when forwarding to the existing backend routes. Repository artifacts contain no domain, host path, credential, or dependency on a neighboring site's URL layout.
+Authentication is an optional host policy until the application has accounts and user authorization. Operators may add a reverse-proxy access gate, VPN, allowlist, or no gate according to the installation's exposure; credentials and policy remain outside repositories and browser assets. Direct non-loopback API binding retains the bearer-token requirement defined by `.aidoc/designs/web-api.md`.
 
-Authentication hashes and other secrets live outside release directories with restrictive permissions. Rotation installs a new Caddy-supported hash, validates configuration, reloads Caddy, proves the new credential, and proves the old credential is rejected. Browser assets never contain credentials, bearer tokens, private hostnames, or backend addresses.
+Repository examples use generic values only. Public files contain no operator hostname, external URL, private address assignment, live port, absolute host layout, credential, or neighboring-site route.
 
-## Paired Immutable Releases
+## Artifact Contract
 
-One release ID identifies the tested frontend/backend pair. Its immutable manifest records both Git commits, backend binary SHA-256, frontend asset SHA-256 values, OpenAPI digest, build toolchains, build time, mount mode, and previous compatible release ID.
+A trusted branch workflow builds and tests the backend, then makes the binary, Git commit, and SHA-256 checksum available to the deployment boundary. The frontend repository owns its static artifact and mount input; private host tooling may pair one successful backend artifact with one successful frontend artifact.
 
-The host keeps immutable backend and frontend release directories plus atomic `current` and retained `previous` references. API recovery state, the puzzle database, host configuration, authentication material, and logs remain outside releases. Caddy reads only the active frontend reference, and the service starts only the active backend reference.
+A pair record needs only the selected backend commit, frontend commit, checksums, and frontend mount input. The record may live in private host state. The repositories do not require a shared release framework or know which environment consumes the pair.
 
-A candidate is staged with verified checksums and permissions. The backend starts on an alternate loopback port with isolated state; API smoke checks and the companion desktop/phone browser journey run against the staged pair before `current` changes.
+Pull-request artifacts are verification inputs only. Automatic deployment, when enabled, consumes successful trusted default-branch artifacts rather than artifacts produced by untrusted pull-request code.
 
-Promotion records `previous`, switches the pair atomically, restarts the API gracefully, proves local readiness and release identity, then proves the authenticated public shell, expected assets, gameplay journey, and clean browser console. A frontend and backend are never promoted independently.
+## Service and State Contract
 
-## Durable Service and Storage
+One unprivileged service runs the selected backend binary from an operator-chosen release directory. Configuration, puzzle data, API recovery records, and logs remain outside that directory so replacing application files does not replace state or expose host configuration.
 
-One unprivileged service identity owns explicit working, data, recovery, and configuration locations. The service starts after networking, restarts unexpected failures with bounded backoff, honors the API's ten-second graceful shutdown budget, uses restrictive permissions, and starts after host reboot without an interactive login.
+`deploy/sudoku-api.service.example` demonstrates a home-relative installation, private XDG roots, a loopback listener, bounded restart backoff, and the API's ten-second graceful shutdown budget. Operators may adapt the release and state paths while preserving those boundaries.
 
-`deploy/sudoku-api.service.example` keeps the paired `current` backend separate from persistent XDG data and recovery roots. `scripts/check_deployment.py` enforces the portable service contract, while `scripts/e2e_api.py` proves that clean restart and forced termination preserve an accepted active game. Enabling the user manager without an interactive login, repeated-failure behavior, and reboot proof are target-host acceptance steps because repository CI does not control the host service manager.
+The service starts after the user's service manager starts and can be enabled for ordinary host startup. Repository CI validates the example and proves graceful and forced process restart against the built binary; target-host startup remains an operator verification because CI does not control the host.
 
-Lifecycle acceptance also covers a missing release, invalid permissions, occupied port, recovery-lock conflict, and bounded restart failure. Every successful restart preserves an active game; no service operation changes a public route, credential, or neighboring application.
+## Replacement and Failure Handling
 
-## Monitoring, Backup, and Restore
+A serialized host-side flow downloads or receives the selected artifacts, verifies their checksums, stages the pair away from the active files, and starts the backend on its private listener. The flow verifies backend health and a representative API session before selecting the new pair.
 
-Independent checks cover service liveness and restart loops, local API readiness, authenticated static release identity, storage writability and capacity, backup age and integrity, and scheduled desktop/phone browser journeys. Local checks run every five minutes, alert after two consecutive failures with component and release ID, and emit one recovery notice; browser and backup-integrity checks may run daily.
+The companion browser verification checks the shell, referenced assets, health route, session creation, and one desktop/mobile gameplay journey with no unexpected request, page, or console errors. A shared host additionally checks that representative neighboring routes remain unchanged before and after Sudoku replacement.
 
-A cold bounded snapshot gracefully stops the API, copies the SQLite database and API recovery namespace as one consistency unit, restarts immediately, and verifies readiness. Backups also retain non-secret deployment configuration and current/previous manifests, are checksummed and mode-restricted, publish atomically, and use configurable retention with capacity preflight.
+A failed checksum, startup, health, asset, API, or browser check leaves the working pair selected or restores it. Development downtime and loss of active Sudoku sessions are acceptable; changing or destabilizing a neighboring application is not.
 
-Restore is rehearsed into isolated directories and an alternate port. The drill verifies checksums, SQLite `quick_check`, recovery parsing, session restoration, database statistics, and the companion browser journey before any separately approved live-state replacement.
+## Scope Boundary
 
-## Rollback and Acceptance
+Useful service logs and a payload-free health endpoint are part of the maintained contract. Elaborate monitoring, scheduled browser probes, backup/restore drills, immutable-release ceremony, multi-host coordination, availability objectives, and zero-downtime replacement are deferred until evidence makes them worthwhile.
 
-Pre-promotion readiness, asset, contract, or browser failure returns to the untouched current release automatically. After promotion, the operator chooses rollback; rollback atomically restores the paired `previous` reference, restarts the API, verifies recovery and release identity, and repeats desktop and phone gameplay.
-
-Milestone acceptance proves unauthenticated application requests are rejected, authenticated shell and API journeys succeed, health discloses no state, the backend port is externally unreachable, repository and built assets contain no environment secret, restart preserves a game, each component failure alerts, isolated restore succeeds, paired rollback succeeds, and the complete exercise still passes after host reboot.
-
-Accounts, player identity, public multi-user service, authorization changes, active-active replicas, and changes to another hosted site's deployment remain explicit non-goals.
+Accounts, player identity, public multi-user authorization, rate limits, and abuse controls remain product work rather than deployment substitutes.

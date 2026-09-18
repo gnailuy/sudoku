@@ -82,6 +82,12 @@ For non-loopback addresses, configure a bearer token. Browser origins remain den
 
 The OpenAPI 3.1 contract is [`api/openapi.yaml`](api/openapi.yaml). All game operations are under `/api/v1`; `GET /healthz` is payload-free. API sessions use opaque identifiers and monotonic revisions, persist accepted mutations to the private recovery store, and reject stale writes with `409 Conflict`.
 
+## Portable Deployment
+
+The API binds to loopback by default and can run behind any reverse proxy that owns the public route. The portable service example in [`deploy/sudoku-api.service.example`](deploy/sudoku-api.service.example) keeps application files separate from private XDG data and recovery state; operators choose their own release directories, listener, browser origins, and host policy.
+
+Trusted branch workflows can provide the backend binary, Git commit, and checksum to a serialized host-side deployment flow. Pairing with the static client, destination hostnames, ports, credentials, and active release selection remain outside this repository. See [the portable deployment contract](.aidoc/designs/deployment-hardening.md).
+
 ## Measure Strategy Ratings Locally
 
 Run deterministic classifications over an immutable JSON corpus and resume safely in the same output directory:
