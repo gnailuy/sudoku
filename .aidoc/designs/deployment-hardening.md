@@ -40,7 +40,9 @@ Repository examples use generic values only. Public files contain no operator ho
 
 ## Artifact Contract
 
-A trusted branch workflow builds and tests the backend, then makes the binary, Git commit, and SHA-256 checksum available to the deployment boundary. The frontend repository owns its static artifact and mount input; private host tooling may pair one successful backend artifact with one successful frontend artifact.
+A trusted `main` workflow waits for every maintained CI lane, then publishes `sudoku-backend-<commit>`. The artifact contains only the Linux executable and `manifest.json`; the manifest binds the repository, workflow and run identity, full commit, executable path, and SHA-256 checksum. `scripts/package_release.py` creates and verifies the same contract locally. Pull requests run its contract tests but cannot publish a deployable artifact.
+
+The frontend repository owns its static artifact and mount input; private host tooling may pair one successful backend artifact with one successful frontend artifact.
 
 A pair record needs only the selected backend commit, frontend commit, checksums, and frontend mount input. The record may live in private host state. The repositories do not require a shared release framework or know which environment consumes the pair.
 

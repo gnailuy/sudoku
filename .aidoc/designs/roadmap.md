@@ -35,7 +35,7 @@ A hosted Sudoku installation must remain isolated from unrelated applications on
 ## Approved Delivery Sequence
 
 1. Keep the backend build, tests, contract checks, and built-binary E2E lanes green.
-2. Publish a verifiable backend artifact from trusted branch workflows, with its Git commit and checksum available to the deployer.
+2. Keep the trusted-branch backend artifact contract verifiable: all CI gates complete before the workflow publishes the executable and its commit-bound manifest.
 3. Provide a host-neutral service example whose listener, release location, state roots, and allowed browser origins are operator inputs.
 4. Define one serialized replacement flow: stage a frontend/backend pair, verify checksums, start and health-check the backend, verify the browser journey, then select the pair.
 5. Leave or restore the previous working pair when staging, startup, health, asset, or browser verification fails.
