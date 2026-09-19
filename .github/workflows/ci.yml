@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 env:
   # GitHub jobs run on isolated VMs, so fixed /tmp paths remain job-local.
@@ -152,7 +153,7 @@ jobs:
 
 
   trusted-release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: [unit, race, vet, api-contract, api-e2e, tui-e2e, cli-e2e, lint]
     runs-on: ubuntu-latest
     permissions:
