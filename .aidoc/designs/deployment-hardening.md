@@ -40,7 +40,7 @@ Repository examples use generic values only. Public files contain no operator ho
 
 ## Artifact Contract
 
-A trusted `main` workflow waits for every maintained CI lane, then publishes `sudoku-backend-<commit>`. The artifact contains only the Linux executable and `manifest.json`; the manifest binds the repository, workflow and run identity, full commit, executable path, and SHA-256 checksum. `scripts/package_release.py` creates and verifies the same contract locally. Pull requests run its contract tests but cannot publish a deployable artifact.
+A trusted `main` push or explicitly dispatched `main` workflow waits for every maintained CI lane, then publishes `sudoku-backend-<commit>`. The artifact contains only the Linux executable and `manifest.json`; the manifest binds the repository, workflow and run identity, full commit, executable path, and SHA-256 checksum. `scripts/package_release.py` creates and verifies the same contract locally. Pull requests run its contract tests but cannot publish a deployable artifact.
 
 The frontend repository owns its static artifact and mount input; private host tooling may pair one successful backend artifact with one successful frontend artifact.
 
