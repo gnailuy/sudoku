@@ -122,7 +122,10 @@ func autoStoreTo(solverStore solver.Store, board core.Board, source, dbPath stri
 	}
 
 	puzzleStr := normalizedPuzzle.ToString()
-	classification := solver.ClassifyPuzzle(solverStore, board)
+	classification := solver.ClassifyPuzzle(solverStore, normalizedPuzzle)
+	if classification.Outcome != solver.ClassificationSolved {
+		return "", fmt.Errorf("puzzle is not solvable by the strategy classifier")
+	}
 
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return "", err

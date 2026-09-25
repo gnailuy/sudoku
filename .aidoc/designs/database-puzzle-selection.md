@@ -30,7 +30,7 @@ Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, an
 
 Random lookup can return the same puzzle repeatedly while other exact-grade puzzles remain unused. A permanent played/not-played filter avoids repeats only until the pool is exhausted, after which the database stops helping. Selection therefore needs durable history and an explicit recycling policy.
 
-The database is a local puzzle pool, not a game-session ledger. It records that a puzzle was chosen for play, but completion, abandonment, moves, notes, recovery, and saved-session state remain outside this schema.
+The database is a local puzzle pool, not a game-session ledger. Puzzle classification is computed from the digit-normalized stored board, so the canonical row and its authoritative grade cannot drift. It records that a puzzle was chosen for play, but completion, abandonment, moves, notes, recovery, and saved-session state remain outside this schema.
 
 ## What Selection Guarantees
 

@@ -36,7 +36,7 @@ The backend is safe by default rather than local-only: it binds to loopback unle
 
 `cmd/api.go` owns command flags, dependency construction, startup output, signal shutdown, and listener lifecycle. `webapi` owns HTTP routing, request limits, JSON translation, session lookup, revision checks, origin policy, and error envelopes. The Sudoku repository contains no frontend asset package, browser launcher, TypeScript toolchain, or SPA routing.
 
-Each active API session owns one `game.Game`, one opaque random session ID, one monotonically increasing revision, and one recovery record. A registry serializes access per session; different sessions may proceed independently. `game.Game` remains non-concurrent and unaware of HTTP.
+Each active API session owns one `game.Game`, one opaque random session ID, one monotonically increasing revision, authoritative requested/actual difficulty metadata, and one recovery record. A registry serializes access per session; different sessions may proceed independently. `game.Game` remains non-concurrent and unaware of HTTP.
 
 Session creation reuses existing puzzle input, difficulty generation, solver configuration, and database fallback policies through dependencies wired by `cmd`. The API must not import `cmd` or duplicate generation rules.
 
@@ -63,7 +63,7 @@ All JSON endpoints live below `/api/v1`; `/healthz` is outside the API namespace
 - `POST /api/v1/sessions/{id}/actions` submits one typed engine action;
 - `DELETE /api/v1/sessions/{id}` explicitly discards the session and recovery record.
 
-Create requests use a tagged source object so difficulty and puzzle input cannot conflict. Import and export transfer bounded validated bytes; no endpoint accepts or returns an arbitrary host filesystem path.
+Create requests use a tagged source object so difficulty and puzzle input cannot conflict. Every session response persists and returns nullable `requested_difficulty` plus required classifier-owned `actual_difficulty`; list summaries retain the actual grade so refresh and recovery cannot substitute a browser preference. Import and export transfer bounded validated bytes; no endpoint accepts or returns an arbitrary host filesystem path.
 
 API snapshots use explicit JSON fields for givens, visible values, invalid markers, manual notes, legal candidates, cumulative confirmed mistakes, status, and undo/redo availability. Rows and columns are numbered 1 through 9 at the transport boundary. API models do not expose Go type names, internal history records, frontend view models, or the version 1 persistence document.
 

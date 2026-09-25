@@ -260,12 +260,16 @@ func storePuzzle(puzzleDB *db.DB, result generator.GenerationResult) bool {
 	}
 
 	puzzleStr := normalizedPuzzle.ToString()
+	classification := solver.ClassifyPuzzle(store, normalizedPuzzle)
+	if classification.Outcome != solver.ClassificationSolved {
+		return false
+	}
 
 	inserted, err := puzzleDB.InsertPuzzle(db.Puzzle{
 		Puzzle:       puzzleStr,
-		Difficulty:   result.Classification.Difficulty,
-		Score:        result.Classification.Score,
-		MaxTechnique: result.Classification.MaxTechnique,
+		Difficulty:   classification.Difficulty,
+		Score:        classification.Score,
+		MaxTechnique: classification.MaxTechnique,
 		Source:       "generated",
 	})
 	if err != nil {
