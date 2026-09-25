@@ -18,6 +18,7 @@ import (
 	"github.com/gnailuy/sudoku/game"
 	"github.com/gnailuy/sudoku/playrun"
 	"github.com/gnailuy/sudoku/recovery"
+	"github.com/gnailuy/sudoku/solver"
 	"github.com/gnailuy/sudoku/webapi"
 	"github.com/spf13/cobra"
 )
@@ -87,19 +88,35 @@ func runAPI(command *cobra.Command, config apiConfig) error {
 		return fmt.Errorf("load API recovery sessions: %w", err)
 	}
 	registry.SetTrackerFactory(func(current game.Game) *playrun.Tracker { return newCompletionTracker(current, config.dbPath) })
-	server := webapi.NewTrackedServer(registry, func(kind, value string) (game.Game, *playrun.Tracker, error) {
+	server := webapi.NewTrackedServer(registry, func(kind, value string) (game.Game, *playrun.Tracker, webapi.SessionDifficulty, error) {
 		request := sessionRequest{}
+		var requested *webapi.Difficulty
 		switch kind {
 		case "difficulty":
 			request.level = value
+			d := webapi.Difficulty(value)
+			requested = &d
 		case "puzzle":
 			request.input = value
 		default:
-			return game.Game{}, nil, errors.New("invalid source")
+			return game.Game{}, nil, webapi.SessionDifficulty{}, errors.New("invalid source")
 		}
 		request.dbPath = config.dbPath
 		created, _, tracker, createErr := createTrackedSession(request, io.Discard, io.Discard)
-		return created, tracker, createErr
+		if createErr != nil {
+			return game.Game{}, nil, webapi.SessionDifficulty{}, createErr
+		}
+		classification := solver.ClassifyPuzzle(solverStore, created.ProblemBoard())
+		if classification.Outcome != solver.ClassificationSolved {
+			return game.Game{}, nil, webapi.SessionDifficulty{}, errors.New("puzzle is not solvable by the strategy classifier")
+		}
+		return created, tracker, webapi.SessionDifficulty{Requested: requested, Actual: webapi.Difficulty(classification.Difficulty)}, nil
+	}, func(current game.Game) (webapi.Difficulty, error) {
+		classification := solver.ClassifyPuzzle(solverStore, current.ProblemBoard())
+		if classification.Outcome != solver.ClassificationSolved {
+			return "", errors.New("puzzle is not solvable by the strategy classifier")
+		}
+		return webapi.Difficulty(classification.Difficulty), nil
 	})
 
 	httpServer := &http.Server{Addr: config.listen, Handler: webapi.NewHandler(server, config.token, config.origins), ReadTimeout: config.readTimeout, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: config.writeTimeout, IdleTimeout: config.idleTimeout, MaxHeaderBytes: 32 << 10}

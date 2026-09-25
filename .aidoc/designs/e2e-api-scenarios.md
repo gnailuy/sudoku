@@ -39,7 +39,7 @@ The harness calls the running `sudoku api` process rather than importing Go hand
 
 ### 11.2 Session Creation and Strict Input
 **Action:** Create sessions by difficulty and puzzle string, then send conflicting sources, unknown fields, malformed JSON, wrong content types, and oversized bodies.
-**Expected:** Valid requests return opaque IDs, revision zero, and authoritative snapshots. Invalid requests return bounded stable errors without creating sessions or leaking host details.
+**Expected:** Valid requests return opaque IDs, revision zero, authoritative snapshots, nullable requested difficulty, and the puzzle classifier's required actual difficulty. Refresh and restart recovery preserve the same metadata even when requested and actual grades differ. Invalid requests return bounded stable errors without creating sessions or leaking host details.
 
 ### 11.3 OpenAPI Contract and Runtime Conformance
 **Action:** Validate and lint `api/openapi.yaml` with the pinned Redocly CLI, regenerate the strict Go boundary and confirm a clean diff, compare the contract with the target branch using `oasdiff`, then execute every declared operation and representative examples against the built server.

@@ -65,7 +65,7 @@ func createTestSession(t *testing.T, handler http.Handler, headers map[string]st
 	if err := json.Unmarshal(w.Body.Bytes(), &session); err != nil {
 		t.Fatal(err)
 	}
-	if session.Id == "" || session.Revision != 0 || len(session.Snapshot.Values) != 9 {
+	if session.Id == "" || session.Revision != 0 || session.ActualDifficulty == "" || len(session.Snapshot.Values) != 9 {
 		t.Fatalf("invalid session: %+v", session)
 	}
 	return session
@@ -76,6 +76,13 @@ func TestCreateSessionAcceptsCanonicalDifficultySource(t *testing.T) {
 	w := request(t, handler, http.MethodPost, "/api/v1/sessions", "application/json", `{"source":{"kind":"difficulty","difficulty":"easy"}}`, nil)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create status=%d body=%s", w.Code, w.Body.String())
+	}
+	var session Session
+	if err := json.Unmarshal(w.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+	if session.RequestedDifficulty == nil || *session.RequestedDifficulty != Easy || session.ActualDifficulty != Easy {
+		t.Fatalf("difficulty metadata = requested %v actual %q", session.RequestedDifficulty, session.ActualDifficulty)
 	}
 }
 
@@ -398,13 +405,13 @@ func TestTrackedServerRecordsPlayerCompletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	recorder := &completionRecorder{err: errors.New("database locked")}
-	factory := func(_, _ string) (game.Game, *playrun.Tracker, error) {
+	factory := func(_, _ string) (game.Game, *playrun.Tracker, SessionDifficulty, error) {
 		board := core.NewEmptyBoard()
 		board.FromString(".23456789456789123789123456214365897365897214897214365531642978642978531978531642")
 		current := game.NewGame(board, options)
-		return current, playrun.New("normalized", recorder), nil
+		return current, playrun.New("normalized", recorder), SessionDifficulty{Actual: Easy}, nil
 	}
-	handler := NewHandler(NewTrackedServer(registry, factory), "", nil)
+	handler := NewHandler(NewTrackedServer(registry, factory, nil), "", nil)
 	session := createTestSession(t, handler, nil)
 	path := "/api/v1/sessions/" + session.Id + "/actions"
 	response := request(t, handler, http.MethodPost, path, "application/json", `{"kind":"set-value","expected_revision":0,"row":1,"column":1,"value":1}`, nil)
