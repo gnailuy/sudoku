@@ -44,7 +44,7 @@ Public multi-user hosting requires account-scoped authorization, rate limits, ab
 
 Large-import batching, resumable partial batches, expanded progress reporting, and throughput optimization require a reproducible user workload that demonstrates unacceptable latency or lock behavior on supported hardware. Any proposal must separate classification cost from SQLite write cost, preserve puzzle identity and history semantics, and define a bounded black-box acceptance case.
 
-Minimum-clue and uniqueness admission require a concrete product need and explicit semantics. Full Sudoku-symmetry canonicalization, durable attempt identities, abandonment tracking, elapsed-duration statistics, player attribution, and telemetry likewise remain outside the current database contract.
+Minimum-clue and uniqueness admission require a concrete product need and explicit semantics. Elapsed-duration statistics, player attribution, and telemetry remain outside the current database contract; the catalog schema now reserves presentation-specific play-run identity without claiming those product semantics.
 
 ## Evidence-Gated Solver and Rating Work
 

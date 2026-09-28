@@ -10,6 +10,7 @@ entry_points:
   - db/db.go
   - db/puzzle.go
 dependencies:
+  - .aidoc/designs/database-catalog.md
   - .aidoc/designs/database-puzzle-selection.md
   - .aidoc/designs/game-engine.md
   - .aidoc/designs/e2e-database-scenarios.md
@@ -24,6 +25,7 @@ The database keeps completion and acquisition histories as separate concepts, ex
 
 | Document | Relationship |
 |----------|-------------|
+| `.aidoc/designs/database-catalog.md` | Separates stable base-puzzle identity from exact presented play runs |
 | `.aidoc/designs/database-puzzle-selection.md` | Acquisition counters and the selection policy that consumes them |
 | `.aidoc/designs/game-engine.md` | Solved status and typed actions used to detect completion |
 | `.aidoc/designs/e2e-database-scenarios.md` | Black-box statistics and reset acceptance scenarios |
@@ -50,9 +52,9 @@ The line CLI, TUI, and HTTP API use one frontend-neutral play-run tracker around
 
 ## Storage and Identity
 
-`db.DB.migrate` adds non-null `completion_count` with a zero default and nullable `last_completed_at` columns. Existing rows begin with no completion history, and `db.DB.RecordCompletion` atomically increments the count and assigns SQLite's current timestamp.
+`base_puzzles` keeps non-null `completion_count` with a zero default and nullable `last_completed_at`. `db.DB.RecordCompletion` atomically increments the catalog row and assigns SQLite's current timestamp.
 
-The existing normalized 81-character puzzle string remains the primary key. Imports, generation, and direct input retain digit-relabel normalization and `INSERT OR IGNORE`; equivalent digit labels share history, while rotations, reflections, transposition, and row or column symmetry do not.
+The content-derived base-puzzle ID is the primary identity. Catalog ingestion supplies symmetry- and digit-canonical content, while each `play_runs.presented_puzzle` preserves the exact transformed board shown to that run. The pinned-bank import and transformed-session slices complete those producer integrations separately.
 
 `cmd.createSession` retains the normalized key and selected database path for the run tracker. Restored sessions derive the key from immutable givens. A missing row or failed write produces a concise warning without inserting another row or changing gameplay/session persistence.
 
@@ -72,7 +74,7 @@ Reset preserves puzzle rows, classification, source, normalized keys, explicit s
 
 ## Failure, Compatibility, and Privacy
 
-- Existing databases and sessions remain readable after the additive migration.
+- Legacy puzzle tables require the explicit destructive catalog rebuild; saved sessions remain separate files and are not rewritten.
 - Statistics remain local to the selected SQLite file; no account identifier, telemetry, or network reporting is added.
 - Completion updates use the bounded SQLite busy timeout and return promptly under contention.
 - A completion-write failure leaves the game solved and visible; a reset failure rolls back its complete scope and exits non-zero.

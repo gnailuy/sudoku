@@ -2,6 +2,7 @@
 """Deterministic black-box E2E checks for the built line CLI and commands."""
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -57,14 +58,14 @@ def excludes(output, *needles):
 def puzzle_rows(database):
     with sqlite3.connect(database) as connection:
         return connection.execute(
-            "SELECT puzzle, difficulty, source FROM puzzles ORDER BY puzzle"
+            "SELECT b.canonical_puzzle, b.difficulty, COALESCE((SELECT source FROM puzzle_provenance p WHERE p.base_puzzle_id=b.base_puzzle_id ORDER BY provenance_id LIMIT 1), '') FROM base_puzzles b ORDER BY b.canonical_puzzle"
         ).fetchall()
 
 
 def acquisition_rows(database):
     with sqlite3.connect(database) as connection:
         return connection.execute(
-            "SELECT puzzle, play_count, last_played_at FROM puzzles ORDER BY puzzle"
+            "SELECT canonical_puzzle, play_count, last_played_at FROM base_puzzles ORDER BY canonical_puzzle"
         ).fetchall()
 
 
@@ -299,21 +300,30 @@ def main():
             "open file",
         )
 
-        # A legacy database migrates in place and starts with unplayed rows.
+        # Legacy rows require an explicit destructive rebuild; no identity or
+        # provenance is guessed from the obsolete schema.
         legacy_database = root / "legacy.db"
         with sqlite3.connect(legacy_database) as connection:
-            connection.execute("CREATE TABLE puzzles (puzzle TEXT PRIMARY KEY, difficulty TEXT NOT NULL, score INTEGER NOT NULL, max_technique TEXT NOT NULL, source TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-            connection.execute(
-                "INSERT INTO puzzles (puzzle, difficulty, score, max_technique, source) VALUES (?, 'easy', 1, 'naked-single', 'legacy')",
-                (PUZZLE_DOTS,),
-            )
+            connection.execute("CREATE TABLE puzzles (puzzle TEXT PRIMARY KEY)")
+            connection.execute("INSERT INTO puzzles (puzzle) VALUES (?)", (PUZZLE_DOTS,))
         contains(
-            run(binary, ["--from-db", "--level", "easy", "--db", str(legacy_database)], root, "q\n"),
-            "Exiting the game.",
+            run(binary, ["db", "stats", "--db", str(legacy_database)], root, expected=1),
+            "db rebuild",
         )
-        legacy_rows = acquisition_rows(legacy_database)
-        if len(legacy_rows) != 1 or legacy_rows[0][1] != 1 or not legacy_rows[0][2]:
-            raise AssertionError(f"legacy migration did not preserve and acquire its row: {legacy_rows}")
+        contains(
+            run(binary, ["db", "rebuild", "--db", str(legacy_database)], root, expected=1),
+            "requires --yes",
+        )
+        contains(
+            run(binary, ["db", "rebuild", "--db", str(legacy_database), "--yes"], root),
+            "All catalog, provenance, and play-run rows will be deleted.",
+            "Catalog rebuilt at schema version 2.",
+        )
+        with sqlite3.connect(legacy_database) as connection:
+            names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            version = connection.execute("SELECT version FROM schema_metadata WHERE singleton=1").fetchone()[0]
+        if version != 2 or not {"base_puzzles", "puzzle_provenance", "play_runs"}.issubset(names) or "puzzles" in names:
+            raise AssertionError(f"catalog rebuild produced unexpected schema: version={version}, tables={names}")
 
         # Public database acquisition exhausts never-played rows before reuse.
         acquisition_database = root / "acquisition.db"
@@ -322,11 +332,17 @@ def main():
         run(binary, ["import", "--file", str(acquisition_source), "--db", str(acquisition_database)], root)
         with sqlite3.connect(acquisition_database) as connection:
             difficulty, score, technique = connection.execute(
-                "SELECT difficulty, score, max_technique FROM puzzles"
+                "SELECT difficulty, score, max_technique FROM base_puzzles"
             ).fetchone()
+            second_puzzle = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+            second_id = "bp_" + hashlib.sha256(second_puzzle.encode()).hexdigest()
             connection.execute(
-                "INSERT INTO puzzles (puzzle, difficulty, score, max_technique, source) VALUES (?, ?, ?, ?, ?)",
-                ("53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79", difficulty, score, technique, "e2e-second"),
+                "INSERT INTO base_puzzles (base_puzzle_id, canonical_puzzle, difficulty, score, max_technique) VALUES (?, ?, ?, ?, ?)",
+                (second_id, second_puzzle, difficulty, score, technique),
+            )
+            connection.execute(
+                "INSERT INTO puzzle_provenance (base_puzzle_id, source) VALUES (?, ?)",
+                (second_id, "e2e-second"),
             )
         for _ in range(2):
             contains(
@@ -353,11 +369,11 @@ def main():
         statistics_database = root / "statistics.db"
         run(binary, ["--input", PUZZLE_DOTS, "--db", str(statistics_database)], root, "q\n")
         with sqlite3.connect(statistics_database) as connection:
-            statistics_level = connection.execute("SELECT difficulty FROM puzzles").fetchone()[0]
+            statistics_level = connection.execute("SELECT difficulty FROM base_puzzles").fetchone()[0]
         run(binary, ["--from-db", "--level", statistics_level, "--db", str(statistics_database)], root, "q\n")
         contains(run(binary, ["--input", PUZZLE_DOTS, "--db", str(statistics_database)], root, "solve\n"), "Congratulations! You have solved the problem.")
         with sqlite3.connect(statistics_database) as connection:
-            if connection.execute("SELECT completion_count FROM puzzles").fetchone()[0] != 0:
+            if connection.execute("SELECT completion_count FROM base_puzzles").fetchone()[0] != 0:
                 raise AssertionError("automatic solve counted as player completion")
         contains(
             run(binary, ["--input", PUZZLE_DOTS, "--db", str(statistics_database)], root, completion_commands(PUZZLE_DOTS, SOLUTION)),
@@ -365,7 +381,7 @@ def main():
         )
         run(binary, ["--from-db", "--level", statistics_level, "--db", str(statistics_database)], root, "q\n")
         with sqlite3.connect(statistics_database) as connection:
-            history = connection.execute("SELECT play_count, completion_count, last_played_at, last_completed_at FROM puzzles").fetchone()
+            history = connection.execute("SELECT play_count, completion_count, last_played_at, last_completed_at FROM base_puzzles").fetchone()
         if history[0:2] != (2, 1) or not history[2] or not history[3]:
             raise AssertionError(f"separate history was not recorded: {history}")
         output = run(binary, ["db", "stats", "--db", str(statistics_database), "--level", statistics_level], root)
@@ -376,7 +392,7 @@ def main():
         contains(run(binary, ["db", "reset-history", "--history", "completion", "--level", statistics_level, "--db", str(statistics_database)], root, expected=1), "requires --yes")
         contains(run(binary, ["db", "reset-history", "--history", "completion", "--level", statistics_level, "--db", str(statistics_database), "--yes"], root), "Affected puzzles: 1", "History reset complete.")
         with sqlite3.connect(statistics_database) as connection:
-            reset_history = connection.execute("SELECT play_count, completion_count, last_played_at, last_completed_at FROM puzzles").fetchone()
+            reset_history = connection.execute("SELECT play_count, completion_count, last_played_at, last_completed_at FROM base_puzzles").fetchone()
         if reset_history[0] != 2 or reset_history[1] != 0 or not reset_history[2] or reset_history[3] is not None:
             raise AssertionError(f"completion reset changed the wrong history: {reset_history}")
         run(binary, ["db", "reset-history", "--history", "all", "--db", str(statistics_database), "--yes"], root)
@@ -420,7 +436,7 @@ def main():
             raise AssertionError(f"overlapping concurrent imports stored {len(rows)} rows, want 2: {rows}")
         with sqlite3.connect(concurrent_database) as connection:
             by_difficulty = connection.execute(
-                "SELECT difficulty, COUNT(*) FROM puzzles GROUP BY difficulty ORDER BY difficulty"
+                "SELECT difficulty, COUNT(*) FROM base_puzzles GROUP BY difficulty ORDER BY difficulty"
             ).fetchall()
         for difficulty, count in by_difficulty:
             for _ in range(count):
@@ -429,7 +445,7 @@ def main():
                     "Exiting the game.",
                 )
         with sqlite3.connect(concurrent_database) as connection:
-            acquisitions = connection.execute("SELECT SUM(play_count) FROM puzzles").fetchone()[0]
+            acquisitions = connection.execute("SELECT SUM(play_count) FROM base_puzzles").fetchone()[0]
             integrity = connection.execute("PRAGMA quick_check").fetchone()[0]
         if acquisitions != 2 or integrity != "ok":
             raise AssertionError(f"post-contention state acquisitions={acquisitions}, quick_check={integrity}")

@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -10,68 +11,33 @@ import (
 	"time"
 )
 
-func TestOpenSerializesConcurrentLegacyMigrations(t *testing.T) {
+func TestOpenRejectsLegacySchemaUntilExplicitRebuild(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "migration.db")
 	legacy, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := legacy.Exec(`CREATE TABLE puzzles (
-		puzzle TEXT PRIMARY KEY, difficulty TEXT NOT NULL, score INTEGER NOT NULL,
-		max_technique TEXT NOT NULL, source TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	)`); err != nil {
+	if _, err := legacy.Exec(`CREATE TABLE puzzles (puzzle TEXT PRIMARY KEY)`); err != nil {
 		t.Fatal(err)
 	}
 	if err := legacy.Close(); err != nil {
 		t.Fatal(err)
 	}
-
-	const workers = 6
-	start := make(chan struct{})
-	opened := make(chan *DB, workers)
-	errors := make(chan error, workers)
-	var group sync.WaitGroup
-	for range workers {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			<-start
-			database, openErr := Open(path)
-			if openErr != nil {
-				errors <- openErr
-				return
-			}
-			opened <- database
-		}()
+	if _, err := Open(path); !errors.Is(err, ErrRebuildRequired) {
+		t.Fatalf("Open error = %v, want ErrRebuildRequired", err)
 	}
-	close(start)
-	group.Wait()
-	close(opened)
-	close(errors)
-	for err := range errors {
-		t.Errorf("Open: %v", err)
+	if err := Rebuild(path); err != nil {
+		t.Fatal(err)
 	}
-	for database := range opened {
-		if err := database.Close(); err != nil {
-			t.Errorf("Close: %v", err)
-		}
-	}
-	if t.Failed() {
-		return
-	}
-
-	check, err := Open(path)
+	database, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer check.Close()
-	columns, err := tableColumns(check.conn, "puzzles")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"play_count", "last_played_at", "completion_count", "last_completed_at"} {
-		if !columns[name] {
-			t.Errorf("missing migrated column %q", name)
+	defer database.Close()
+	for _, table := range []string{"base_puzzles", "puzzle_provenance", "play_runs"} {
+		exists, err := tableExists(database.conn, table)
+		if err != nil || !exists {
+			t.Fatalf("table %s exists=%v err=%v", table, exists, err)
 		}
 	}
 }
@@ -131,7 +97,7 @@ func TestBusyTimeoutIsBoundedAndRecovers(t *testing.T) {
 	if _, err := holder.InsertPuzzle(Puzzle{Puzzle: "shared", Difficulty: "easy", Score: 1, MaxTechnique: "single"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := holder.conn.Exec(`UPDATE puzzles SET play_count=2, completion_count=3 WHERE puzzle='shared'`); err != nil {
+	if _, err := holder.conn.Exec(`UPDATE base_puzzles SET play_count=2, completion_count=3 WHERE canonical_puzzle='shared'`); err != nil {
 		t.Fatal(err)
 	}
 	locked, err := holder.conn.Conn(context.Background())
@@ -142,7 +108,7 @@ func TestBusyTimeoutIsBoundedAndRecovers(t *testing.T) {
 	if _, err := locked.ExecContext(context.Background(), `BEGIN IMMEDIATE`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := locked.ExecContext(context.Background(), `UPDATE puzzles SET play_count=9 WHERE puzzle='shared'`); err != nil {
+	if _, err := locked.ExecContext(context.Background(), `UPDATE base_puzzles SET play_count=9 WHERE canonical_puzzle='shared'`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -159,7 +125,7 @@ func TestBusyTimeoutIsBoundedAndRecovers(t *testing.T) {
 		t.Fatal(rollbackErr)
 	}
 	var plays, completions int
-	if err := contender.conn.QueryRow(`SELECT play_count, completion_count FROM puzzles WHERE puzzle='shared'`).Scan(&plays, &completions); err != nil {
+	if err := contender.conn.QueryRow(`SELECT play_count, completion_count FROM base_puzzles WHERE canonical_puzzle='shared'`).Scan(&plays, &completions); err != nil {
 		t.Fatal(err)
 	}
 	if plays != 2 || completions != 3 {
@@ -247,7 +213,7 @@ func TestMixedHandleWorkloadPreservesCountersSnapshotsAndIntegrity(t *testing.T)
 	}
 	defer reopened.Close()
 	var rows, acquisitions, completions int
-	if err := reopened.conn.QueryRow(`SELECT COUNT(*), SUM(play_count), SUM(completion_count) FROM puzzles`).Scan(&rows, &acquisitions, &completions); err != nil {
+	if err := reopened.conn.QueryRow(`SELECT COUNT(*), SUM(play_count), SUM(completion_count) FROM base_puzzles`).Scan(&rows, &acquisitions, &completions); err != nil {
 		t.Fatal(err)
 	}
 	if rows != 6 || acquisitions != 8 || completions != 8 {

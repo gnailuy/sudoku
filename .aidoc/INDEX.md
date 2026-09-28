@@ -27,7 +27,7 @@ The project index provides reading chains for common starting points and a compl
 4. `core/board.go` — `Board` struct with compute-on-fly `Candidates()` method
 5. `solver/solver.go` — `Solver`, `StrategySolver`, `CompleteSolver` interfaces and `Base`
 6. `solver/move.go` — `Move` struct (cell + technique + reason)
-7. `solver/store.go` — solver registry with typed access
+16. `solver/store.go` — solver registry with typed access
 8. `game/game.go` — private session state and compatibility adapters
 9. `game/contract.go` — typed actions, detached snapshots, results, and engine errors
 10. `game/serialization.go` — versioned complete-session persistence and atomic restoration
@@ -52,14 +52,16 @@ The project index provides reading chains for common starting points and a compl
 12. `generator/generator.go` — board generation, cell removal, best-effort generation with limits
 13. `generator/options.go` — `Options` and `BestEffortOptions` (time/round limits)
 14. `solver/classify.go` — puzzle classification (difficulty tier, score, max technique)
-15. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and migration contract
-16. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
-17. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
-18. `db/db.go` — SQLite database open/close/migrate
-19. `db/puzzle.go` — puzzle CRUD, random query by difficulty, dedup
-20. `cmd/play.go` — fallback flow (generator → DB lookup → graceful degradation) and auto-store
-21. `cmd/generate.go` — batch generation CLI (parallel workers, progress, report)
-22. `cmd/import.go` — import CLI (file parsing, normalization, dedup, report)
+15. `.aidoc/designs/database-catalog.md` — base-puzzle identity, provenance, play-run separation, and rebuild boundary
+16. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and rebuild contract
+17. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
+18. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
+19. `db/db.go` — SQLite database open, schema, and rebuild boundary
+20. `db/catalog.go` — provenance and presentation-specific play-run contracts
+21. `db/puzzle.go` — catalog CRUD, acquisition, and statistics
+22. `cmd/play.go` — fallback flow and auto-store
+23. `cmd/generate.go` — batch generation CLI
+24. `cmd/import.go` — import CLI
 
 ### Understanding the Roadmap
 1. `.aidoc/designs/roadmap.md` — portable artifact and deployment sequence
@@ -67,16 +69,17 @@ The project index provides reading chains for common starting points and a compl
 3. `.aidoc/designs/e2e-test-scenarios.md` — compatibility and black-box acceptance scenarios
 4. `.aidoc/designs/difficulty-model.md` — calibration boundary and strategy-grade invariants
 5. `.aidoc/designs/difficulty-calibration.md` — strategy measurement methodology, report contract, and product decisions
-6. `.aidoc/designs/database-puzzle-selection.md` — current database behavior, migration, and acceptance boundary
-7. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and explicit reset behavior
-8. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
-9. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
-10. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
-11. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
-12. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
-13. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
-14. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
-15. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+6. `.aidoc/designs/database-catalog.md` — stable catalog identity, provenance, play-run state, and destructive rebuild
+7. `.aidoc/designs/database-puzzle-selection.md` — current database acquisition and rebuild boundary
+8. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and explicit reset behavior
+9. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
+10. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
+11. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
+12. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
+13. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
+14. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
+15. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
+16. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
@@ -108,6 +111,7 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/difficulty-calibration.md` | Strategy calibration methodology, corpus contract, evidence, reports, and decision gates |
 | `.aidoc/designs/roadmap.md` | Portable build, preview, default-branch deployment, and delivery gates |
 | `.aidoc/designs/deployment-hardening.md` | Backend artifact, service, isolation, access-policy, and failure contract |
+| `.aidoc/designs/database-catalog.md` | Stable base-puzzle identity, provenance, play-run separation, and destructive schema rebuild |
 | `.aidoc/designs/database-puzzle-selection.md` | Current exact-grade acquisition, played-state recycling, migration, and acceptance contract |
 | `.aidoc/designs/database-play-statistics.md` | Current completion counters, acquisition/completion statistics, and explicit history reset |
 | `.aidoc/designs/database-concurrency.md` | SQLite connection policy, mixed-workload stress, and multi-process acceptance contract |

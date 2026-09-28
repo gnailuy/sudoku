@@ -3,9 +3,11 @@ domain: Designs
 status: Active
 entry_points:
   - cmd/play.go
+  - db/catalog.go
   - db/db.go
   - db/puzzle.go
 dependencies:
+  - .aidoc/designs/database-catalog.md
   - .aidoc/designs/difficulty-model.md
   - .aidoc/designs/database-play-statistics.md
   - .aidoc/designs/database-concurrency.md
@@ -14,12 +16,13 @@ dependencies:
 
 # Database Puzzle Selection
 
-Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, and remains useful after every stored puzzle has been played. A database acquisition atomically selects and marks one puzzle; never-played puzzles come first, then the least-played and least-recently-played puzzle. Existing databases migrate in place with all rows initially unplayed.
+Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, and remains useful after every stored puzzle has been played. A database acquisition atomically selects and marks one puzzle; never-played puzzles come first, then the least-played and least-recently-played puzzle. The disposable legacy table must be explicitly rebuilt before the versioned catalog can be used.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|-------------|
+| `.aidoc/designs/database-catalog.md` | Defines base-puzzle identity, provenance, play-run state, and rebuild semantics |
 | `.aidoc/designs/difficulty-model.md` | Defines the exact strategy-grade contract used by selection |
 | `.aidoc/designs/database-play-statistics.md` | Keeps completion counters and history reset separate from acquisition semantics |
 | `.aidoc/designs/database-concurrency.md` | Extends atomic acquisition into a mixed-handle and multi-process reliability contract |
@@ -30,7 +33,7 @@ Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, an
 
 Random lookup can return the same puzzle repeatedly while other exact-grade puzzles remain unused. A permanent played/not-played filter avoids repeats only until the pool is exhausted, after which the database stops helping. Selection therefore needs durable history and an explicit recycling policy.
 
-The database is a local puzzle pool, not a game-session ledger. Puzzle classification is computed from the digit-normalized stored board, so the canonical row and its authoritative grade cannot drift. It records that a puzzle was chosen for play, but completion, abandonment, moves, notes, recovery, and saved-session state remain outside this schema.
+The base-puzzle catalog is a local puzzle pool, while presentation-specific state belongs to separate play-run records. Puzzle classification is computed from the digit-normalized stored board, so the canonical row and its authoritative grade cannot drift. It records that a puzzle was chosen for play, but completion, abandonment, moves, notes, recovery, and saved-session state remain outside this schema.
 
 ## What Selection Guarantees
 
@@ -66,11 +69,11 @@ Root play provides `--db <path>` and `--from-db`:
 
 The explicit database source is useful to players who want an offline stored puzzle and gives built-binary E2E a public, deterministic database boundary. No hidden seed or test-only switch is introduced.
 
-## Migration and Indexing
+## Schema and Indexing
 
-`db.DB.migrate` maintains a non-null `play_count` column with a zero default, a nullable `last_played_at` timestamp, and an acquisition index ordered by difficulty, count, and timestamp. Migration inspects the existing table before each additive change because SQLite lacks a portable conditional column-addition form.
+`base_puzzles` stores the authoritative catalog row and acquisition aggregates. `puzzle_provenance` records independently traceable sources, while `play_runs` owns exact presentation-specific state. `.aidoc/designs/database-catalog.md` defines stable identity and the destructive schema-version boundary.
 
-Existing rows receive a zero count and no timestamp, so the first post-upgrade cycle uses every existing exact-grade puzzle before reuse. No schema-version table, destructive rebuild, backfill timestamp, or normalization change is required for this increment.
+The acquisition index orders base-puzzle rows by difficulty, count, and timestamp. Legacy `puzzles` tables are never backfilled because their content lacks symmetry-canonical provenance; operators use the explicit confirmed rebuild command and re-import from pinned sources.
 
 ## Failure and Concurrency Boundaries
 

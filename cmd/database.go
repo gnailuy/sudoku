@@ -12,7 +12,7 @@ import (
 
 func newDatabaseCommand() *cobra.Command {
 	command := &cobra.Command{Use: "db", Short: "Inspect and manage puzzle history"}
-	command.AddCommand(newDatabaseStatsCommand(), newDatabaseResetCommand())
+	command.AddCommand(newDatabaseStatsCommand(), newDatabaseResetCommand(), newDatabaseRebuildCommand())
 	return command
 }
 
@@ -139,5 +139,46 @@ func newDatabaseResetCommand() *cobra.Command {
 	command.Flags().StringVarP(&level, "level", "l", "", "Filter by difficulty level")
 	command.Flags().BoolVar(&yes, "yes", false, "Confirm reset without an interactive prompt")
 	_ = command.MarkFlagRequired("history")
+	return command
+}
+
+func newDatabaseRebuildCommand() *cobra.Command {
+	var path string
+	var yes bool
+	command := &cobra.Command{
+		Use:   "rebuild",
+		Short: "Destructively rebuild the disposable puzzle catalog",
+		Args:  cobra.NoArgs,
+		RunE: func(command *cobra.Command, _ []string) error {
+			resolved := resolveDatabasePath(path)
+			fmt.Fprintf(command.OutOrStdout(), "Database: %s\nAll catalog, provenance, and play-run rows will be deleted.\n", resolved)
+			if !yes {
+				inputFile, interactive := command.InOrStdin().(*os.File)
+				if !interactive {
+					return fmt.Errorf("destructive rebuild requires --yes in non-interactive use")
+				}
+				info, statErr := inputFile.Stat()
+				if statErr != nil || info.Mode()&os.ModeCharDevice == 0 {
+					return fmt.Errorf("destructive rebuild requires --yes in non-interactive use")
+				}
+				fmt.Fprint(command.OutOrStdout(), "Type rebuild to continue: ")
+				answer, readErr := bufio.NewReader(command.InOrStdin()).ReadString('\n')
+				if readErr != nil && strings.TrimSpace(answer) == "" {
+					return fmt.Errorf("destructive rebuild requires --yes in non-interactive use")
+				}
+				if strings.TrimSpace(answer) != "rebuild" {
+					fmt.Fprintln(command.OutOrStdout(), "Cancelled; the catalog was not changed.")
+					return nil
+				}
+			}
+			if err := db.Rebuild(resolved); err != nil {
+				return err
+			}
+			fmt.Fprintf(command.OutOrStdout(), "Catalog rebuilt at schema version %d.\n", db.SchemaVersion)
+			return nil
+		},
+	}
+	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().BoolVar(&yes, "yes", false, "Confirm destructive rebuild without an interactive prompt")
 	return command
 }
