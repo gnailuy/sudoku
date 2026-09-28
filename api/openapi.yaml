@@ -585,24 +585,33 @@ components:
     Session:
       type: object
       additionalProperties: false
-      required: [id, revision, snapshot]
+      required: [id, revision, actual_difficulty, snapshot]
       properties:
         id:
           $ref: "#/components/schemas/SessionId"
         revision:
           $ref: "#/components/schemas/Revision"
+        requested_difficulty:
+          $ref: "#/components/schemas/Difficulty"
+          nullable: true
+          description: Difficulty requested by the caller, or null for direct puzzle sessions.
+        actual_difficulty:
+          $ref: "#/components/schemas/Difficulty"
+          description: Authoritative strategy grade of the puzzle in this session.
         snapshot:
           $ref: "#/components/schemas/Snapshot"
 
     SessionSummary:
       type: object
       additionalProperties: false
-      required: [id, revision, status, updated_at, recovered]
+      required: [id, revision, actual_difficulty, status, updated_at, recovered]
       properties:
         id:
           $ref: "#/components/schemas/SessionId"
         revision:
           $ref: "#/components/schemas/Revision"
+        actual_difficulty:
+          $ref: "#/components/schemas/Difficulty"
         status:
           $ref: "#/components/schemas/GameStatus"
         updated_at:

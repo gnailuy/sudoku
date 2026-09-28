@@ -132,7 +132,14 @@ func runImport(cmd *cobra.Command) error {
 
 		// Normalize and classify.
 		normalizedStr := normalizePuzzleForDB(store, board)
-		classification := solver.ClassifyPuzzle(store, board)
+		normalizedBoard := core.NewEmptyBoard()
+		normalizedBoard.FromString(normalizedStr)
+		classification := solver.ClassifyPuzzle(store, normalizedBoard)
+		if classification.Outcome != solver.ClassificationSolved {
+			report.invalid++
+			fmt.Fprintf(os.Stderr, "  Line %d: strategy classifier could not solve puzzle (skipped)\n", lineNum)
+			continue
+		}
 
 		// Store in DB.
 		inserted, err := puzzleDB.InsertPuzzle(db.Puzzle{
