@@ -92,7 +92,7 @@ def main():
         output = run(binary, ["generate", "--help"], root)
         contains(output, "--count", "--difficulty", "--workers", "--timeout", "--rounds", "--db")
         output = run(binary, ["import", "--help"], root)
-        contains(output, "--file", "--source", "--db")
+        contains(output, "--file", "--source", "--format", "--sha256", "--workers", "--db")
         output = run(binary, ["calibrate", "--help"], root)
         contains(output, "--manifest", "--output", "append-only", "resumable")
 
@@ -269,8 +269,13 @@ def main():
         # Import normalization, invalid lines, source labels, empty input, and dedup.
         database = root / "commands.db"
         puzzles = root / "puzzles.txt"
+        transposed_relabelled = "".join(
+            "." if PUZZLE_DOTS[column * 9 + row] == "." else str(10 - int(PUZZLE_DOTS[column * 9 + row]))
+            for row in range(9)
+            for column in range(9)
+        )
         puzzles.write_text(
-            "# fixture\n" + PUZZLE_DOTS + "\n" + PUZZLE_ZEROS + "\n123456\nabc\n",
+            "# fixture\n" + PUZZLE_DOTS + "\n" + transposed_relabelled + "\n123456\nabc\n",
             encoding="utf-8",
         )
         output = run(
@@ -299,6 +304,29 @@ def main():
             run(binary, ["import", "--file", str(root / "missing.txt")], root, expected=1),
             "open file",
         )
+
+        pinned_record = (
+            "00015097c6c3 083020090000800100029300008000098700070000060006740000300006980002005000010030540  7.2\n"
+            "0001d2888928 200050006010000090600801003007090600000703000900080002100000005060902010003060200  7.1\n"
+        )
+        pinned_file = root / "sudoku-exchange.txt"
+        pinned_file.write_text(pinned_record, encoding="utf-8")
+        pinned_hash = hashlib.sha256(pinned_record.encode()).hexdigest()
+        pinned_database = root / "pinned.db"
+        contains(
+            run(binary, ["import", "--file", str(pinned_file), "--format", "sudoku-exchange", "--db", str(pinned_database)], root, expected=1),
+            "require --sha256",
+        )
+        output = run(
+            binary,
+            ["import", "--file", str(pinned_file), "--format", "sudoku-exchange", "--sha256", pinned_hash, "--source", "sudoku-exchange-diabolical@fixture", "--workers", "2", "--db", str(pinned_database)],
+            root,
+        )
+        contains(output, "Stored (new): 1", "Strategy-unsolved (skipped): 1")
+        with sqlite3.connect(pinned_database) as connection:
+            provenance = connection.execute("SELECT source, source_ref FROM puzzle_provenance").fetchone()
+        if provenance != ("sudoku-exchange-diabolical@fixture", "sha1:00015097c6c3"):
+            raise AssertionError(f"unexpected pinned provenance: {provenance}")
 
         # Legacy rows require an explicit destructive rebuild; no identity or
         # provenance is guessed from the obsolete schema.

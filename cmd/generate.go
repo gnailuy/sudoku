@@ -231,35 +231,9 @@ func storePuzzle(puzzleDB *db.DB, result generator.GenerationResult) bool {
 	store := solver.NewStore()
 	board := result.Puzzle
 
-	// Normalize the puzzle for storage.
-	solvedBoard := board.Copy()
-	store.GetDefaultSolver().Solve(&solvedBoard)
-	if !solvedBoard.IsSolved() {
-		return false
-	}
-
-	normalizedSolved := solvedBoard.Copy()
-	normalizedSolved.Normalize()
-
-	var digitMap [10]int
-	for col := 0; col < 9; col++ {
-		original := solvedBoard.Get(core.NewPosition(0, col))
-		normalized := normalizedSolved.Get(core.NewPosition(0, col))
-		digitMap[original] = normalized
-	}
-
+	puzzleStr := core.CanonicalPuzzle(board.ToString())
 	normalizedPuzzle := core.NewEmptyBoard()
-	for row := 0; row < 9; row++ {
-		for col := 0; col < 9; col++ {
-			pos := core.NewPosition(row, col)
-			val := board.Get(pos)
-			if val != 0 {
-				_ = normalizedPuzzle.Set(pos, digitMap[val])
-			}
-		}
-	}
-
-	puzzleStr := normalizedPuzzle.ToString()
+	normalizedPuzzle.FromString(puzzleStr)
 	classification := solver.ClassifyPuzzle(store, normalizedPuzzle)
 	if classification.Outcome != solver.ClassificationSolved {
 		return false

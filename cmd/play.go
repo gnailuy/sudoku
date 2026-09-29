@@ -94,34 +94,9 @@ func generateWithFallbackTo(output io.Writer, solverStore solver.Store, difficul
 }
 
 func autoStoreTo(solverStore solver.Store, board core.Board, source, dbPath string) (string, error) {
-	solvedBoard := board.Copy()
-	solverStore.GetDefaultSolver().Solve(&solvedBoard)
-	if !solvedBoard.IsSolved() {
-		return "", fmt.Errorf("puzzle is not solvable")
-	}
-
-	normalizedSolved := solvedBoard.Copy()
-	normalizedSolved.Normalize()
-
-	var digitMap [10]int
-	for col := 0; col < 9; col++ {
-		original := solvedBoard.Get(core.NewPosition(0, col))
-		normalized := normalizedSolved.Get(core.NewPosition(0, col))
-		digitMap[original] = normalized
-	}
-
+	puzzleStr := core.CanonicalPuzzle(board.ToString())
 	normalizedPuzzle := core.NewEmptyBoard()
-	for row := 0; row < 9; row++ {
-		for col := 0; col < 9; col++ {
-			pos := core.NewPosition(row, col)
-			val := board.Get(pos)
-			if val != 0 {
-				_ = normalizedPuzzle.Set(pos, digitMap[val])
-			}
-		}
-	}
-
-	puzzleStr := normalizedPuzzle.ToString()
+	normalizedPuzzle.FromString(puzzleStr)
 	classification := solver.ClassifyPuzzle(solverStore, normalizedPuzzle)
 	if classification.Outcome != solver.ClassificationSolved {
 		return "", fmt.Errorf("puzzle is not solvable by the strategy classifier")

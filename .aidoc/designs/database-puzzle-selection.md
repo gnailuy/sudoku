@@ -33,7 +33,7 @@ Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, an
 
 Random lookup can return the same puzzle repeatedly while other exact-grade puzzles remain unused. A permanent played/not-played filter avoids repeats only until the pool is exhausted, after which the database stops helping. Selection therefore needs durable history and an explicit recycling policy.
 
-The base-puzzle catalog is a local puzzle pool, while presentation-specific state belongs to separate play-run records. Puzzle classification is computed from the digit-normalized stored board, so the canonical row and its authoritative grade cannot drift. It records that a puzzle was chosen for play, but completion, abandonment, moves, notes, recovery, and saved-session state remain outside this schema.
+The base-puzzle catalog is a local puzzle pool, while presentation-specific state belongs to separate play-run records. Puzzle classification is computed from the symmetry- and digit-canonical stored board, so equivalent presentations converge on one authoritative grade and history row. Acquisition records that a puzzle was chosen for play, but completion, abandonment, moves, notes, recovery, and saved-session state remain outside this schema.
 
 ## What Selection Guarantees
 
@@ -73,7 +73,7 @@ The explicit database source is useful to players who want an offline stored puz
 
 `base_puzzles` stores the authoritative catalog row and acquisition aggregates. `puzzle_provenance` records independently traceable sources, while `play_runs` owns exact presentation-specific state. `.aidoc/designs/database-catalog.md` defines stable identity and the destructive schema-version boundary.
 
-The acquisition index orders base-puzzle rows by difficulty, count, and timestamp. Legacy `puzzles` tables are never backfilled because their content lacks symmetry-canonical provenance; operators use the explicit confirmed rebuild command and re-import from pinned sources.
+The acquisition index orders base-puzzle rows by difficulty, count, and timestamp. Legacy `puzzles` tables are never backfilled because their content lacks symmetry-canonical provenance; operators use the explicit confirmed rebuild command and build a replacement catalog from the commit- and hash-pinned external source through `scripts/import_sudoku_exchange_diabolical.sh`.
 
 ## Failure and Concurrency Boundaries
 

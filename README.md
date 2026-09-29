@@ -139,9 +139,14 @@ Import puzzles from a text file (one per line, 81 chars):
 # Import from file (supports . or 0 for empty cells)
 ./sudoku import -f puzzles.txt
 
-# Custom source label
-./sudoku import -f top1465.txt --source "top1465"
+# Custom source label and parallel classification
+./sudoku import -f top1465.txt --source "top1465" --workers 4
+
+# Rebuild a catalog from the exact public-domain Sudoku Exchange pin
+./scripts/import_sudoku_exchange_diabolical.sh ./sudoku puzzles.db 4
 ```
+
+Every producer stores the same representative across digit relabelling and Sudoku-preserving row, column, band, stack, and transpose symmetries. The pinned helper verifies the complete source hash, preserves per-record provenance, reclassifies canonical content, and excludes strategy-unsolved records from the playable catalog.
 
 ## In-Game Commands
 

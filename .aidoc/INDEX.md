@@ -53,15 +53,17 @@ The project index provides reading chains for common starting points and a compl
 13. `generator/options.go` — `Options` and `BestEffortOptions` (time/round limits)
 14. `solver/classify.go` — puzzle classification (difficulty tier, score, max technique)
 15. `.aidoc/designs/database-catalog.md` — base-puzzle identity, provenance, play-run separation, and rebuild boundary
-16. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and rebuild contract
-17. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
-18. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
-19. `db/db.go` — SQLite database open, schema, and rebuild boundary
-20. `db/catalog.go` — provenance and presentation-specific play-run contracts
-21. `db/puzzle.go` — catalog CRUD, acquisition, and statistics
-22. `cmd/play.go` — fallback flow and auto-store
-23. `cmd/generate.go` — batch generation CLI
-24. `cmd/import.go` — import CLI
+16. `core/canonical.go` — shared digit and Sudoku-symmetry canonicalization boundary
+17. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and rebuild contract
+18. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
+19. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
+20. `db/db.go` — SQLite database open, schema, and rebuild boundary
+21. `db/catalog.go` — provenance and presentation-specific play-run contracts
+22. `db/puzzle.go` — catalog CRUD, acquisition, and statistics
+23. `cmd/play.go` — fallback flow and auto-store
+24. `cmd/generate.go` — batch generation CLI
+25. `cmd/import.go` — plain and hash-pinned external import boundary
+26. `scripts/import_sudoku_exchange_diabolical.sh` — exact public-domain source pin and import composition
 
 ### Understanding the Roadmap
 1. `.aidoc/designs/roadmap.md` — portable artifact and deployment sequence
@@ -158,7 +160,9 @@ The project index provides reading chains for common starting points and a compl
 | `calibration/baselines/mixed-generator-alignment-v6/analysis.md` | Generator target, trace, budget, and strategy-coverage interpretation |
 | `cmd/calibrate.go` | Local difficulty measurement CLI boundary |
 | `cmd/generate.go` | Batch generation CLI (parallel workers, progress, report) |
-| `cmd/import.go` | Import CLI (file parsing, normalization, dedup, report) |
+| `cmd/import.go` | Plain and hash-pinned external import, canonicalization, reclassification, provenance, and report boundary |
+| `core/canonical.go` | Shared canonical representative across digit relabelling and Sudoku-preserving symmetries |
+| `scripts/import_sudoku_exchange_diabolical.sh` | Exact public-domain source download pin and import composition |
 | `scripts/e2e_cli.py` | Built-binary line CLI, session, calibration, import, generation, and SQLite E2E harness |
 | `scripts/e2e_api.py` | Built-binary HTTP lifecycle E2E harness |
 | `scripts/e2e_tui.py` | Built-binary PTY TUI and recovery E2E harness |
