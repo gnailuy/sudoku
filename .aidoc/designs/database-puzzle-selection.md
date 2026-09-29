@@ -33,7 +33,7 @@ Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, an
 
 Random lookup can return the same puzzle repeatedly while other exact-grade puzzles remain unused. A permanent played/not-played filter avoids repeats only until the pool is exhausted, after which the database stops helping. Selection therefore needs durable history and an explicit recycling policy.
 
-The base-puzzle catalog is a local puzzle pool, while presentation-specific state belongs to separate play-run records. Puzzle classification is computed from the symmetry- and digit-canonical stored board, so equivalent presentations converge on one authoritative grade and history row. Acquisition records that a puzzle was chosen for play, but completion, abandonment, moves, notes, recovery, and saved-session state remain outside this schema.
+The base-puzzle catalog is a local puzzle pool, while presentation-specific identity belongs to separate play-run records. Puzzle classification is computed from the symmetry- and digit-canonical stored board, so equivalent presentations converge on one authoritative grade and history row. Acquisition records that a base puzzle was chosen; a linked play run preserves the shown board and completion status, while moves, notes, recovery payloads, and saved-session state remain outside the catalog schema.
 
 ## What Selection Guarantees
 

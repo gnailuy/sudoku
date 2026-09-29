@@ -38,6 +38,7 @@ type persistentSession struct {
 	Revision            int64           `json:"revision"`
 	RequestedDifficulty *Difficulty     `json:"requested_difficulty"`
 	ActualDifficulty    Difficulty      `json:"actual_difficulty"`
+	PlayRunID           string          `json:"play_run_id,omitempty"`
 	Game                json.RawMessage `json:"game"`
 }
 
@@ -48,6 +49,7 @@ type entry struct {
 	updatedAt  time.Time
 	recovered  bool
 	tracker    *playrun.Tracker
+	playRunID  string
 	difficulty SessionDifficulty
 }
 
@@ -56,42 +58,42 @@ type Registry struct {
 	entries        map[string]*entry
 	store          recovery.Store
 	options        game.Options
-	trackerFactory func(game.Game) *playrun.Tracker
+	trackerFactory func(game.Game, string) *playrun.Tracker
 }
 
 func NewRegistry(store recovery.Store, options game.Options) (*Registry, error) {
 	r := &Registry{entries: make(map[string]*entry), store: store, options: options}
 	records, err := store.Discover(func(data []byte) error {
-		_, _, _, err := decodePersistent(data, options)
+		_, _, _, _, err := decodePersistent(data, options)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	for _, record := range records {
-		g, revision, difficulty, err := decodePersistent(record.Session, options)
+		g, revision, difficulty, playRunID, err := decodePersistent(record.Session, options)
 		if err != nil {
 			continue
 		}
-		r.entries[record.ID] = &entry{game: g, revision: revision, updatedAt: record.UpdatedAt, recovered: true, difficulty: difficulty}
+		r.entries[record.ID] = &entry{game: g, revision: revision, updatedAt: record.UpdatedAt, recovered: true, difficulty: difficulty, playRunID: playRunID}
 	}
 	return r, nil
 }
 
-func decodePersistent(data []byte, options game.Options) (game.Game, int64, SessionDifficulty, error) {
+func decodePersistent(data []byte, options game.Options) (game.Game, int64, SessionDifficulty, string, error) {
 	var doc persistentSession
 	if err := decodeStrict(data, &doc); err != nil {
-		return game.Game{}, 0, SessionDifficulty{}, err
+		return game.Game{}, 0, SessionDifficulty{}, "", err
 	}
-	if doc.Version != 2 || doc.Revision < 0 || len(doc.Game) == 0 || doc.ActualDifficulty == "" {
-		return game.Game{}, 0, SessionDifficulty{}, errors.New("invalid API session record")
+	if doc.Version != 3 || doc.Revision < 0 || len(doc.Game) == 0 || doc.ActualDifficulty == "" {
+		return game.Game{}, 0, SessionDifficulty{}, "", errors.New("invalid API session record")
 	}
 	g, err := game.Restore(doc.Game, options)
-	return g, doc.Revision, SessionDifficulty{Requested: doc.RequestedDifficulty, Actual: doc.ActualDifficulty}, err
+	return g, doc.Revision, SessionDifficulty{Requested: doc.RequestedDifficulty, Actual: doc.ActualDifficulty}, doc.PlayRunID, err
 }
 
 // SetTrackerFactory attaches one tracker to each recovered or newly imported play run.
-func (r *Registry) SetTrackerFactory(factory func(game.Game) *playrun.Tracker) {
+func (r *Registry) SetTrackerFactory(factory func(game.Game, string) *playrun.Tracker) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.trackerFactory = factory
@@ -100,7 +102,8 @@ func (r *Registry) SetTrackerFactory(factory func(game.Game) *playrun.Tracker) {
 		if factory == nil {
 			entry.tracker = nil
 		} else {
-			entry.tracker = factory(entry.game)
+			entry.tracker = factory(entry.game, entry.playRunID)
+			entry.playRunID = entry.tracker.RunID()
 		}
 		entry.mu.Unlock()
 	}
@@ -111,7 +114,7 @@ func (r *Registry) persist(id string, e *entry) error {
 	if err != nil {
 		return err
 	}
-	doc, err := json.Marshal(persistentSession{Version: 2, Revision: e.revision, RequestedDifficulty: e.difficulty.Requested, ActualDifficulty: e.difficulty.Actual, Game: data})
+	doc, err := json.Marshal(persistentSession{Version: 3, Revision: e.revision, RequestedDifficulty: e.difficulty.Requested, ActualDifficulty: e.difficulty.Actual, PlayRunID: e.playRunID, Game: data})
 	if err != nil {
 		return err
 	}
@@ -122,19 +125,24 @@ func (r *Registry) persist(id string, e *entry) error {
 	return nil
 }
 
-func (r *Registry) add(g game.Game, difficulty SessionDifficulty) (string, *entry, error) {
+func (r *Registry) add(g game.Game, difficulty SessionDifficulty, tracker *playrun.Tracker) (string, *entry, error) {
 	id, err := recovery.NewID()
 	if err != nil {
 		return "", nil, err
 	}
-	e := &entry{game: g, updatedAt: time.Now().UTC(), difficulty: difficulty}
+	r.mu.Lock()
+	if tracker == nil && r.trackerFactory != nil {
+		tracker = r.trackerFactory(g, "")
+	}
+	r.mu.Unlock()
+	e := &entry{game: g, updatedAt: time.Now().UTC(), difficulty: difficulty, tracker: tracker}
+	if tracker != nil {
+		e.playRunID = tracker.RunID()
+	}
 	if err := r.persist(id, e); err != nil {
 		return "", nil, err
 	}
 	r.mu.Lock()
-	if r.trackerFactory != nil {
-		e.tracker = r.trackerFactory(g)
-	}
 	r.entries[id] = e
 	r.mu.Unlock()
 	return id, e, nil
@@ -238,12 +246,7 @@ func (s *Server) CreateSession(_ context.Context, request CreateSessionRequestOb
 	if err != nil {
 		return CreateSession422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidSession, err.Error()))}, nil
 	}
-	id, e, err := s.registry.add(g, difficulty)
-	if e != nil && tracker != nil {
-		e.mu.Lock()
-		e.tracker = tracker
-		e.mu.Unlock()
-	}
+	id, e, err := s.registry.add(g, difficulty, tracker)
 	if err != nil {
 		return CreateSession500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodePersistenceFailed, "unable to persist session"))}, nil
 	}
@@ -372,7 +375,7 @@ func (s *Server) RawImport(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	id, e, err := s.registry.add(g, SessionDifficulty{Actual: actual})
+	id, e, err := s.registry.add(g, SessionDifficulty{Actual: actual}, nil)
 	if err != nil {
 		writeError(w, 500, ErrorCodePersistenceFailed, "unable to persist session")
 		return

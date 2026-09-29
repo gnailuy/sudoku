@@ -36,7 +36,7 @@ The backend is safe by default rather than local-only: it binds to loopback unle
 
 `cmd/api.go` owns command flags, dependency construction, startup output, signal shutdown, and listener lifecycle. `webapi` owns HTTP routing, request limits, JSON translation, session lookup, revision checks, origin policy, and error envelopes. The Sudoku repository contains no frontend asset package, browser launcher, TypeScript toolchain, or SPA routing.
 
-Each active API session owns one `game.Game`, one opaque random session ID, one monotonically increasing revision, authoritative requested/actual difficulty metadata, and one recovery record. A registry serializes access per session; different sessions may proceed independently. `game.Game` remains non-concurrent and unaware of HTTP.
+Each active API session owns one `game.Game`, one opaque random session ID, one monotonically increasing revision, authoritative requested/actual difficulty metadata, one presentation-specific play-run ID, and one recovery record. A registry serializes access per session; different sessions may proceed independently. `game.Game` remains non-concurrent and unaware of HTTP or catalog identity.
 
 Session creation reuses existing puzzle input, difficulty generation, solver configuration, and database fallback policies through dependencies wired by `cmd`. The API must not import `cmd` or duplicate generation rules.
 
@@ -77,9 +77,9 @@ Expected failures use a stable envelope with a code, human-readable message, and
 
 ## Recovery and Lifecycle
 
-Accepted mutations persist the newest serialized session through the private recovery store before the success response is committed. A persistence failure returns an error and must not claim durable success; the in-memory engine is reconstructed from the last durable bytes when necessary to preserve the contract.
+Accepted mutations persist the newest serialized session and its linked play-run ID through the private recovery store before the success response is committed. A persistence failure returns an error and must not claim durable success; the in-memory engine is reconstructed from the last durable bytes when necessary to preserve the contract.
 
-Server startup discovers valid records from a dedicated API recovery namespace and exposes bounded summaries through the session collection. The TUI recovery namespace remains separate, so simultaneous frontends cannot adopt the same record; explicit import/export is the transfer boundary. Explicit discard deletes one API record, while graceful server shutdown retains active records for restart.
+Server startup discovers valid records from a dedicated API recovery namespace, reattaches completion tracking to each existing play-run ID, and exposes bounded summaries through the session collection. Recovery never creates a second run for the same durable API session. The TUI recovery namespace remains separate, so simultaneous frontends cannot adopt the same record; explicit import/export is the transfer boundary. Explicit discard deletes one API record, while graceful server shutdown retains active records for restart.
 
 Only one `sudoku api` process may own the API recovery namespace at a time. Startup acquires an exclusive process-lifetime lock and fails clearly rather than allowing two registries to write the same records.
 
@@ -93,4 +93,4 @@ Opaque session IDs prevent accidental collisions and never substitute for authen
 
 ## Verification
 
-Handler tests exercise real HTTP requests, strict decoding, bounded error envelopes, body limits, action translation, typed errors, revision conflicts, recovery failure, concurrent access and isolation, exact bearer authentication, bounded preflight policy, default CORS denial, and exact-origin allowlisting. Command tests validate configured origins and exclusive recovery lock ownership. Contract verification validates and lints `api/openapi.yaml`, confirms generated Go code is current, checks compatibility with `oasdiff`, and executes representative OpenAPI examples against the built server. Black-box tests start the built binary with isolated XDG roots on both default and explicit listen addresses, verify process-lock exclusion and security startup failures, call every versioned operation, restart the process, and confirm recovery without importing Go packages or relying on a frontend.
+Handler tests exercise real HTTP requests, strict decoding, bounded error envelopes, body limits, action translation, typed errors, revision conflicts, recovery failure, concurrent access and isolation, exact bearer authentication, bounded preflight policy, default CORS denial, and exact-origin allowlisting. Command tests validate configured origins, transformed play-run creation, and exclusive recovery lock ownership. Contract verification validates and lints `api/openapi.yaml`, confirms generated Go code is current, checks compatibility with `oasdiff`, and executes representative OpenAPI examples against the built server. Black-box tests start the built binary with isolated XDG roots, prove exact presentation-to-base linkage and atomic completion, verify process-lock and security failures, call every versioned operation, restart the process, and confirm recovery without duplicate play runs.

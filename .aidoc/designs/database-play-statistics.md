@@ -52,9 +52,9 @@ The line CLI, TUI, and HTTP API use one frontend-neutral play-run tracker around
 
 ## Storage and Identity
 
-`base_puzzles` keeps non-null `completion_count` with a zero default and nullable `last_completed_at`. `db.DB.RecordCompletion` atomically increments the catalog row and assigns SQLite's current timestamp.
+`base_puzzles` keeps non-null `completion_count` with a zero default and nullable `last_completed_at`. `db.DB.CompletePlayRun` atomically closes one active presentation-specific run, increments its linked catalog row, and assigns SQLite's current timestamp; unlinked compatibility tracking uses `db.DB.RecordCompletion`.
 
-The content-derived base-puzzle ID is the primary identity. Catalog ingestion supplies symmetry- and digit-canonical content, while each `play_runs.presented_puzzle` preserves the exact transformed board shown to that run. The pinned-bank import and transformed-session slices complete those producer integrations separately.
+The content-derived base-puzzle ID is the primary identity. Catalog ingestion supplies symmetry- and digit-canonical content, while each `play_runs.presented_puzzle` preserves the exact transformed board shown to that run. Tracked CLI, TUI, and API producers attach that presentation before gameplay, and API recovery retains the same run ID.
 
 `cmd.createSession` retains the normalized key and selected database path for the run tracker. Restored sessions derive the key from immutable givens. A missing row or failed write produces a concise warning without inserting another row or changing gameplay/session persistence.
 

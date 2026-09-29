@@ -73,6 +73,41 @@ func (db *DB) UpdatePlayRunStatus(id, status string) (bool, error) {
 	return rows == 1, nil
 }
 
+// CompletePlayRun atomically closes one active play run and records exactly
+// one completion against its stable base-puzzle identity.
+func (db *DB) CompletePlayRun(id string) (bool, error) {
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return false, fmt.Errorf("begin play-run completion: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	var basePuzzleID string
+	err = tx.QueryRow(`UPDATE play_runs SET status = 'completed', updated_at = CURRENT_TIMESTAMP
+		WHERE play_run_id = ? AND status = 'active' RETURNING base_puzzle_id`, id).Scan(&basePuzzleID)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("complete play run: %w", err)
+	}
+	result, err := tx.Exec(`UPDATE base_puzzles SET completion_count = completion_count + 1,
+		last_completed_at = CURRENT_TIMESTAMP WHERE base_puzzle_id = ?`, basePuzzleID)
+	if err != nil {
+		return false, fmt.Errorf("record play-run completion: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil || rows != 1 {
+		if err != nil {
+			return false, fmt.Errorf("record play-run completion rows affected: %w", err)
+		}
+		return false, fmt.Errorf("record play-run completion: base puzzle is absent")
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit play-run completion: %w", err)
+	}
+	return true, nil
+}
+
 // PlayRunByID reads one play run without conflating it with its base puzzle.
 func (db *DB) PlayRunByID(id string) (*PlayRun, error) {
 	var run PlayRun

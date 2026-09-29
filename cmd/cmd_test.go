@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -297,6 +298,31 @@ func TestCreateSessionRestoresSerializedState(t *testing.T) {
 	}
 	if got := restored.Snapshot().Values[position.Row][position.Column]; got != value {
 		t.Fatalf("restored value = %d, want %d", got, value)
+	}
+}
+
+func TestTrackedSessionLinksPresentedBoardToStableBasePuzzle(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "catalog.db")
+	current, _, tracker, err := createTrackedSession(sessionRequest{input: testKnownPuzzle, dbPath: dbPath}, io.Discard, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tracker.RunID() == "" {
+		t.Fatal("tracked session has no durable play-run ID")
+	}
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	run, err := database.PlayRunByID(tracker.RunID())
+	if err != nil || run == nil {
+		t.Fatalf("play run = %+v, %v", run, err)
+	}
+	presented := current.ProblemBoard()
+	canonical := core.CanonicalPuzzle(presented.ToString())
+	if run.BasePuzzleID != db.BasePuzzleID(canonical) || run.PresentedPuzzle != presented.ToString() || run.Status != "active" {
+		t.Fatalf("play run does not preserve presentation and stable identity: %+v", run)
 	}
 }
 
