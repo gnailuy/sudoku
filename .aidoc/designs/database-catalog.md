@@ -29,7 +29,9 @@ The SQLite schema separates stable base-puzzle identity, independently traceable
 
 A published puzzle can appear with relabelled digits, transposed bands, reflected stacks, or another valid Sudoku presentation. Source text is therefore not durable identity. Catalog ingestion must first produce one symmetry- and digit-canonical puzzle string; `db.BasePuzzleID` then derives a deterministic `bp_` identifier from that content.
 
-The catalog boundary accepts canonical content rather than guessing normalization inside storage. The pinned-bank import slice owns the canonicalization algorithm and duplicate evidence. Until that slice lands, existing producers retain their current digit-normalized input behavior while using the new identity and provenance schema.
+`core.CanonicalPuzzle` selects one dot-notation representative across digit relabelling, band and stack permutations, row and column permutations within those groups, and transposition. Import, generation, automatic storage, and completion tracking all use that same canonical boundary before classification, deduplication, or history lookup; `db.InsertPuzzle` still rejects a caller-supplied ID that disagrees with the canonical content.
+
+The pinned external corpus is `grantm/sudoku-exchange-puzzle-bank`'s public-domain `diabolical.txt` at commit `d8c8ebaee0c08c412cfba96af1923dfa61c83317`. The import boundary verifies the complete file SHA-256 `08553d0c1145ea4d7c13008040f47ea8205d21fe1eaf8f4ab17a1a6981928b35`, preserves each published record hash as `source_ref`, reclassifies canonical content, and excludes `strategy-unsolved` records from the playable catalog.
 
 ## Catalog Contract
 
@@ -52,8 +54,8 @@ Schema version 2 intentionally does not migrate the legacy `puzzles` table. Lega
 - A play-run ID is caller-supplied and globally unique within one database.
 - New play runs begin as `active`; status updates reject unknown states.
 - Rebuild is the only supported transition from a legacy development schema.
-- Catalog import never infers provenance from a filename, grade, or puzzle content.
+- Catalog import never infers provenance from a filename, grade, or puzzle content; the pinned helper supplies an explicit commit-bound source label and each parsed record supplies its published source hash.
 
 ## Verification
 
-Package tests prove deterministic base-puzzle IDs, additive provenance on duplicate catalog content, independent transformed presentation storage, constrained run status, explicit legacy rejection, atomic rebuild, and existing acquisition/statistics behavior. The built-binary CLI scenario proves that a legacy database fails closed, non-interactive rebuild requires `--yes`, and a confirmed rebuild produces only the versioned catalog tables.
+Package tests prove full symmetry collapse, deterministic base-puzzle IDs, additive provenance on duplicate catalog content, independent transformed presentation storage, constrained run status, explicit legacy rejection, atomic rebuild, and existing acquisition/statistics behavior. The built-binary CLI scenarios prove hash-pinned Sudoku Exchange parsing and provenance, symmetry-aware deduplication, strategy-unsolved exclusion, and the confirmed destructive rebuild boundary.

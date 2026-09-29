@@ -2,10 +2,14 @@ package cmd
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gnailuy/sudoku/core"
@@ -34,6 +38,9 @@ Supported formats:
 func init() {
 	importCmd.Flags().StringP("file", "f", "", "Path to the puzzle file (required)")
 	importCmd.Flags().String("source", "imported", "Source label for imported puzzles")
+	importCmd.Flags().String("format", "plain", "Input format: plain or sudoku-exchange")
+	importCmd.Flags().String("sha256", "", "Expected lowercase SHA-256 of the complete input file")
+	importCmd.Flags().IntP("workers", "w", 1, "Parallel canonicalization/classification workers")
 	importCmd.Flags().String("db", "", "Database path (default: $XDG_DATA_HOME/sudoku/puzzles.db)")
 	_ = importCmd.MarkFlagRequired("file")
 
@@ -42,19 +49,44 @@ func init() {
 
 // importReport holds the results of a batch import run.
 type importReport struct {
-	total      int
-	valid      int
-	invalid    int
-	stored     int
-	duplicates int
-	byLevel    map[string]int
-	duration   time.Duration
+	total            int
+	valid            int
+	invalid          int
+	stored           int
+	duplicates       int
+	strategyUnsolved int
+	databaseErrors   int
+	byLevel          map[string]int
+	duration         time.Duration
 }
 
 func runImport(cmd *cobra.Command) error {
 	filePath, _ := cmd.Flags().GetString("file")
 	source, _ := cmd.Flags().GetString("source")
+	inputFormat, _ := cmd.Flags().GetString("format")
+	expectedSHA256, _ := cmd.Flags().GetString("sha256")
+	workers, _ := cmd.Flags().GetInt("workers")
 	dbPath, _ := cmd.Flags().GetString("db")
+
+	if workers < 1 {
+		return fmt.Errorf("workers must be positive")
+	}
+
+	if inputFormat != "plain" && inputFormat != "sudoku-exchange" {
+		return fmt.Errorf("unsupported import format %q", inputFormat)
+	}
+	if inputFormat == "sudoku-exchange" && expectedSHA256 == "" {
+		return fmt.Errorf("sudoku-exchange imports require --sha256 to pin the source file")
+	}
+	if expectedSHA256 != "" {
+		actual, err := fileSHA256(filePath)
+		if err != nil {
+			return err
+		}
+		if actual != expectedSHA256 {
+			return fmt.Errorf("input SHA-256 is %s, want %s", actual, expectedSHA256)
+		}
+	}
 
 	if dbPath == "" {
 		dbPath = defaultDBPath()
@@ -82,104 +114,137 @@ func runImport(cmd *cobra.Command) error {
 	fmt.Printf("Importing puzzles from: %s\n", filePath)
 
 	startTime := time.Now()
-	store := solver.NewStore()
+	report := importReport{byLevel: make(map[string]int)}
 
-	report := importReport{
-		byLevel: make(map[string]int),
-	}
-
+	var records []importRecord
 	scanner := bufio.NewScanner(file)
-	lineNum := 0
-
-	for scanner.Scan() {
+	for lineNum := 1; scanner.Scan(); lineNum++ {
 		line := strings.TrimSpace(scanner.Text())
-		lineNum++
-
-		// Skip empty lines and comments.
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
+		records = append(records, importRecord{lineNumber: lineNum, line: line})
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read file: %w", err)
+	}
+	report.total = len(records)
 
-		report.total++
+	jobs := make(chan importRecord)
+	results := make(chan importResult, workers)
+	var group sync.WaitGroup
+	for range workers {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			store := solver.NewStore()
+			for record := range jobs {
+				results <- prepareImportRecord(store, record, inputFormat)
+			}
+		}()
+	}
+	go func() {
+		for _, record := range records {
+			jobs <- record
+		}
+		close(jobs)
+		group.Wait()
+		close(results)
+	}()
 
-		// Validate the puzzle string.
-		puzzleStr := normalizePuzzleInput(line)
-		if !core.IsValidSudokuString(puzzleStr) {
+	processed := 0
+	for result := range results {
+		processed++
+		if result.err != nil {
 			report.invalid++
-			fmt.Fprintf(os.Stderr, "  Line %d: invalid puzzle string (skipped)\n", lineNum)
+			fmt.Fprintf(os.Stderr, "  Line %d: %v (skipped)\n", result.lineNumber, result.err)
 			continue
 		}
-
-		// Parse and validate the board.
-		board := core.NewEmptyBoard()
-		board.FromString(puzzleStr)
-
-		if !board.IsValid() {
-			report.invalid++
-			fmt.Fprintf(os.Stderr, "  Line %d: invalid board (skipped)\n", lineNum)
-			continue
-		}
-
-		// Verify the puzzle is solvable.
-		solutionCount := store.GetDefaultSolver().CountSolutions(&board)
-		if solutionCount == 0 {
-			report.invalid++
-			fmt.Fprintf(os.Stderr, "  Line %d: unsolvable puzzle (skipped)\n", lineNum)
-			continue
-		}
-
 		report.valid++
-
-		// Normalize and classify.
-		normalizedStr := normalizePuzzleForDB(store, board)
-		normalizedBoard := core.NewEmptyBoard()
-		normalizedBoard.FromString(normalizedStr)
-		classification := solver.ClassifyPuzzle(store, normalizedBoard)
-		if classification.Outcome != solver.ClassificationSolved {
-			report.invalid++
-			fmt.Fprintf(os.Stderr, "  Line %d: strategy classifier could not solve puzzle (skipped)\n", lineNum)
+		if result.classification.Outcome != solver.ClassificationSolved {
+			report.strategyUnsolved++
 			continue
 		}
 
-		// Store in DB.
 		inserted, err := puzzleDB.InsertPuzzle(db.Puzzle{
-			Puzzle:       normalizedStr,
-			Difficulty:   classification.Difficulty,
-			Score:        classification.Score,
-			MaxTechnique: classification.MaxTechnique,
+			Puzzle:       result.puzzle,
+			Difficulty:   result.classification.Difficulty,
+			Score:        result.classification.Score,
+			MaxTechnique: result.classification.MaxTechnique,
 			Source:       source,
+			SourceRef:    result.sourceRef,
 		})
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Line %d: database error: %v (skipped)\n", lineNum, err)
+			report.databaseErrors++
+			fmt.Fprintf(os.Stderr, "  Line %d: database error: %v (skipped)\n", result.lineNumber, err)
 			continue
 		}
 
-		report.byLevel[classification.Difficulty]++
+		report.byLevel[result.classification.Difficulty]++
 		if inserted {
 			report.stored++
 		} else {
 			report.duplicates++
 		}
-
-		// Progress indicator every 100 puzzles.
-		if report.total%100 == 0 {
-			fmt.Printf("\r  Progress: %d processed, %d stored, %d duplicates, %d invalid",
-				report.total, report.stored, report.duplicates, report.invalid)
+		if processed%100 == 0 || processed == report.total {
+			fmt.Printf("\r  Progress: %d/%d processed, %d stored, %d duplicates, %d strategy-unsolved, %d invalid",
+				processed, report.total, report.stored, report.duplicates, report.strategyUnsolved, report.invalid)
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("read file: %w", err)
-	}
-
 	if report.total >= 100 {
-		fmt.Println() // newline after progress
+		fmt.Println()
 	}
 
 	report.duration = time.Since(startTime)
 	printImportReport(report)
 
 	return nil
+}
+
+type importRecord struct {
+	lineNumber int
+	line       string
+}
+
+type importResult struct {
+	lineNumber     int
+	puzzle         string
+	sourceRef      string
+	classification solver.Classification
+	err            error
+}
+
+func prepareImportRecord(store solver.Store, record importRecord, inputFormat string) importResult {
+	result := importResult{lineNumber: record.lineNumber}
+	puzzleText, sourceRef, err := parseImportRecord(record.line, inputFormat)
+	if err != nil {
+		result.err = err
+		return result
+	}
+	puzzle := normalizePuzzleInput(puzzleText)
+	if !core.IsValidSudokuString(puzzle) {
+		result.err = fmt.Errorf("invalid puzzle string")
+		return result
+	}
+	board := core.NewEmptyBoard()
+	board.FromString(puzzle)
+	if !board.IsValid() {
+		result.err = fmt.Errorf("invalid board")
+		return result
+	}
+	// The hash-pinned Sudoku Exchange source guarantees unique solutions.
+	// Generic files retain an independent uniqueness check.
+	if inputFormat == "plain" && store.GetDefaultSolver().CountSolutions(&board) == 0 {
+		result.err = fmt.Errorf("unsolvable puzzle")
+		return result
+	}
+	result.puzzle = normalizePuzzleForDB(store, board)
+	result.sourceRef = sourceRef
+	canonicalBoard := core.NewEmptyBoard()
+	canonicalBoard.FromString(result.puzzle)
+	result.classification = solver.ClassifyPuzzle(store, canonicalBoard)
+	return result
 }
 
 // normalizePuzzleInput converts common input formats to the standard format.
@@ -198,36 +263,41 @@ func normalizePuzzleInput(s string) string {
 	return cleaned.String()
 }
 
-// normalizePuzzleForDB normalizes a puzzle board for database storage.
-func normalizePuzzleForDB(store solver.Store, board core.Board) string {
-	solvedBoard := board.Copy()
-	store.GetDefaultSolver().Solve(&solvedBoard)
-	if !solvedBoard.IsSolved() {
-		return board.ToString() // fallback
+// normalizePuzzleForDB canonicalizes a puzzle for catalog identity.
+func normalizePuzzleForDB(_ solver.Store, board core.Board) string {
+	return core.CanonicalPuzzle(board.ToString())
+}
+
+func parseImportRecord(line, inputFormat string) (puzzle, sourceRef string, err error) {
+	if inputFormat == "plain" {
+		return line, "", nil
 	}
-
-	normalizedSolved := solvedBoard.Copy()
-	normalizedSolved.Normalize()
-
-	var digitMap [10]int
-	for col := 0; col < 9; col++ {
-		original := solvedBoard.Get(core.NewPosition(0, col))
-		normalized := normalizedSolved.Get(core.NewPosition(0, col))
-		digitMap[original] = normalized
+	fields := strings.Fields(line)
+	if len(fields) != 3 || len(fields[0]) != 12 || len(fields[1]) != 81 {
+		return "", "", fmt.Errorf("invalid sudoku-exchange record")
 	}
-
-	normalizedPuzzle := core.NewEmptyBoard()
-	for row := 0; row < 9; row++ {
-		for col := 0; col < 9; col++ {
-			pos := core.NewPosition(row, col)
-			val := board.Get(pos)
-			if val != 0 {
-				_ = normalizedPuzzle.Set(pos, digitMap[val])
-			}
+	for _, character := range fields[0] {
+		if !strings.ContainsRune("0123456789abcdef", character) {
+			return "", "", fmt.Errorf("invalid sudoku-exchange source hash")
 		}
 	}
+	if _, parseErr := strconv.ParseFloat(fields[2], 64); parseErr != nil {
+		return "", "", fmt.Errorf("invalid sudoku-exchange rating")
+	}
+	return fields[1], "sha1:" + fields[0], nil
+}
 
-	return normalizedPuzzle.ToString()
+func fileSHA256(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("open file for SHA-256: %w", err)
+	}
+	defer file.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", fmt.Errorf("hash file: %w", err)
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 func printImportReport(report importReport) {
@@ -236,6 +306,8 @@ func printImportReport(report importReport) {
 	fmt.Printf("Total lines: %d\n", report.total)
 	fmt.Printf("Valid: %d\n", report.valid)
 	fmt.Printf("Invalid (skipped): %d\n", report.invalid)
+	fmt.Printf("Strategy-unsolved (skipped): %d\n", report.strategyUnsolved)
+	fmt.Printf("Storage failures (skipped): %d\n", report.databaseErrors)
 	fmt.Printf("Stored (new): %d\n", report.stored)
 	fmt.Printf("Duplicates: %d\n", report.duplicates)
 	fmt.Printf("Duration: %s\n", report.duration.Round(time.Millisecond))

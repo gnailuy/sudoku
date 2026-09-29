@@ -70,8 +70,8 @@ Database behavior crosses generation, classification, persistence, and startup. 
 **Expected:** Only player and hint-assisted completion increment once per run; automatic solve and non-completion actions do not.
 
 ### Identity, Provenance, and Snapshot
-**Action:** Submit duplicate canonical content with distinct source references, create an exact presented play run, request all-grade and filtered statistics, and update counters concurrently in focused package tests.
-**Expected:** One stable base-puzzle ID owns both provenance records, the play run retains its independent presentation and status, each snapshot is internally consistent, empty timestamps render as `-`, and invalid grades fail before database work.
+**Action:** Submit digit-relabeled, band/stack-permuted, and transposed presentations with distinct source references; create an exact presented play run; request all-grade and filtered statistics; and update counters concurrently in focused package tests.
+**Expected:** Every equivalent presentation resolves to one stable base-puzzle ID with all provenance records, the play run retains its independent presentation and status, each snapshot is internally consistent, empty timestamps render as `-`, and invalid grades fail before database work.
 
 ### Explicit Reset Scope
 **Action:** Preview acquisition, completion, and all-history resets; cancel once; then confirm with `--yes`, with and without a grade filter.

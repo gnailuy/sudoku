@@ -11,7 +11,7 @@ dependencies:
 
 # E2E Import Scenarios
 
-The import scenario catalog verifies file parsing, normalization, source labels, error handling, database storage, and deduplication through the built import command.
+The import scenario catalog verifies plain and hash-pinned external parsing, full Sudoku-symmetry canonicalization, source provenance, strategy reclassification, error handling, database storage, and deduplication through the built import command.
 
 ## Related Docs
 
@@ -32,7 +32,7 @@ Import accepts mixed external text and writes persistent records. Black-box cove
 
 ### 5.2 Import Puzzles from File
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
-**Expected:** Puzzles are classified, normalized, and stored. The two lines represent the same puzzle (different notation), so one is stored and one is a duplicate.
+**Expected:** Puzzles are classified, symmetry- and digit-canonicalized, and stored. The two lines are transposed and digit-relabeled presentations of the same puzzle, so one is stored and one is a duplicate.
 
 ### 5.3 Import with Invalid Lines
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
@@ -53,5 +53,13 @@ Import accepts mixed external text and writes persistent records. Black-box cove
 ### 5.7 Import Dedup
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
 **Expected:** Second import reports all as duplicates.
+
+### 5.8 Pinned Sudoku Exchange Record
+**Action:** Import a three-field Sudoku Exchange fixture with its exact complete-file SHA-256 and an explicit commit-bound source label, then retry without the hash pin.
+**Expected:** The pinned import stores the canonical puzzle with the published 12-byte hash as provenance; an unpinned Sudoku Exchange import fails before opening or mutating the database.
+
+### 5.9 Strategy-Unsolved Exclusion
+**Action:** Import a structurally valid pinned-source puzzle beyond the canonical strategy inventory.
+**Expected:** The report counts the record as strategy-unsolved, stores no playable row, and does not mislabel it Evil.
 
 ---
