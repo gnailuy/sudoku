@@ -1,26 +1,35 @@
 package db
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 )
 
 // Puzzle represents a stored puzzle record.
 type Puzzle struct {
+	BasePuzzleID    string // Stable content-derived identifier for the canonical base puzzle.
 	Puzzle          string // Normalized 81-char puzzle string.
 	Difficulty      string // Difficulty level name (easy/medium/hard/expert/evil).
 	Score           int    // Total difficulty score.
 	MaxTechnique    string // Highest-tier technique required.
 	Source          string // Origin: "generated", "imported", or source name.
+	SourceRef       string // Optional immutable record or upstream identifier.
 	PlayCount       int    // Number of times selected for play.
 	LastPlayedAt    string // SQLite timestamp of the latest selection, or empty.
 	CompletionCount int    // Number of player-driven completions.
 	LastCompletedAt string // SQLite timestamp of the latest completion, or empty.
 }
 
-// RecordCompletion atomically records a completion for an existing normalized puzzle.
+// BasePuzzleID derives the stable catalog identifier from canonical puzzle content.
+func BasePuzzleID(canonicalPuzzle string) string {
+	sum := sha256.Sum256([]byte(canonicalPuzzle))
+	return fmt.Sprintf("bp_%x", sum[:])
+}
+
+// RecordCompletion atomically records a completion for an existing canonical puzzle.
 func (db *DB) RecordCompletion(puzzle string) (bool, error) {
-	result, err := db.conn.Exec(`UPDATE puzzles SET completion_count = completion_count + 1, last_completed_at = CURRENT_TIMESTAMP WHERE puzzle = ?`, puzzle)
+	result, err := db.conn.Exec(`UPDATE base_puzzles SET completion_count = completion_count + 1, last_completed_at = CURRENT_TIMESTAMP WHERE canonical_puzzle = ?`, puzzle)
 	if err != nil {
 		return false, fmt.Errorf("record completion: %w", err)
 	}
@@ -34,10 +43,10 @@ func (db *DB) RecordCompletion(puzzle string) (bool, error) {
 // AcquireForPlay atomically selects and marks an exact-difficulty puzzle.
 func (db *DB) AcquireForPlay(difficulty string) (*Puzzle, error) {
 	row := db.conn.QueryRow(`
-		UPDATE puzzles SET play_count = play_count + 1, last_played_at = CURRENT_TIMESTAMP
-		WHERE puzzle = (SELECT puzzle FROM puzzles WHERE difficulty = ?
+		UPDATE base_puzzles SET play_count = play_count + 1, last_played_at = CURRENT_TIMESTAMP
+		WHERE canonical_puzzle = (SELECT canonical_puzzle FROM base_puzzles WHERE difficulty = ?
 			ORDER BY play_count ASC, last_played_at ASC, RANDOM() LIMIT 1)
-		RETURNING puzzle, difficulty, score, max_technique, COALESCE(source, ''),
+		RETURNING base_puzzle_id, canonical_puzzle, difficulty, score, max_technique, COALESCE((SELECT source FROM puzzle_provenance WHERE base_puzzle_id = base_puzzles.base_puzzle_id ORDER BY provenance_id LIMIT 1), ''),
 			play_count, COALESCE(CAST(last_played_at AS TEXT), '')`, difficulty)
 	return scanPuzzle(row, "acquire puzzle")
 }
@@ -45,9 +54,9 @@ func (db *DB) AcquireForPlay(difficulty string) (*Puzzle, error) {
 // MarkForPlay atomically records selection of a specific stored puzzle.
 func (db *DB) MarkForPlay(puzzle string) (*Puzzle, error) {
 	row := db.conn.QueryRow(`
-		UPDATE puzzles SET play_count = play_count + 1, last_played_at = CURRENT_TIMESTAMP
-		WHERE puzzle = ?
-		RETURNING puzzle, difficulty, score, max_technique, COALESCE(source, ''),
+		UPDATE base_puzzles SET play_count = play_count + 1, last_played_at = CURRENT_TIMESTAMP
+		WHERE canonical_puzzle = ?
+		RETURNING base_puzzle_id, canonical_puzzle, difficulty, score, max_technique, COALESCE((SELECT source FROM puzzle_provenance WHERE base_puzzle_id = base_puzzles.base_puzzle_id ORDER BY provenance_id LIMIT 1), ''),
 			play_count, COALESCE(CAST(last_played_at AS TEXT), '')`, puzzle)
 	return scanPuzzle(row, "mark puzzle played")
 }
@@ -58,7 +67,7 @@ type rowScanner interface {
 
 func scanPuzzle(row rowScanner, operation string) (*Puzzle, error) {
 	var p Puzzle
-	err := row.Scan(&p.Puzzle, &p.Difficulty, &p.Score, &p.MaxTechnique, &p.Source, &p.PlayCount, &p.LastPlayedAt)
+	err := row.Scan(&p.BasePuzzleID, &p.Puzzle, &p.Difficulty, &p.Score, &p.MaxTechnique, &p.Source, &p.PlayCount, &p.LastPlayedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -71,20 +80,37 @@ func scanPuzzle(row rowScanner, operation string) (*Puzzle, error) {
 // InsertPuzzle stores a puzzle if it does not already exist.
 // Returns true if the puzzle was inserted (new), false if it was a duplicate.
 func (db *DB) InsertPuzzle(p Puzzle) (bool, error) {
-	result, err := db.conn.Exec(
-		`INSERT OR IGNORE INTO puzzles (puzzle, difficulty, score, max_technique, source)
+	derivedID := BasePuzzleID(p.Puzzle)
+	if p.BasePuzzleID == "" {
+		p.BasePuzzleID = derivedID
+	} else if p.BasePuzzleID != derivedID {
+		return false, fmt.Errorf("base puzzle id does not match canonical puzzle")
+	}
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return false, fmt.Errorf("begin puzzle insert: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	result, err := tx.Exec(
+		`INSERT OR IGNORE INTO base_puzzles (base_puzzle_id, canonical_puzzle, difficulty, score, max_technique)
 		 VALUES (?, ?, ?, ?, ?)`,
-		p.Puzzle, p.Difficulty, p.Score, p.MaxTechnique, p.Source,
+		p.BasePuzzleID, p.Puzzle, p.Difficulty, p.Score, p.MaxTechnique,
 	)
 	if err != nil {
-		return false, fmt.Errorf("insert puzzle: %w", err)
+		return false, fmt.Errorf("insert base puzzle: %w", err)
 	}
-
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return false, fmt.Errorf("rows affected: %w", err)
+		return false, fmt.Errorf("base puzzle rows affected: %w", err)
 	}
-
+	if p.Source != "" {
+		if _, err := tx.Exec(`INSERT OR IGNORE INTO puzzle_provenance (base_puzzle_id, source, source_ref) VALUES (?, ?, ?)`, p.BasePuzzleID, p.Source, p.SourceRef); err != nil {
+			return false, fmt.Errorf("insert puzzle provenance: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit puzzle insert: %w", err)
+	}
 	return rows > 0, nil
 }
 
@@ -92,8 +118,9 @@ func (db *DB) InsertPuzzle(p Puzzle) (bool, error) {
 // or nil if none exists.
 func (db *DB) GetRandom(difficulty string) (*Puzzle, error) {
 	row := db.conn.QueryRow(
-		`SELECT puzzle, difficulty, score, max_technique, COALESCE(source, '')
-		 FROM puzzles
+		`SELECT b.base_puzzle_id, b.canonical_puzzle, b.difficulty, b.score, b.max_technique,
+			COALESCE((SELECT source FROM puzzle_provenance p WHERE p.base_puzzle_id = b.base_puzzle_id ORDER BY provenance_id LIMIT 1), '')
+		 FROM base_puzzles b
 		 WHERE difficulty = ?
 		 ORDER BY RANDOM()
 		 LIMIT 1`,
@@ -101,7 +128,7 @@ func (db *DB) GetRandom(difficulty string) (*Puzzle, error) {
 	)
 
 	var p Puzzle
-	err := row.Scan(&p.Puzzle, &p.Difficulty, &p.Score, &p.MaxTechnique, &p.Source)
+	err := row.Scan(&p.BasePuzzleID, &p.Puzzle, &p.Difficulty, &p.Score, &p.MaxTechnique, &p.Source)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -121,7 +148,7 @@ type Stats struct {
 // GetStats returns the total puzzle count and per-difficulty breakdown.
 func (db *DB) GetStats() (*Stats, error) {
 	rows, err := db.conn.Query(
-		`SELECT difficulty, COUNT(*) FROM puzzles GROUP BY difficulty`,
+		`SELECT difficulty, COUNT(*) FROM base_puzzles GROUP BY difficulty`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get stats: %w", err)
@@ -166,7 +193,7 @@ func (db *DB) PlayStatistics(level string) ([]PlayStats, error) {
 		SUM(CASE WHEN play_count > 0 THEN 1 ELSE 0 END), COALESCE(SUM(play_count), 0),
 		SUM(CASE WHEN completion_count > 0 THEN 1 ELSE 0 END), COALESCE(SUM(completion_count), 0),
 		COALESCE(CAST(MAX(last_played_at) AS TEXT), ''), COALESCE(CAST(MAX(last_completed_at) AS TEXT), '')
-		FROM puzzles`+where+` GROUP BY difficulty ORDER BY difficulty`, args...)
+		FROM base_puzzles`+where+` GROUP BY difficulty ORDER BY difficulty`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query statistics: %w", err)
 	}
@@ -202,7 +229,7 @@ func (db *DB) PlayStatistics(level string) ([]PlayStats, error) {
 		COALESCE(SUM(CASE WHEN play_count > 0 THEN 1 ELSE 0 END), 0), COALESCE(SUM(play_count), 0),
 		COALESCE(SUM(CASE WHEN completion_count > 0 THEN 1 ELSE 0 END), 0), COALESCE(SUM(completion_count), 0),
 		COALESCE(CAST(MAX(last_played_at) AS TEXT), ''), COALESCE(CAST(MAX(last_completed_at) AS TEXT), '')
-		FROM puzzles`+where, args...).Scan(&overall.Stored, &overall.NeverSelected, &overall.Selected, &overall.Acquisitions, &overall.Completed, &overall.Completions, &overall.LatestSelection, &overall.LatestCompletion)
+		FROM base_puzzles`+where, args...).Scan(&overall.Stored, &overall.NeverSelected, &overall.Selected, &overall.Acquisitions, &overall.Completed, &overall.Completions, &overall.LatestSelection, &overall.LatestCompletion)
 	if err != nil {
 		return nil, fmt.Errorf("query overall statistics: %w", err)
 	}
@@ -224,7 +251,7 @@ func (db *DB) PreviewHistoryReset(level string) (HistoryPreview, error) {
 		where, args = " WHERE difficulty = ?", append(args, level)
 	}
 	var preview HistoryPreview
-	err := db.conn.QueryRow(`SELECT COUNT(*), COALESCE(SUM(play_count), 0), COALESCE(SUM(completion_count), 0) FROM puzzles`+where, args...).Scan(&preview.Rows, &preview.Acquisitions, &preview.Completions)
+	err := db.conn.QueryRow(`SELECT COUNT(*), COALESCE(SUM(play_count), 0), COALESCE(SUM(completion_count), 0) FROM base_puzzles`+where, args...).Scan(&preview.Rows, &preview.Acquisitions, &preview.Completions)
 	if err != nil {
 		return preview, fmt.Errorf("preview history reset: %w", err)
 	}
@@ -250,7 +277,7 @@ func (db *DB) ResetHistory(history, level string) error {
 		return fmt.Errorf("begin history reset: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, err := tx.Exec(`UPDATE puzzles SET `+set+where, args...); err != nil {
+	if _, err := tx.Exec(`UPDATE base_puzzles SET `+set+where, args...); err != nil {
 		return fmt.Errorf("reset history: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -167,7 +168,7 @@ func TestAcquireForPlayExhaustsPoolBeforeBalancedReuse(t *testing.T) {
 		t.Fatalf("third acquisition = %+v, %v", third, err)
 	}
 	var minimum, maximum int
-	if err := d.conn.QueryRow(`SELECT MIN(play_count), MAX(play_count) FROM puzzles WHERE difficulty = 'easy'`).Scan(&minimum, &maximum); err != nil {
+	if err := d.conn.QueryRow(`SELECT MIN(play_count), MAX(play_count) FROM base_puzzles WHERE difficulty = 'easy'`).Scan(&minimum, &maximum); err != nil {
 		t.Fatalf("query counts: %v", err)
 	}
 	if minimum != 1 || maximum != 2 {
@@ -183,28 +184,28 @@ func TestOpenMigratesExistingPuzzleTable(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "legacy.db")
 	conn, err := sql.Open("sqlite", path)
 	if err != nil {
-		t.Fatalf("open legacy database: %v", err)
+		t.Fatal(err)
 	}
-	_, err = conn.Exec(`CREATE TABLE puzzles (
-		puzzle TEXT PRIMARY KEY, difficulty TEXT NOT NULL, score INTEGER NOT NULL,
-		max_technique TEXT NOT NULL, source TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	)`)
-	if err == nil {
-		_, err = conn.Exec(`INSERT INTO puzzles (puzzle, difficulty, score, max_technique, source) VALUES ('legacy', 'easy', 1, 'naked-single', 'legacy')`)
+	if _, err := conn.Exec(`CREATE TABLE puzzles (puzzle TEXT PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
 	}
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(path); !errors.Is(err, ErrRebuildRequired) {
+		t.Fatalf("Open error = %v, want ErrRebuildRequired", err)
+	}
+	if err := Rebuild(path); err != nil {
+		t.Fatal(err)
+	}
+	database, err := Open(path)
 	if err != nil {
-		t.Fatalf("prepare legacy database: %v", err)
+		t.Fatal(err)
 	}
-
-	d, err := Open(path)
-	if err != nil {
-		t.Fatalf("migrate legacy database: %v", err)
-	}
-	defer d.Close()
-	got, err := d.AcquireForPlay("easy")
-	if err != nil || got == nil || got.Puzzle != "legacy" || got.PlayCount != 1 {
-		t.Fatalf("migrated acquisition = %+v, %v", got, err)
+	defer database.Close()
+	stats, err := database.GetStats()
+	if err != nil || stats.Total != 0 {
+		t.Fatalf("rebuilt stats = %+v, %v", stats, err)
 	}
 }
 
@@ -287,7 +288,7 @@ func TestMarkForPlayUpdatesOnlyTheSelectedPuzzle(t *testing.T) {
 		t.Fatalf("missing MarkForPlay = %+v, %v", missing, err)
 	}
 	var count int
-	if err := d.conn.QueryRow(`SELECT play_count FROM puzzles WHERE puzzle = 'unselected'`).Scan(&count); err != nil {
+	if err := d.conn.QueryRow(`SELECT play_count FROM base_puzzles WHERE canonical_puzzle = 'unselected'`).Scan(&count); err != nil {
 		t.Fatalf("query unselected puzzle: %v", err)
 	}
 	if count != 0 {
@@ -349,17 +350,21 @@ func TestCompletionStatisticsAndResetScopes(t *testing.T) {
 }
 
 func TestCompletionMigrationPreservesAcquisitionHistory(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "pre-completion.db")
+	path := filepath.Join(t.TempDir(), "legacy.db")
 	conn, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = conn.Exec(`CREATE TABLE puzzles (puzzle TEXT PRIMARY KEY, difficulty TEXT NOT NULL, score INTEGER NOT NULL, max_technique TEXT NOT NULL, source TEXT, play_count INTEGER NOT NULL DEFAULT 0, last_played_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`)
-	if err == nil {
-		_, err = conn.Exec(`INSERT INTO puzzles (puzzle,difficulty,score,max_technique,play_count,last_played_at) VALUES ('legacy','easy',1,'single',3,CURRENT_TIMESTAMP)`)
+	if _, err := conn.Exec(`CREATE TABLE puzzles (puzzle TEXT PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
 	}
-	conn.Close()
-	if err != nil {
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(path); !errors.Is(err, ErrRebuildRequired) {
+		t.Fatalf("Open error = %v, want ErrRebuildRequired", err)
+	}
+	if err := Rebuild(path); err != nil {
 		t.Fatal(err)
 	}
 	database, err := Open(path)
@@ -367,13 +372,9 @@ func TestCompletionMigrationPreservesAcquisitionHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	var plays, completions int
-	var completed any
-	if err := database.conn.QueryRow(`SELECT play_count, completion_count, last_completed_at FROM puzzles WHERE puzzle='legacy'`).Scan(&plays, &completions, &completed); err != nil {
-		t.Fatal(err)
-	}
-	if plays != 3 || completions != 0 || completed != nil {
-		t.Fatalf("migrated history = %d, %d, %v", plays, completions, completed)
+	stats, err := database.GetStats()
+	if err != nil || stats.Total != 0 {
+		t.Fatalf("rebuilt stats = %+v, %v", stats, err)
 	}
 }
 
@@ -420,7 +421,7 @@ func TestConcurrentCompletionIncrements(t *testing.T) {
 	}
 	defer check.Close()
 	var count int
-	if err := check.conn.QueryRow(`SELECT completion_count FROM puzzles WHERE puzzle='shared'`).Scan(&count); err != nil {
+	if err := check.conn.QueryRow(`SELECT completion_count FROM base_puzzles WHERE canonical_puzzle='shared'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != workers {
@@ -437,20 +438,72 @@ func TestResetHistoryRollsBackOnDatabaseError(t *testing.T) {
 	if _, err := database.InsertPuzzle(Puzzle{Puzzle: "protected", Difficulty: "easy", Score: 1, MaxTechnique: "single"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.conn.Exec(`UPDATE puzzles SET play_count=2, completion_count=3 WHERE puzzle='protected'`); err != nil {
+	if _, err := database.conn.Exec(`UPDATE base_puzzles SET play_count=2, completion_count=3 WHERE canonical_puzzle='protected'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.conn.Exec(`CREATE TRIGGER reject_history_reset BEFORE UPDATE ON puzzles BEGIN SELECT RAISE(ABORT, 'protected'); END`); err != nil {
+	if _, err := database.conn.Exec(`CREATE TRIGGER reject_history_reset BEFORE UPDATE ON base_puzzles BEGIN SELECT RAISE(ABORT, 'protected'); END`); err != nil {
 		t.Fatal(err)
 	}
 	if err := database.ResetHistory("all", "easy"); err == nil {
 		t.Fatal("expected reset failure")
 	}
 	var plays, completions int
-	if err := database.conn.QueryRow(`SELECT play_count, completion_count FROM puzzles WHERE puzzle='protected'`).Scan(&plays, &completions); err != nil {
+	if err := database.conn.QueryRow(`SELECT play_count, completion_count FROM base_puzzles WHERE canonical_puzzle='protected'`).Scan(&plays, &completions); err != nil {
 		t.Fatal(err)
 	}
 	if plays != 2 || completions != 3 {
 		t.Fatalf("failed reset changed counters: %d %d", plays, completions)
+	}
+}
+
+func TestCatalogIdentityProvenanceAndPlayRunsAreSeparate(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	canonical := "canonical-puzzle"
+	first := Puzzle{Puzzle: canonical, Difficulty: "hard", Score: 300, MaxTechnique: "x-wing", Source: "bank", SourceRef: "record-7"}
+	inserted, err := database.InsertPuzzle(first)
+	if err != nil || !inserted {
+		t.Fatalf("first insert = %v, %v", inserted, err)
+	}
+	inserted, err = database.InsertPuzzle(Puzzle{Puzzle: canonical, Difficulty: "hard", Score: 300, MaxTechnique: "x-wing", Source: "curated", SourceRef: "sample-2"})
+	if err != nil || inserted {
+		t.Fatalf("duplicate insert = %v, %v", inserted, err)
+	}
+	provenance, err := database.ProvenanceFor(canonical)
+	if err != nil || len(provenance) != 2 {
+		t.Fatalf("provenance = %+v, %v", provenance, err)
+	}
+	id := BasePuzzleID(canonical)
+	if id != BasePuzzleID(canonical) || len(id) != 67 {
+		t.Fatalf("unstable base puzzle id %q", id)
+	}
+	if err := database.InsertPlayRun(PlayRun{ID: "run-1", BasePuzzleID: id, PresentedPuzzle: "transformed-puzzle"}); err != nil {
+		t.Fatal(err)
+	}
+	run, err := database.PlayRunByID("run-1")
+	if err != nil || run == nil || run.BasePuzzleID != id || run.PresentedPuzzle != "transformed-puzzle" || run.Status != "active" {
+		t.Fatalf("play run = %+v, %v", run, err)
+	}
+	if updated, err := database.UpdatePlayRunStatus("run-1", "completed"); err != nil || !updated {
+		t.Fatalf("complete = %v, %v", updated, err)
+	}
+	run, _ = database.PlayRunByID("run-1")
+	if run.Status != "completed" {
+		t.Fatalf("status = %q", run.Status)
+	}
+}
+
+func TestInsertPuzzleRejectsMismatchedStableID(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	inserted, err := database.InsertPuzzle(Puzzle{BasePuzzleID: BasePuzzleID("other"), Puzzle: "canonical", Difficulty: "easy", Score: 1, MaxTechnique: "single"})
+	if err == nil || inserted {
+		t.Fatalf("inserted=%v err=%v", inserted, err)
 	}
 }

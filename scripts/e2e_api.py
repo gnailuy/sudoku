@@ -197,7 +197,7 @@ def main():
             stop(process)
 
         with sqlite3.connect(database) as connection:
-            expect(connection.execute("SELECT SUM(completion_count) FROM puzzles").fetchone()[0], 1, "API completion count")
+            expect(connection.execute("SELECT SUM(completion_count) FROM base_puzzles").fetchone()[0], 1, "API completion count")
 
         process, base = start(binary, state, free_port(), ["--db", database])
         try:

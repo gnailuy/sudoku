@@ -7,6 +7,7 @@ entry_points:
 dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/game-engine.md
+  - .aidoc/designs/database-catalog.md
   - .aidoc/designs/database-puzzle-selection.md
   - .aidoc/designs/database-play-statistics.md
   - .aidoc/designs/database-concurrency.md
@@ -21,6 +22,7 @@ The database scenario catalog protects root-command database composition, played
 | Document | Relationship |
 |----------|-------------|
 | `.aidoc/designs/e2e-test-scenarios.md` | E2E discovery, isolation, and automation entry points |
+| `.aidoc/designs/database-catalog.md` | Stable identity, provenance, play-run separation, and destructive rebuild contract |
 | `.aidoc/designs/database-puzzle-selection.md` | Exact-grade acquisition and recycling contract |
 | `.aidoc/designs/database-play-statistics.md` | Completion, statistics, and history-reset contract |
 | `.aidoc/designs/database-concurrency.md` | Mixed-workload, lock-bound, and multi-process contract |
@@ -47,9 +49,10 @@ Database behavior crosses generation, classification, persistence, and startup. 
 **Action:** Acquire three puzzles through `sudoku --from-db --level <grade> --db <path>`.
 **Expected:** Each row is selected before either repeats; later selections keep acquisition counts within one.
 
-### In-Place Migration
-**Setup:** Create a pre-played-state database and open it with the current binary.
-**Expected:** Migration preserves puzzles and classifications, initializes history, and permits exact-grade acquisition.
+### Explicit Destructive Rebuild
+**Setup:** Create an obsolete `puzzles` table with one row.
+**Action:** Open it through `db stats`, attempt an unconfirmed non-interactive rebuild, then run `db rebuild --yes`.
+**Expected:** Normal opening fails closed with rebuild guidance, missing confirmation changes nothing, and confirmed rebuild creates the versioned base-puzzle, provenance, and play-run tables without preserving unverifiable legacy rows.
 
 ### Source and Failure Boundaries
 **Action:** Exercise an empty grade, custom database path, conflicting `--input` or `--resume`, and deterministic generated-fallback accounting.
@@ -66,9 +69,9 @@ Database behavior crosses generation, classification, persistence, and startup. 
 **Action:** Exercise quit, save/recovery, invalid moves, automatic solve, player completion, hint-assisted completion, undo/re-solve, and an already solved restored session.
 **Expected:** Only player and hint-assisted completion increment once per run; automatic solve and non-completion actions do not.
 
-### Identity, Migration, and Snapshot
-**Action:** Open a pre-completion-schema database, submit digit-relabelled equivalent fixtures, request all-grade and filtered statistics, and update counters concurrently in a focused package test.
-**Expected:** Migration preserves existing history and initializes completion history. Equivalent fixtures share one row. Each snapshot is internally consistent, empty timestamps render as `-`, and invalid grades fail before database work.
+### Identity, Provenance, and Snapshot
+**Action:** Submit duplicate canonical content with distinct source references, create an exact presented play run, request all-grade and filtered statistics, and update counters concurrently in focused package tests.
+**Expected:** One stable base-puzzle ID owns both provenance records, the play run retains its independent presentation and status, each snapshot is internally consistent, empty timestamps render as `-`, and invalid grades fail before database work.
 
 ### Explicit Reset Scope
 **Action:** Preview acquisition, completion, and all-history resets; cancel once; then confirm with `--yes`, with and without a grade filter.

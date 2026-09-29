@@ -1,5 +1,4 @@
-// Package db manages the SQLite puzzle database for storing, deduplicating,
-// and querying Sudoku puzzles by difficulty.
+// Package db manages the SQLite puzzle catalog, provenance, and play records.
 package db
 
 import (
@@ -7,59 +6,56 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
 )
 
-// DB wraps a SQLite connection for puzzle storage.
-type DB struct {
-	conn *sql.DB
-}
+type DB struct{ conn *sql.DB }
 
 const (
+	SchemaVersion            = 2
 	busyTimeoutMilliseconds  = 5000
 	sqliteBusyCode           = 5
 	journalModeRetryInterval = 10 * time.Millisecond
 )
 
-// Open opens (or creates) a SQLite database at the given path and runs
-// schema migrations. Use ":memory:" for an in-memory database.
+var ErrRebuildRequired = errors.New("database schema is obsolete; run `sudoku db rebuild --db <path> --yes`")
+
 func Open(path string) (*DB, error) {
+	conn, err := openConnection(path)
+	if err != nil {
+		return nil, err
+	}
+	database := &DB{conn: conn}
+	if err := database.migrate(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
+	return database, nil
+}
+
+func openConnection(path string) (*sql.DB, error) {
 	conn, err := sql.Open("sqlite", sqliteDataSource(path))
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-
-	// One pooled connection keeps each handle's operation order explicit. The
-	// DSN reapplies the busy timeout if database/sql replaces that connection.
 	conn.SetMaxOpenConns(1)
 	conn.SetMaxIdleConns(1)
-
-	// Enable WAL mode for better concurrent read performance. SQLite can
-	// return SQLITE_BUSY before its busy handler while another connection is
-	// changing journal mode, so keep this initialization retry bounded by the
-	// same timeout as ordinary lock waits.
 	if err := enableWAL(conn, path == ":memory:"); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("set WAL mode: %w", err)
 	}
-	db := &DB{conn: conn}
-	if err := db.migrate(); err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("migrate: %w", err)
-	}
-
-	return db, nil
+	return conn, nil
 }
 
-// Close closes the database connection.
-func (db *DB) Close() error {
-	return db.conn.Close()
-}
+func (db *DB) Close() error { return db.conn.Close() }
 
-// migrate creates the puzzles table and applies additive schema changes.
+// migrate creates the current schema but deliberately refuses pre-catalog
+// schemas. Their puzzle strings do not contain enough provenance to backfill
+// the new identity boundary safely.
 func (db *DB) migrate() (err error) {
 	conn, err := db.conn.Conn(context.Background())
 	if err != nil {
@@ -75,45 +71,22 @@ func (db *DB) migrate() (err error) {
 		}
 	}()
 
-	if _, err = conn.ExecContext(context.Background(), `
-		CREATE TABLE IF NOT EXISTS puzzles (
-			puzzle         TEXT PRIMARY KEY,
-			difficulty     TEXT NOT NULL,
-			score          INTEGER NOT NULL,
-			max_technique  TEXT NOT NULL,
-			source         TEXT,
-			play_count     INTEGER NOT NULL DEFAULT 0,
-			last_played_at TIMESTAMP,
-			completion_count INTEGER NOT NULL DEFAULT 0,
-			last_completed_at TIMESTAMP,
-			created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`); err != nil {
-		return fmt.Errorf("create puzzles table: %w", err)
-	}
-
-	columns, err := tableColumns(conn, "puzzles")
+	legacy, err := tableExists(conn, "puzzles")
 	if err != nil {
 		return err
 	}
-	additions := []struct {
-		name string
-		sql  string
-	}{
-		{"play_count", `ALTER TABLE puzzles ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0`},
-		{"last_played_at", `ALTER TABLE puzzles ADD COLUMN last_played_at TIMESTAMP`},
-		{"completion_count", `ALTER TABLE puzzles ADD COLUMN completion_count INTEGER NOT NULL DEFAULT 0`},
-		{"last_completed_at", `ALTER TABLE puzzles ADD COLUMN last_completed_at TIMESTAMP`},
+	current, err := tableExists(conn, "base_puzzles")
+	if err != nil {
+		return err
 	}
-	for _, addition := range additions {
-		if !columns[addition.name] {
-			if _, err = conn.ExecContext(context.Background(), addition.sql); err != nil {
-				return fmt.Errorf("add %s: %w", addition.name, err)
-			}
+	if legacy || current {
+		var version int
+		if scanErr := conn.QueryRowContext(context.Background(), `SELECT version FROM schema_metadata WHERE singleton = 1`).Scan(&version); scanErr != nil || version != SchemaVersion {
+			return ErrRebuildRequired
 		}
 	}
-	if _, err = conn.ExecContext(context.Background(), `CREATE INDEX IF NOT EXISTS puzzles_acquisition_idx ON puzzles (difficulty, play_count, last_played_at)`); err != nil {
-		return fmt.Errorf("create acquisition index: %w", err)
+	if err = createSchema(conn); err != nil {
+		return err
 	}
 	if _, err = conn.ExecContext(context.Background(), `COMMIT`); err != nil {
 		return fmt.Errorf("commit migration: %w", err)
@@ -121,27 +94,93 @@ func (db *DB) migrate() (err error) {
 	return nil
 }
 
-type queryContext interface {
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+func createSchema(conn *sql.Conn) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS schema_metadata (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), version INTEGER NOT NULL)`,
+		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 2)`,
+		`CREATE TABLE IF NOT EXISTS base_puzzles (
+			base_puzzle_id TEXT PRIMARY KEY,
+			canonical_puzzle TEXT NOT NULL UNIQUE,
+			difficulty TEXT NOT NULL,
+			score INTEGER NOT NULL,
+			max_technique TEXT NOT NULL,
+			play_count INTEGER NOT NULL DEFAULT 0,
+			last_played_at TIMESTAMP,
+			completion_count INTEGER NOT NULL DEFAULT 0,
+			last_completed_at TIMESTAMP,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS puzzle_provenance (
+			provenance_id INTEGER PRIMARY KEY AUTOINCREMENT,
+			base_puzzle_id TEXT NOT NULL REFERENCES base_puzzles(base_puzzle_id) ON DELETE CASCADE,
+			source TEXT NOT NULL,
+			source_ref TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE (base_puzzle_id, source, source_ref)
+		)`,
+		`CREATE TABLE IF NOT EXISTS play_runs (
+			play_run_id TEXT PRIMARY KEY,
+			base_puzzle_id TEXT NOT NULL REFERENCES base_puzzles(base_puzzle_id),
+			presented_puzzle TEXT NOT NULL,
+			status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'abandoned')),
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS base_puzzles_acquisition_idx ON base_puzzles (difficulty, play_count, last_played_at)`,
+		`CREATE INDEX IF NOT EXISTS puzzle_provenance_base_idx ON puzzle_provenance (base_puzzle_id)`,
+		`CREATE INDEX IF NOT EXISTS play_runs_base_idx ON play_runs (base_puzzle_id, created_at)`,
+	}
+	for _, statement := range statements {
+		if _, err := conn.ExecContext(context.Background(), statement); err != nil {
+			return fmt.Errorf("create catalog schema: %w", err)
+		}
+	}
+	return nil
 }
 
-func tableColumns(queryer queryContext, table string) (map[string]bool, error) {
-	rows, err := queryer.QueryContext(context.Background(), `PRAGMA table_info(`+table+`)`)
+// Rebuild atomically discards the disposable development catalog and creates
+// the current schema. The database file itself remains in place.
+func Rebuild(path string) (err error) {
+	conn, err := openConnection(path)
 	if err != nil {
-		return nil, fmt.Errorf("inspect %s columns: %w", table, err)
+		return err
 	}
-	defer rows.Close()
-	columns := make(map[string]bool)
-	for rows.Next() {
-		var cid, notNull, primaryKey int
-		var name, columnType string
-		var defaultValue any
-		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
-			return nil, fmt.Errorf("scan %s columns: %w", table, err)
+	defer conn.Close()
+	dedicated, err := conn.Conn(context.Background())
+	if err != nil {
+		return err
+	}
+	defer dedicated.Close()
+	if _, err = dedicated.ExecContext(context.Background(), `BEGIN IMMEDIATE`); err != nil {
+		return fmt.Errorf("begin rebuild: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_, _ = dedicated.ExecContext(context.Background(), `ROLLBACK`)
 		}
-		columns[name] = true
+	}()
+	for _, table := range []string{"play_runs", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
+		if _, err = dedicated.ExecContext(context.Background(), `DROP TABLE IF EXISTS `+table); err != nil {
+			return fmt.Errorf("drop %s: %w", table, err)
+		}
 	}
-	return columns, rows.Err()
+	if err = createSchema(dedicated); err != nil {
+		return err
+	}
+	if _, err = dedicated.ExecContext(context.Background(), `COMMIT`); err != nil {
+		return fmt.Errorf("commit rebuild: %w", err)
+	}
+	return nil
+}
+
+func tableExists(queryer interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}, table string) (bool, error) {
+	var count int
+	if err := queryer.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&count); err != nil {
+		return false, fmt.Errorf("inspect table %s: %w", table, err)
+	}
+	return count == 1, nil
 }
 
 func enableWAL(conn *sql.DB, inMemory bool) error {
@@ -175,5 +214,5 @@ func sqliteDataSource(path string) string {
 	if strings.Contains(path, "?") {
 		separator = "&"
 	}
-	return fmt.Sprintf("%s%s_pragma=busy_timeout%%3d%d", path, separator, busyTimeoutMilliseconds)
+	return fmt.Sprintf("%s%s_pragma=busy_timeout%%3d%d&_pragma=foreign_keys%%3don", filepath.Clean(path), separator, busyTimeoutMilliseconds)
 }

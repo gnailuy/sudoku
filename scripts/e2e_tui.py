@@ -172,7 +172,7 @@ def main():
             raise AssertionError("TUI player completion did not reach solved state")
         os.close(master)
         with sqlite3.connect(completion_database) as connection:
-            if connection.execute("SELECT SUM(completion_count) FROM puzzles").fetchone()[0] != 1:
+            if connection.execute("SELECT SUM(completion_count) FROM base_puzzles").fetchone()[0] != 1:
                 raise AssertionError("TUI player completion was not recorded")
 
         corrupt = os.path.join(directory, "corrupt.json")
