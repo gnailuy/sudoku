@@ -39,7 +39,7 @@ The harness calls the running `sudoku api` process rather than importing Go hand
 
 ### 11.2 Session Creation and Strict Input
 **Action:** Create sessions by difficulty and puzzle string, then send conflicting sources, unknown fields, malformed JSON, wrong content types, and oversized bodies.
-**Expected:** Valid requests return opaque IDs, revision zero, authoritative snapshots, nullable requested difficulty, and the puzzle classifier's required actual difficulty. Refresh and restart recovery preserve the same metadata even when requested and actual grades differ. Invalid requests return bounded stable errors without creating sessions or leaking host details.
+**Expected:** Valid requests return opaque IDs, revision zero, authoritative snapshots, nullable requested difficulty, and the puzzle classifier's required actual difficulty. Each tracked session stores its exact presented givens in one play run linked to the SHA-256 identity of the canonical base puzzle. Refresh and restart recovery preserve difficulty metadata and the same play-run ID without creating a duplicate. Invalid requests return bounded stable errors without creating sessions or leaking host details.
 
 ### 11.3 OpenAPI Contract and Runtime Conformance
 **Action:** Validate and lint `api/openapi.yaml` with the pinned Redocly CLI, regenerate the strict Go boundary and confirm a clean diff, compare the contract with the target branch using `oasdiff`, then execute every declared operation and representative examples against the built server.
@@ -51,7 +51,7 @@ The harness calls the running `sudoku api` process rather than importing Go hand
 
 ### 11.5 Restart, Forced-Termination Recovery, and Discard
 **Action:** Mutate two API sessions, stop and restart the server, reconnect to both, discard one, terminate the process without graceful shutdown, then start it again.
-**Expected:** Both sessions restore from separate private records with complete values, notes, history, and cumulative mistakes. Discard removes only the selected record. Graceful restart and forced termination both preserve the remaining session because accepted mutations are durable before their responses complete.
+**Expected:** Both sessions restore from separate private records with complete values, notes, history, cumulative mistakes, and play-run identity. A player-driven completion atomically closes its run and increments the linked base puzzle once. Discard removes only the selected recovery record. Graceful restart and forced termination both preserve the remaining session because accepted mutations are durable before their responses complete.
 
 ### 11.6 Concurrent Sessions and Process Lock
 **Action:** Mutate separate sessions concurrently, submit concurrent actions to one session, and start a second `sudoku api` process against the same state root.

@@ -15,6 +15,7 @@ type CompletionRecorder interface {
 // Tracker records at most one player-driven completion in a play run.
 type Tracker struct {
 	puzzle   string
+	runID    string
 	recorder CompletionRecorder
 	recorded bool
 	warning  error
@@ -22,6 +23,19 @@ type Tracker struct {
 
 func New(puzzle string, recorder CompletionRecorder) *Tracker {
 	return &Tracker{puzzle: puzzle, recorder: recorder}
+}
+
+// NewLinked records completion against one durable presentation-specific run.
+func NewLinked(puzzle, runID string, recorder CompletionRecorder) *Tracker {
+	return &Tracker{puzzle: puzzle, runID: runID, recorder: recorder}
+}
+
+// RunID returns the durable play-run identifier, when this tracker is linked.
+func (tracker *Tracker) RunID() string {
+	if tracker == nil {
+		return ""
+	}
+	return tracker.runID
 }
 
 // Apply delegates to the game, then observes the accepted result.

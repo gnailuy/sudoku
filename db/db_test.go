@@ -487,12 +487,19 @@ func TestCatalogIdentityProvenanceAndPlayRunsAreSeparate(t *testing.T) {
 	if err != nil || run == nil || run.BasePuzzleID != id || run.PresentedPuzzle != "transformed-puzzle" || run.Status != "active" {
 		t.Fatalf("play run = %+v, %v", run, err)
 	}
-	if updated, err := database.UpdatePlayRunStatus("run-1", "completed"); err != nil || !updated {
+	if updated, err := database.CompletePlayRun("run-1"); err != nil || !updated {
 		t.Fatalf("complete = %v, %v", updated, err)
+	}
+	if updated, err := database.CompletePlayRun("run-1"); err != nil || updated {
+		t.Fatalf("duplicate completion = %v, %v", updated, err)
 	}
 	run, _ = database.PlayRunByID("run-1")
 	if run.Status != "completed" {
 		t.Fatalf("status = %q", run.Status)
+	}
+	var completions int
+	if err := database.conn.QueryRow(`SELECT completion_count FROM base_puzzles WHERE base_puzzle_id = ?`, id).Scan(&completions); err != nil || completions != 1 {
+		t.Fatalf("completions = %d, %v", completions, err)
 	}
 }
 

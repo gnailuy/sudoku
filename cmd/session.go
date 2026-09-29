@@ -9,6 +9,7 @@ import (
 	"github.com/gnailuy/sudoku/game"
 	"github.com/gnailuy/sudoku/generator"
 	"github.com/gnailuy/sudoku/playrun"
+	"github.com/gnailuy/sudoku/recovery"
 	"github.com/gnailuy/sudoku/sessionfile"
 	"github.com/gnailuy/sudoku/solver"
 )
@@ -119,7 +120,10 @@ func difficultyForLevel(level string) (generator.Difficulty, error) {
 	}
 }
 
-type completionRecorder struct{ path string }
+type completionRecorder struct {
+	path  string
+	runID string
+}
 
 func (recorder completionRecorder) RecordCompletion(puzzle string) (bool, error) {
 	puzzleDB, err := db.Open(recorder.path)
@@ -127,15 +131,39 @@ func (recorder completionRecorder) RecordCompletion(puzzle string) (bool, error)
 		return false, err
 	}
 	defer puzzleDB.Close()
+	if recorder.runID != "" {
+		return puzzleDB.CompletePlayRun(recorder.runID)
+	}
 	return puzzleDB.RecordCompletion(puzzle)
 }
 
-func newCompletionTracker(current game.Game, path string) *playrun.Tracker {
+func newCompletionTracker(current game.Game, path string, existingRunID ...string) *playrun.Tracker {
 	if path == "" {
 		path = defaultDBPath()
 	}
 	key := normalizePuzzleForDB(solverStore, current.ProblemBoard())
-	return playrun.New(key, completionRecorder{path: path})
+	runID := ""
+	if len(existingRunID) > 0 {
+		runID = existingRunID[0]
+	}
+	if runID == "" {
+		generated, err := recovery.NewID()
+		if err == nil {
+			puzzleDB, openErr := db.Open(path)
+			if openErr == nil {
+				presented := current.ProblemBoard()
+				run := db.PlayRun{ID: generated, BasePuzzleID: db.BasePuzzleID(key), PresentedPuzzle: presented.ToString()}
+				if insertErr := puzzleDB.InsertPlayRun(run); insertErr == nil {
+					runID = generated
+				}
+				_ = puzzleDB.Close()
+			}
+		}
+	}
+	if runID == "" {
+		return playrun.New(key, completionRecorder{path: path})
+	}
+	return playrun.NewLinked(key, runID, completionRecorder{path: path, runID: runID})
 }
 
 func createTrackedSession(request sessionRequest, output, errorOutput io.Writer) (game.Game, string, *playrun.Tracker, error) {

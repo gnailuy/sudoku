@@ -87,7 +87,9 @@ func runAPI(command *cobra.Command, config apiConfig) error {
 	if err != nil {
 		return fmt.Errorf("load API recovery sessions: %w", err)
 	}
-	registry.SetTrackerFactory(func(current game.Game) *playrun.Tracker { return newCompletionTracker(current, config.dbPath) })
+	registry.SetTrackerFactory(func(current game.Game, runID string) *playrun.Tracker {
+		return newCompletionTracker(current, config.dbPath, runID)
+	})
 	server := webapi.NewTrackedServer(registry, func(kind, value string) (game.Game, *playrun.Tracker, webapi.SessionDifficulty, error) {
 		request := sessionRequest{}
 		var requested *webapi.Difficulty

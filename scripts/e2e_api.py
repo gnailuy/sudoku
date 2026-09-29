@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Black-box smoke test for the built Sudoku HTTP API."""
 
+import base64
+import hashlib
 import json
 import os
 import signal
@@ -65,6 +67,18 @@ def start(binary, state, port, extra_args=None):
     raise RuntimeError("API did not become healthy")
 
 
+def persisted_play_run_id(state, session_id):
+    path = os.path.join(state, "sudoku", "recovery", "api", session_id + ".json")
+    with open(path, encoding="utf-8") as handle:
+        envelope = json.load(handle)
+    persistent = json.loads(base64.b64decode(envelope["session"]))
+    return persistent["play_run_id"]
+
+
+def presented_puzzle(session):
+    return "".join(str(value) if value else "." for row in session["snapshot"]["givens"] for value in row)
+
+
 def stop(process):
     process.send_signal(signal.SIGTERM)
     process.wait(timeout=10)
@@ -105,6 +119,18 @@ def main():
             )
             expect(status, 201, "create by canonical difficulty source")
             expect(difficulty_session["revision"], 0, "difficulty initial revision")
+            difficulty_run_id = persisted_play_run_id(state, difficulty_session["id"])
+            with sqlite3.connect(database) as connection:
+                run = connection.execute(
+                    "SELECT r.presented_puzzle, r.status, b.base_puzzle_id, b.canonical_puzzle "
+                    "FROM play_runs r JOIN base_puzzles b USING (base_puzzle_id) WHERE r.play_run_id = ?",
+                    (difficulty_run_id,),
+                ).fetchone()
+            if run is None:
+                raise AssertionError("difficulty session did not create a durable play run")
+            expect(run[0], presented_puzzle(difficulty_session), "exact transformed presentation")
+            expect(run[1], "active", "initial play-run status")
+            expect(run[2], "bp_" + hashlib.sha256(run[3].encode()).hexdigest(), "stable base-puzzle identity")
 
             expect(request(base, "POST", "/api/v1/sessions", b"{}", headers={"Origin": ORIGIN})[2].get("Access-Control-Allow-Origin"), ORIGIN, "allowed origin")
             expect(request(base, "OPTIONS", "/api/v1/sessions", headers={"Origin": "http://denied.example", "Access-Control-Request-Method": "POST"})[0], 403, "denied origin")
@@ -177,6 +203,7 @@ def main():
             status, completion, _ = request(base, "POST", "/api/v1/sessions", {"source": {"kind": "puzzle", "puzzle": NEARLY_SOLVED}})
             expect(status, 201, "create completion session")
             completion_path = f"/api/v1/sessions/{completion['id']}/actions"
+            completion_run_id = persisted_play_run_id(state, completion["id"])
             status, completed, _ = request(base, "POST", completion_path, {"kind": "set-value", "expected_revision": 0, "row": 1, "column": 1, "value": 1})
             expect(status, 200, "complete through API")
             expect(completed["snapshot"]["status"], "solved", "API completion status")
@@ -198,11 +225,15 @@ def main():
 
         with sqlite3.connect(database) as connection:
             expect(connection.execute("SELECT SUM(completion_count) FROM base_puzzles").fetchone()[0], 1, "API completion count")
+            expect(connection.execute("SELECT status FROM play_runs WHERE play_run_id = ?", (completion_run_id,)).fetchone()[0], "completed", "completed play-run status")
 
         process, base = start(binary, state, free_port(), ["--db", database])
         try:
             recovered = request(base, "GET", path)[1]
             expect(recovered["revision"], 4, "restart recovery")
+            expect(persisted_play_run_id(state, difficulty_session["id"]), difficulty_run_id, "recovered play-run identity")
+            with sqlite3.connect(database) as connection:
+                expect(connection.execute("SELECT COUNT(*) FROM play_runs WHERE play_run_id = ?", (difficulty_run_id,)).fetchone()[0], 1, "recovery does not duplicate play run")
             expect(recovered["snapshot"]["mistakes"], 1, "restart mistake recovery")
             status, imported, _ = request(base, "POST", "/api/v1/sessions/import", exported, "application/vnd.sudoku.session+json")
             expect(status, 201, "import")
