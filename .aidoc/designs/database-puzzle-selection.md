@@ -48,15 +48,15 @@ The acquisition policy uses the full pool before reuse, keeps reuse balanced ove
 
 ## How Play Chooses a Source
 
-Default play keeps the current source order:
+Default play chooses source order from verified catalog supply:
 
-1. Attempt bounded generation for the requested grade.
-2. If generation matches, store the generated puzzle and mark it played because it is the selected game.
-3. If generation misses, store that candidate unplayed and atomically acquire an exact-grade database puzzle.
-4. If no exact-grade row exists or the database is unavailable, use the generated mismatch and mark it played when storage is available. Preserve the existing explicit actual-grade warning.
-5. If generation completes no puzzle and no database puzzle is available, preserve the current error.
+1. Hard, Expert, and Evil atomically acquire an exact-grade catalog puzzle before attempting generation. These grades have maintained exact-grade supply, so default starts avoid an unnecessary bounded-generation delay and preserve requested/actual agreement.
+2. Easy and Medium attempt bounded generation first because the maintained catalog has no exact-grade supply for those grades.
+3. If catalog-first acquisition is empty or unavailable, play reports the failed catalog boundary and falls back to bounded generation.
+4. If generation misses, play stores that candidate unplayed and atomically acquires an exact-grade database puzzle when one is available.
+5. If no exact-grade row exists or the database is unavailable, play may use the generated mismatch, marks it played when storage is available, and preserves the explicit actual-grade warning. If generation completes no puzzle, play reports an error.
 
-`cmd.generateWithFallbackTo` uses `db.DB.AcquireForPlay` for fallback selection. Keeping acquisition and mutation in `db` prevents callers from accidentally selecting without marking.
+`cmd.createSession` owns source ordering, while `cmd.generateWithFallbackTo` uses `db.DB.AcquireForPlay` for post-generation fallback selection. Keeping acquisition and mutation in `db` prevents callers from accidentally selecting without marking.
 
 ## Deterministic User and Test Boundary
 
