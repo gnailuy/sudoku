@@ -41,6 +41,7 @@ func init() {
 	rootCmd.AddCommand(newAPICommand())
 	rootCmd.AddCommand(newCalibrateCommand())
 	rootCmd.AddCommand(newExperimentCommand())
+	rootCmd.AddCommand(newReplenishCommand())
 	rootCmd.AddCommand(newDatabaseCommand())
 }
 

@@ -18,6 +18,13 @@ SOLUTION = "48392165796734582125187649354813297672956413813679824537268951481425
 MULTIPLE_SOLUTIONS = "....7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
 UNIQUE_SECOND = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
 HARD_SEED = "...8.......5214.......5768.6...4.1...83...5.....5.1.2.2.1.....7....9....97...3..."
+REPLENISHMENT_SEEDS = [
+    "3...4.........7.48......9.7.1...3.8.4...5..2..5...8.7.5..3............9.6.9.253..",
+    ".........231.9.....65..31....8924...1...5...6...1367....93..57.....1.843.........",
+    ".23.......4..9.63..7.8.2.1..581..9....2....5.4....93..9..6.5.....7.8...6.........",
+    "12...6.8.7.8............3..2...8..3..8..2...5...9....7....93...31.57.....5...89..",
+    ".6.58...99.124...8.8.9.7..4..9658432.58..2..62.6..9.......95..36938.4............",
+]
 
 
 def isolated_env(root):
@@ -89,7 +96,7 @@ def main():
 
         # Startup, parsing, help, and backward-compatible root flags.
         output = run(binary, ["--help"], root)
-        contains(output, "calibrate", "experiment", "generate", "import", "tui", "--input", "--level")
+        contains(output, "calibrate", "experiment", "generate", "import", "replenish", "tui", "--input", "--level")
         output = run(binary, ["generate", "--help"], root)
         contains(output, "--count", "--difficulty", "--workers", "--timeout", "--rounds", "--db")
         output = run(binary, ["import", "--help"], root)
@@ -98,6 +105,8 @@ def main():
         contains(output, "--manifest", "--output", "append-only", "resumable")
         output = run(binary, ["experiment", "generation", "--help"], root)
         contains(output, "--manifest", "--output", "equal budgets", "resumable")
+        output = run(binary, ["replenish", "--help"], root)
+        contains(output, "--level", "--count", "--classifications", "--seed", "--state", "atomically")
 
         # Difficulty measurement is deterministic and resumes without
         # duplicating append-only observations.
@@ -610,13 +619,38 @@ def main():
         if not generated.is_file() or puzzle_rows(generated):
             raise AssertionError("timed-out generation stored an incomplete puzzle")
 
+        # Exact-grade replenishment searches off-path and publishes one complete batch.
+        replenish_seeds = root / "replenish-seeds.txt"
+        replenish_seeds.write_text("\n".join(REPLENISHMENT_SEEDS) + "\n")
+        replenish_database = root / "replenish.db"
+        contains(
+            run(binary, ["import", "--file", str(replenish_seeds), "--source", "e2e-replenishment-seeds", "--db", str(replenish_database)], root),
+            "Stored (new): 5",
+        )
+        replenish_state = root / "replenish-state.json"
+        replenish_command = [
+            "replenish", "--db", str(replenish_database), "--level", "expert", "--count", "1",
+            "--classifications", "30", "--seed", "1", "--state", str(replenish_state),
+        ]
+        contains(run(binary, replenish_command, root), "Accepted: 1/1", "Published: yes")
+        with sqlite3.connect(replenish_database) as connection:
+            replenished = connection.execute(
+                "SELECT b.difficulty, p.source, p.source_ref FROM base_puzzles b JOIN puzzle_provenance p USING (base_puzzle_id) WHERE p.source='replenished'"
+            ).fetchall()
+        if len(replenished) != 1 or replenished[0][0:2] != ("expert", "replenished") or "exact-seed-clue-addition-v1" not in replenished[0][2]:
+            raise AssertionError(f"unexpected replenishment publication: {replenished}")
+        contains(run(binary, replenish_command, root), "Accepted: 1/1", "Published: already complete")
+        with sqlite3.connect(replenish_database) as connection:
+            if connection.execute("SELECT COUNT(*) FROM puzzle_provenance WHERE source='replenished'").fetchone()[0] != 1:
+                raise AssertionError("resumed replenishment published a duplicate")
+
         # Root play auto-stores through the default XDG data path.
         auto_database = root / "data" / "sudoku" / "puzzles.db"
         contains(run(binary, ["--input", PUZZLE_DOTS], root, "q\n"), "Exiting the game.")
         if not auto_database.is_file() or not puzzle_rows(auto_database):
             raise AssertionError("root play did not auto-store the puzzle")
 
-    print("PASS: line CLI gameplay, sessions, calibration, generation experiments, import, generation, and SQLite composition")
+    print("PASS: line CLI gameplay, sessions, calibration, generation experiments, import, generation, replenishment, and SQLite composition")
 
 
 if __name__ == "__main__":

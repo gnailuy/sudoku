@@ -6,14 +6,20 @@ entry_points:
   - cmd/experiment.go
   - generator/generator.go
   - generationexperiment/runner.go
+  - cmd/replenish.go
+  - replenisher/replenisher.go
 dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/game-engine.md
+### 4.11 Replenish and Resume an Exact-Grade Batch
+**Action:** Import the repository-owned mixed Expert fixtures into an isolated catalog, run `sudoku replenish` with a fixed seed and classification budget, then rerun the exact command and state file.
+**Expected:** The first run adds one exact-Expert puzzle with derivation provenance in one complete publication. The second reports the already-complete state without adding another row. The catalog remains valid and normal generation/play behavior is unchanged.
+
 ---
 
 # E2E Generation Scenarios
 
-The generation scenario catalog verifies generation flags, worker composition, hard deadlines, actual-grade reporting, database storage, validation, deduplication, and isolated resumable experiment execution through the built command.
+The generation scenario catalog verifies generation flags, worker composition, hard deadlines, actual-grade reporting, database storage, validation, deduplication, isolated resumable experiment execution, and atomic offline replenishment through the built command.
 
 ## Related Docs
 

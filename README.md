@@ -148,6 +148,15 @@ Import puzzles from a text file (one per line, 81 chars):
 
 Every producer stores the same representative across digit relabelling and Sudoku-preserving row, column, band, stack, and transpose symmetries. The pinned helper verifies the complete source hash, preserves per-record provenance, reclassifies canonical content, and excludes strategy-unsolved records from the playable catalog.
 
+## Replenish the Expert/Evil Catalog
+
+```bash
+./sudoku replenish --db puzzles.db --level expert --count 25 \
+  --classifications 250 --seed 20260930 --state replenish-expert.json
+```
+
+Replenishment restores one solution clue to exact-grade seeds under deterministic budgets, checkpoints after every classification, rejects canonical duplicates, and publishes only a complete validated batch in one SQLite transaction. Re-running the exact command resumes its state safely; normal play and interactive generation do not use this offline path.
+
 ## In-Game Commands
 
 During play, enter moves as `row col value` (for example, `1 2 5`). Commands accept the displayed long form or alias:
