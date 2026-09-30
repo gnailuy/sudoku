@@ -37,7 +37,7 @@ The current baseline has weak exact-hit evidence for Hard and Expert and only pa
 
 1. Specify immutable exploratory and held-out seed manifests for Hard, Expert, and Evil using distinct canonical base-puzzle IDs.
 2. Specify equal per-sample wall-clock and classification-count budgets for the existing baseline and trace-guided candidate.
-3. Implement an isolated resumable harness that writes only to an explicit output directory and never mutates the live catalog.
+3. Connect baseline and trace-guided execution adapters plus an explicit CLI to the isolated resumable `generationexperiment.Run` harness; adapters never mutate the live catalog or write harness state.
 4. Tune bounded mutation policy only on the exploratory split while preserving every failed, duplicate, wrong-grade, and strategy-unsolved observation.
 5. Run the final policy once on held-out seeds and publish raw counts, uncertainty, exact-hit yield, cost, failure shape, diversity, and replay evidence.
 6. Open a separate grade-specific implementation proposal only where held-out evidence passes the advancement gate.

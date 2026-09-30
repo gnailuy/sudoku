@@ -2,6 +2,7 @@
 domain: Designs
 status: Active
 entry_points:
+  - generationexperiment/runner.go
   - generator/generator.go
   - solver/classify.go
   - core/canonical.go
@@ -71,6 +72,12 @@ Experiment commands write only to an explicit output directory and never mutate 
 
 The experiment stores provenance and aggregate measurements but no player data. Published fixtures must respect their source license and redistribution terms; restricted puzzle strings remain local while hashes and aggregate results may be reported.
 
+## Harness Boundary
+
+`generationexperiment.Run` owns immutable manifest validation, stable baseline/candidate job ordering, append-only observations, resumable checkpoints, canonical duplicate accounting, and deterministic raw-count reports. Both arms receive the same manifest budget and sample seed through the `generationexperiment.Executor` boundary; execution adapters cannot write harness state or classify duplicates themselves.
+
+The harness rejects seed reuse under Sudoku symmetry and digit relabelling, changed manifests, observations bound to another job, checkpoints ahead of durable observations, and execution metrics beyond either shared budget limit. A failed executor leaves prior observations resumable without manufacturing an outcome.
+
 ## Implementation Pointers
 
-`generator.GenerateBestEffort` is the baseline boundary. `solver.ClassifyPuzzle` provides the authoritative outcome and trace, `core.CanonicalPuzzle` provides equivalence identity, and the calibration runner's immutable-manifest and append-only-observation model is the pattern for reproducible execution. The experiment harness belongs outside interactive play and API paths until a later implementation proposal passes the decision gate.
+`generator.GenerateBestEffort` is the baseline boundary. `solver.ClassifyPuzzle` provides the authoritative outcome and trace, and `core.CanonicalPuzzle` provides equivalence identity. Baseline and trace-guided executor adapters plus the explicit experiment CLI remain outside interactive play and API paths until they satisfy the harness contract.
