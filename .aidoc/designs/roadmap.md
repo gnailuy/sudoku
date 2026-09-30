@@ -14,7 +14,7 @@ dependencies:
 
 # Roadmap
 
-The active milestone is the isolated exact-grade generation experiment for Hard, Expert, and Evil. The resumable harness, seeded baseline, trace-guided candidate, and explicit CLI are in place; exploratory policy measurement and one final held-out evaluation remain before any grade-specific implementation proposal.
+The isolated exact-grade generation experiment is complete. Held-out evidence authorizes a separately reviewed Expert/Evil implementation proposal; Hard remains evidence-gated because its confidence interval still overlaps the baseline.
 
 ## Related Docs
 
@@ -33,21 +33,17 @@ The catalog-first milestone made exact Hard, Expert, and Evil play reliable by i
 
 The current baseline has weak exact-hit evidence for Hard and Expert and only partial Evil alignment. Trace-guided mutation is the smallest candidate that uses existing solve traces and catalog seeds without changing the five grades, strategy inventory, solver order, or `strategy-unsolved` semantics.
 
-## Approved Experiment Sequence
+## Approved Next Proposal
 
-1. Materialize immutable exploratory and held-out seed manifests for Hard, Expert, and Evil using distinct canonical base-puzzle IDs and fixed equal budgets.
-2. Run `sudoku experiment generation` on the exploratory split and preserve every failed, duplicate, wrong-grade, strategy-unsolved, and timed-out observation.
-3. Tune only the bounded clue-mutation policy against exploratory evidence, keeping deterministic grades, solver configuration, and baseline budgets fixed.
-4. Freeze the selected policy, run it once on held-out seeds, and publish raw counts, uncertainty, exact-hit yield, cost, failure shape, diversity, and replay evidence.
-5. Open a separate grade-specific implementation proposal only where held-out evidence passes the advancement gate.
+The next proposal may design an offline Expert/Evil replenishment path around the validated exact-seed clue-addition policy. The proposal must keep deterministic classification authoritative, preserve canonical duplicate rejection and provenance, and remain separate from normal catalog acquisition until independently reviewed.
 
-Medium is excluded from the first experiment because the current pinned bank does not provide Medium seeds. A Medium arm requires a separately reviewed seed-independent method or a new traceable seed source.
+Hard stays out of the proposal because 10/10 candidate hits versus 5/10 baseline hits still produced narrowly overlapping Wilson intervals. Medium stays out because the pinned bank does not provide Medium seeds. Neither grade may be included through relabeling or an unreviewed seed source.
 
 ## Advancement Gate
 
-A candidate advances only when held-out evidence shows higher unique exact-grade yield than the baseline for at least one target grade, without worse reproducibility or any deterministic-classification violation. An improvement must remain meaningful after raw sample counts and uncertainty are considered.
+The confirmatory held-out cohort produced 10/10 unique exact-grade candidate outputs for each of Hard, Expert, and Evil. The equal-budget baseline produced 5/10 Hard and 0/10 Expert or Evil outputs; an independent replay reproduced all 60 semantic observations exactly.
 
-A successful experiment authorizes only a separate implementation proposal for the successful grade. A failed or inconclusive experiment leaves `generator.GenerateBestEffort`, API behavior, interactive deadlines, catalog acquisition, fallback semantics, and visible labels unchanged.
+Expert and Evil pass because their candidate and baseline Wilson intervals do not overlap. Hard remains inconclusive because its intervals overlap narrowly. The current result leaves `generator.GenerateBestEffort`, API behavior, interactive deadlines, catalog acquisition, fallback semantics, and visible labels unchanged.
 
 ## Maintained Quality and Delivery Gates
 

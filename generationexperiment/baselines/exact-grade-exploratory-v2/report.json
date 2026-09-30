@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "manifest_name": "exact-grade-exploratory-v2",
+  "manifest_hash": "f2b48f05cb35a333c0b9d3b2e88c6abfa01eb8eb784a4baf90b9f1c8f8abf988",
+  "observed": 10,
+  "total": 10,
+  "complete": true,
+  "groups": {
+    "baseline/evil": {
+      "attempts": 2,
+      "outcomes": {
+        "timed-out": 2
+      }
+    },
+    "baseline/expert": {
+      "attempts": 1,
+      "outcomes": {
+        "timed-out": 1
+      }
+    },
+    "baseline/hard": {
+      "attempts": 2,
+      "outcomes": {
+        "timed-out": 2
+      }
+    },
+    "candidate/evil": {
+      "attempts": 2,
+      "outcomes": {
+        "exact-grade": 2
+      }
+    },
+    "candidate/expert": {
+      "attempts": 1,
+      "outcomes": {
+        "exact-grade": 1
+      }
+    },
+    "candidate/hard": {
+      "attempts": 2,
+      "outcomes": {
+        "exact-grade": 2
+      }
+    }
+  }
+}

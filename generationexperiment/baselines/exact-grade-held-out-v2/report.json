@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "manifest_name": "exact-grade-held-out-v2",
+  "manifest_hash": "b5c96af60fa8aaab52f4410c0647d6c93cf0b6a4537e62dee7893b47f347cfda",
+  "observed": 10,
+  "total": 10,
+  "complete": true,
+  "groups": {
+    "baseline/evil": {
+      "attempts": 2,
+      "outcomes": {
+        "timed-out": 2
+      }
+    },
+    "baseline/expert": {
+      "attempts": 1,
+      "outcomes": {
+        "timed-out": 1
+      }
+    },
+    "baseline/hard": {
+      "attempts": 2,
+      "outcomes": {
+        "exact-grade": 1,
+        "wrong-grade": 1
+      }
+    },
+    "candidate/evil": {
+      "attempts": 2,
+      "outcomes": {
+        "exact-grade": 2
+      }
+    },
+    "candidate/expert": {
+      "attempts": 1,
+      "outcomes": {
+        "exact-grade": 1
+      }
+    },
+    "candidate/hard": {
+      "attempts": 2,
+      "outcomes": {
+        "exact-grade": 2
+      }
+    }
+  }
+}

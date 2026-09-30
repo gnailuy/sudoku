@@ -16,7 +16,7 @@ dependencies:
 
 # Exact-Grade Generation Experiment
 
-The next generator milestone compares trace-guided mutation with the current generate-from-scratch baseline for exact Hard, Expert, and Evil strategy grades. The experiment changes no product behavior: deterministic classification remains authoritative, `strategy-unsolved` stays separate, and a candidate generator earns implementation consideration only through fixed exploratory and held-out evidence.
+The completed generator experiment compares trace-guided mutation with the current generate-from-scratch baseline for exact Hard, Expert, and Evil strategy grades. The frozen policy passed the held-out advancement gate for Expert and Evil without changing product behavior; Hard improved but remains independently inconclusive.
 
 ## Related Docs
 
@@ -54,19 +54,19 @@ The exploratory split may select mutation policies and bounded parameters. The h
 
 Every accepted result passes `core.CanonicalPuzzle` before uniqueness accounting. A result equal to any experiment seed or earlier result under Sudoku-preserving symmetry and digit relabelling counts as a duplicate, not a new exact-grade hit.
 
-## Measurements and Decision Gate
+## Held-Out Result and Decision
 
-| Question | Measurement |
-|----------|-------------|
-| Exact-grade yield | Unique exact-grade hits divided by completed candidates and by total attempts |
-| Search cost | Median and p95 wall time plus classification count per unique exact-grade hit |
-| Failure shape | Wrong-grade, strategy-unsolved, invalid, non-unique, timed-out, and duplicate rates |
-| Diversity | Unique canonical outputs and canonical distance from seed and peer outputs |
-| Reproducibility | Exact equality of outcome, grade, score, highest technique, and trace digest on replay |
+The frozen `trace-mutation-v2-exact-seed-addition` policy restored one correct clue when starting from an exact-grade seed. The confirmatory cohort used 30 disjoint held-out seeds from the hash-pinned Sudoku Exchange bank prefix, with ten seeds per grade and equal 2,000 ms and 12-classification budgets.
 
-A candidate advances only when the held-out report shows higher unique exact-grade yield than the baseline for at least one target grade without worse reproducibility or any contract violation. The report must show raw counts and uncertainty; a small apparent percentage improvement is not sufficient when confidence intervals overlap materially.
+| Grade | Baseline exact hits | Candidate exact hits | Candidate decision |
+|----------|-------------:|-------------:|---|
+| Hard | 5/10 | 10/10 | Promising; Wilson intervals still overlap narrowly |
+| Expert | 0/10 | 10/10 | Pass |
+| Evil | 0/10 | 10/10 | Pass |
 
-A successful grade-specific result authorizes a separate implementation proposal for that grade. A failed or inconclusive result closes the candidate without changing the product generator. The experiment does not justify changing interactive deadlines, catalog acquisition, fallback behavior, or the five visible grade names.
+The candidate produced 30 distinct canonical exact-grade outputs and reproduced every outcome, puzzle, grade, score, maximum technique, trace digest, and classification count on an independent replay. The baseline produced five exact-grade outputs. `generationexperiment/baselines/exact-grade-held-out-confirmatory-v2/analysis.md` preserves raw counts, Wilson intervals, cost, failure shape, and the decision.
+
+The result authorizes a separate implementation proposal for Expert and Evil only. Hard needs more independent evidence before its own proposal. The experiment does not authorize changing interactive deadlines, catalog acquisition, fallback behavior, solver semantics, or the five visible grade names.
 
 ## Safety and Isolation
 
@@ -84,4 +84,4 @@ The harness rejects seed reuse under Sudoku symmetry and digit relabelling, chan
 
 ## Implementation Pointers
 
-`generator.GenerateBestEffort` is the baseline boundary. `solver.ClassifyPuzzle` provides the authoritative outcome and trace, and `core.CanonicalPuzzle` provides equivalence identity. `generationexperiment.executeCandidate` owns the bounded exploratory mutation policy; experiment tuning and held-out evidence change no interactive or API path.
+`generator.GenerateBestEffort` is the baseline boundary. `solver.ClassifyPuzzle` provides the authoritative outcome and trace, and `core.CanonicalPuzzle` provides equivalence identity. `generationexperiment.executeCandidate` owns the frozen bounded mutation policy; the manifests and durable evidence live under `generationexperiment/testdata/` and `generationexperiment/baselines/` without entering an interactive or API path.
