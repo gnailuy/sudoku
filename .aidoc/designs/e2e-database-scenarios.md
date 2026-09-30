@@ -30,13 +30,13 @@ The database scenario catalog protects root-command database composition, played
 
 ## Why This Boundary
 
-Database behavior crosses generation, classification, persistence, and startup. Deterministic cases use the public `--from-db` boundary; generated fallback accounting and deliberate lock exhaustion use the narrowest deterministic package seam.
+Database behavior crosses generation, classification, persistence, and startup. Deterministic cases use the public default-play and `--from-db` boundaries; generated fallback accounting and deliberate lock exhaustion use the narrowest deterministic package seam.
 
 ## Database and Fallback
 
 ### Auto-Store and Fallback
-**Action:** Run the matching `scripts/e2e_cli.py` cases for automatic play storage, exact-grade database fallback, and an empty requested grade.
-**Expected:** The selected puzzle is stored under the isolated XDG database. Exact-grade fallback avoids a mismatch warning; an unavailable grade reports the actual generated grade without mutating another database.
+**Action:** Run the matching `scripts/e2e_cli.py` cases for automatic play storage, catalog-first high-grade selection, exact-grade database fallback, and an empty requested grade.
+**Expected:** Hard, Expert, and Evil default play selects exact-grade catalog supply without entering generation, returns within the bounded latency assertion, increments acquisition history, and creates a play run linked to the selected base puzzle. An unavailable catalog reports its fallback boundary; a generated mismatch reports the actual grade without mutating another database.
 
 ### Input and Command Boundaries
 **Action:** Run the multiple-solution input and root-help cases in `scripts/e2e_cli.py`.

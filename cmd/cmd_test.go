@@ -354,6 +354,19 @@ func TestDefaultDBPathUsesXDGDataHome(t *testing.T) {
 	}
 }
 
+func TestCatalogFirstLevel(t *testing.T) {
+	for _, level := range []string{"hard", "expert", "evil"} {
+		if !catalogFirstLevel(level) {
+			t.Errorf("catalogFirstLevel(%q) = false, want true", level)
+		}
+	}
+	for _, level := range []string{"easy", "medium", "invalid"} {
+		if catalogFirstLevel(level) {
+			t.Errorf("catalogFirstLevel(%q) = true, want false", level)
+		}
+	}
+}
+
 // loadBoard is a test helper that creates a board from a puzzle string.
 func loadBoard(puzzleStr string) core.Board {
 	board := core.NewEmptyBoard()

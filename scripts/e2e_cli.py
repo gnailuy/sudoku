@@ -328,6 +328,65 @@ def main():
         if provenance != ("sudoku-exchange-diabolical@fixture", "sha1:00015097c6c3"):
             raise AssertionError(f"unexpected pinned provenance: {provenance}")
 
+        # Default high-grade play uses exact catalog supply without paying the
+        # bounded-generation cost, and preserves transformed play-run linkage.
+        with sqlite3.connect(pinned_database) as connection:
+            catalog_level, catalog_id = connection.execute(
+                "SELECT difficulty, base_puzzle_id FROM base_puzzles"
+            ).fetchone()
+        if catalog_level not in {"hard", "expert", "evil"}:
+            raise AssertionError(f"catalog-first fixture has unexpected grade: {catalog_level}")
+        started = time.monotonic()
+        output = run(
+            binary,
+            ["--level", catalog_level, "--db", str(pinned_database)],
+            root,
+            "q\n",
+        )
+        elapsed = time.monotonic() - started
+        contains(output, f"Selecting an exact {catalog_level.capitalize()} puzzle from the catalog...", "Exiting the game.")
+        excludes(output, "Generating a random", "Falling back to bounded generation")
+        if elapsed > 2:
+            raise AssertionError(f"catalog-first play took {elapsed:.3f}s, want at most 2s")
+        with sqlite3.connect(pinned_database) as connection:
+            play_count = connection.execute(
+                "SELECT play_count FROM base_puzzles WHERE base_puzzle_id = ?", (catalog_id,)
+            ).fetchone()[0]
+            linked = connection.execute(
+                "SELECT COUNT(*) FROM play_runs WHERE base_puzzle_id = ? AND status = 'active'",
+                (catalog_id,),
+            ).fetchone()[0]
+        if play_count != 1 or linked != 1:
+            raise AssertionError(
+                f"catalog-first linkage is incomplete: play_count={play_count}, active_runs={linked}"
+            )
+
+        # An unavailable catalog is visible before bounded generation begins;
+        # generation may either produce a playable fallback or exhaust its budget.
+        unavailable_database = root / "catalog-is-a-directory"
+        unavailable_database.mkdir()
+        started = time.monotonic()
+        unavailable = subprocess.run(
+            [binary, "--level", "evil", "--db", str(unavailable_database)],
+            input="q\n",
+            capture_output=True,
+            text=True,
+            env=isolated_env(root),
+            timeout=12,
+        )
+        unavailable_output = unavailable.stdout + unavailable.stderr
+        if unavailable.returncode not in {0, 1}:
+            raise AssertionError(
+                f"unavailable catalog exited {unavailable.returncode}\n{unavailable_output[-4000:]}"
+            )
+        contains(
+            unavailable_output,
+            "Exact-grade catalog unavailable (",
+            "Falling back to bounded generation.",
+        )
+        if time.monotonic() - started > 10:
+            raise AssertionError("catalog-unavailable fallback exceeded its bounded generation window")
+
         # Legacy rows require an explicit destructive rebuild; no identity or
         # provenance is guessed from the obsolete schema.
         legacy_database = root / "legacy.db"

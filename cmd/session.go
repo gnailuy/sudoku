@@ -68,6 +68,13 @@ func createSession(request sessionRequest, output, errorOutput io.Writer) (game.
 		}
 		if request.fromDB {
 			problem, keys, err = acquireFromDB(solverStore, difficulty, request.level, dbPath)
+		} else if catalogFirstLevel(request.level) {
+			fmt.Fprintf(output, "Selecting an exact %s puzzle from the catalog...\n", capitalize(request.level))
+			problem, keys, err = acquireFromDB(solverStore, difficulty, request.level, dbPath)
+			if err != nil {
+				fmt.Fprintf(output, "Exact-grade catalog unavailable (%v). Falling back to bounded generation.\n", err)
+				problem, keys, err = generateWithFallbackTo(output, solverStore, difficulty, request.level, dbPath)
+			}
 		} else {
 			fmt.Fprintf(output, "Generating a random %s Sudoku problem...\n", capitalize(request.level))
 			problem, keys, err = generateWithFallbackTo(output, solverStore, difficulty, request.level, dbPath)
@@ -78,6 +85,15 @@ func createSession(request sessionRequest, output, errorOutput io.Writer) (game.
 	}
 	options.StrategySolverKeys = keys
 	return game.NewGame(problem, options), "", nil
+}
+
+func catalogFirstLevel(level string) bool {
+	switch level {
+	case "hard", "expert", "evil":
+		return true
+	default:
+		return false
+	}
 }
 
 func acquireFromDB(store solver.Store, difficulty generator.Difficulty, levelName, dbPath string) (core.Board, []string, error) {
