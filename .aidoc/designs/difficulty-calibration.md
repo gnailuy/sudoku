@@ -20,6 +20,7 @@ Calibration tests whether the canonical strategy grades are reproducible, intern
 | Document | Relationship |
 |----------|--------------|
 | `.aidoc/designs/difficulty-model.md` | Strategy grades, weights, clue guidance, and configuration boundary |
+| `.aidoc/designs/exact-grade-generation-experiment.md` | Approved use of traces and held-out evidence for generator comparison |
 | `.aidoc/designs/roadmap.md` | Approved project priorities and maintained quality gates |
 | `.aidoc/designs/e2e-calibration-scenarios.md` | Current black-box calibration behavior catalog |
 

@@ -2,54 +2,61 @@
 domain: Designs
 status: Active
 entry_points:
-  - cmd/api.go
-  - webapi/server.go
-  - .github/workflows/ci.yml
+  - generator/generator.go
+  - solver/classify.go
+  - core/canonical.go
 dependencies:
+  - .aidoc/designs/exact-grade-generation-experiment.md
+  - .aidoc/designs/difficulty-calibration.md
   - .aidoc/designs/deployment-hardening.md
-  - .aidoc/designs/web-api.md
   - .aidoc/designs/e2e-test-scenarios.md
-  - .aidoc/designs/future-directions.md
 ---
 
 # Roadmap
 
-The next approved milestone adds portable build and deployment support for a development-stage Sudoku service. The milestone favors simple replacement, verification, and isolation over production reliability ceremony.
+The next approved milestone is a design-first exact-grade generation experiment for Hard, Expert, and Evil. The experiment compares trace-guided mutation with the current baseline under fixed reproducible budgets and changes no player-facing behavior unless a later implementation proposal passes the held-out evidence gate.
 
 ## Related Docs
 
 | Document | Relationship |
-|----------|-------------|
-| `.aidoc/designs/deployment-hardening.md` | Canonical portable deployment and replacement contract |
-| `.aidoc/designs/web-api.md` | Current HTTP contract and loopback-safe defaults |
+|----------|--------------|
+| `.aidoc/designs/exact-grade-generation-experiment.md` | Canonical experiment boundary, measurements, and advancement gate |
+| `.aidoc/designs/difficulty-calibration.md` | Existing baseline evidence and reproducibility model |
+| `.aidoc/designs/difficulty-model.md` | Fixed deterministic grade and within-grade score contract |
+| `.aidoc/designs/deployment-hardening.md` | Maintained portable deployment and replacement contract |
 | `.aidoc/designs/e2e-test-scenarios.md` | Maintained black-box verification baseline |
-| `.aidoc/designs/future-directions.md` | Deferred product, hosting, and technical directions |
-| [Sudoku UI roadmap](https://github.com/gnailuy/sudoku-ui/blob/master/.aidoc/designs/roadmap.md) | Coordinated browser build and deployment responsibilities |
+| `.aidoc/designs/future-directions.md` | Other deferred product, hosting, and technical directions |
 
-## Why Portable Deployment Comes Next
+## Why Exact-Grade Generation Comes Next
 
-Sudoku remains a development project: refactoring, downtime, and replacement of active game sessions are acceptable. Deployment work exists to make each installation understandable and repeatable, not to imply production availability or compatibility guarantees.
+The catalog-first milestone made exact Hard, Expert, and Evil play reliable by importing a pinned public bank and separating canonical puzzle identity from presentation-specific runs. The remaining generator question is not required for current play; it is whether classifier feedback can produce new exact-grade puzzles more efficiently than independent generate-and-classify rounds.
 
-A hosted Sudoku installation must remain isolated from unrelated applications on the same machine. The backend therefore keeps its own loopback listener, service, configuration, state, logs, and release location while a reverse proxy owns the bounded public route.
+The current baseline has weak exact-hit evidence for Hard and Expert and only partial Evil alignment. Trace-guided mutation is the smallest candidate that uses existing solve traces and catalog seeds without changing the five grades, strategy inventory, solver order, or `strategy-unsolved` semantics.
 
-## Approved Delivery Sequence
+## Approved Experiment Sequence
 
-1. Keep the backend build, tests, contract checks, and built-binary E2E lanes green.
-2. Keep the trusted-branch backend artifact contract verifiable: all CI gates complete before the workflow publishes the executable and its commit-bound manifest.
-3. Provide a host-neutral service example whose listener, release location, state roots, and allowed browser origins are operator inputs.
-4. Define one serialized replacement flow: stage a frontend/backend pair, verify checksums, start and health-check the backend, verify the browser journey, then select the pair.
-5. Leave or restore the previous working pair when staging, startup, health, asset, or browser verification fails.
-6. Add automatic default-branch deployment only after the artifact and host-side replacement flow pass end to end.
+1. Specify immutable exploratory and held-out seed manifests for Hard, Expert, and Evil using distinct canonical base-puzzle IDs.
+2. Specify equal per-sample wall-clock and classification-count budgets for the existing baseline and trace-guided candidate.
+3. Implement an isolated resumable harness that writes only to an explicit output directory and never mutates the live catalog.
+4. Tune bounded mutation policy only on the exploratory split while preserving every failed, duplicate, wrong-grade, and strategy-unsolved observation.
+5. Run the final policy once on held-out seeds and publish raw counts, uncertainty, exact-hit yield, cost, failure shape, diversity, and replay evidence.
+6. Open a separate grade-specific implementation proposal only where held-out evidence passes the advancement gate.
 
-Branch previews are deployment consumers rather than a backend automation requirement. An operator may install selected development-branch artifacts manually or with private host tooling without committing the preview hostname, port, branch selection, or host layout.
+Medium is excluded from the first experiment because the current pinned bank does not provide Medium seeds. A Medium arm requires a separately reviewed seed-independent method or a new traceable seed source.
 
-## Maintained Delivery Gates
+## Advancement Gate
+
+A candidate advances only when held-out evidence shows higher unique exact-grade yield than the baseline for at least one target grade, without worse reproducibility or any deterministic-classification violation. An improvement must remain meaningful after raw sample counts and uncertainty are considered.
+
+A successful experiment authorizes only a separate implementation proposal for the successful grade. A failed or inconclusive experiment leaves `generator.GenerateBestEffort`, API behavior, interactive deadlines, catalog acquisition, fallback semantics, and visible labels unchanged.
+
+## Maintained Quality and Delivery Gates
 
 - Pull-request CI keeps unit, race, vet, lint, API contract, API E2E, line-CLI E2E, and TUI PTY E2E independent and green.
-- Deployment consumes only artifacts from trusted workflows; untrusted pull-request artifacts cannot replace a hosted installation.
-- The backend binds to loopback behind a reverse proxy unless an operator explicitly chooses and secures another network boundary.
-- A replacement verifies artifact identity, backend health, API session creation, and the companion desktop/mobile browser journey before completion.
+- Every experiment observation binds the repository identity, solver configuration, seed manifest, budget, and policy version.
+- Canonical equivalence controls uniqueness so digit relabelling or Sudoku-preserving symmetry cannot inflate yield.
+- `strategy-unsolved` remains separate from Evil, and score remains an ordering signal only within a completed strategy grade.
 - Repository files contain no private hostname, credential, operator path, live port assignment, release identifier, or neighboring-application topology.
-- Authentication is an optional host policy until the application gains an account system; browser assets never contain host credentials or backend secrets.
+- Trusted deployment artifacts and the existing host-neutral replacement contract remain maintained; the experiment does not alter deployment.
 
-Monitoring platforms, scheduled browser checks, backup drills, immutable-release frameworks, availability objectives, and zero-downtime promotion are not part of this development milestone. Concrete operational problems may justify separately reviewed additions later.
+Strategy-aware construction, blind budget expansion, player-difficulty labels, accounts, multi-user hosting, large-import optimization, and production reliability ceremony remain outside this milestone. Concrete evidence and separately approved designs are required before any of those directions enter the roadmap.

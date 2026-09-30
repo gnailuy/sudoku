@@ -48,7 +48,9 @@ Minimum-clue and uniqueness admission require a concrete product need and explic
 
 ## Evidence-Gated Solver and Rating Work
 
-Technique-tier changes, strategy expansion, weight changes, generation-budget changes, and storage treatment of `strategy-unsolved` puzzles require representative fixtures and before-and-after evidence on exploratory and held-out corpora. Target-hit, reproducibility, latency, and coverage thresholds must be stated before tuning begins.
+Technique-tier changes, strategy expansion, weight changes, product generation-budget changes, and storage treatment of `strategy-unsolved` puzzles require representative fixtures and before-and-after evidence on exploratory and held-out corpora. Target-hit, reproducibility, latency, and coverage thresholds must be stated before tuning begins.
+
+`.aidoc/designs/exact-grade-generation-experiment.md` is the approved exception for isolated generator research. The experiment may compare fixed local budgets, but it cannot change product deadlines, grade semantics, strategy inventory, catalog acquisition, fallback behavior, or live data without a separate implementation proposal.
 
 Human observations may support a separately named player-difficulty model. Such a model needs a defined population, rating method, privacy boundary, sample-quality controls, and an explanation of how it coexists with deterministic strategy grades; it must not silently redefine Easy through Evil.
 
