@@ -1,6 +1,10 @@
 package generator
 
-import "github.com/gnailuy/sudoku/solver"
+import (
+	"math/rand"
+
+	"github.com/gnailuy/sudoku/solver"
+)
 
 // Options defines the parameters for puzzle generation.
 type Options struct {
@@ -8,6 +12,7 @@ type Options struct {
 	MaximumSolutions  int
 	MaximumIterations int
 	Difficulty        Difficulty
+	Random            *rand.Rand // Optional deterministic source for experiments.
 
 	// Private fields.
 	solverStore solver.Store

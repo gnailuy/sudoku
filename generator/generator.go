@@ -2,6 +2,7 @@ package generator
 
 import (
 	"errors"
+	"math/rand"
 	"runtime"
 	"time"
 
@@ -22,7 +23,13 @@ func GenerateNormalizedSolvedBoard(options Options) core.Board {
 
 	// To generate a solved board from an empty normalized board, we use the reliable default solver.
 	defaultSolver := options.solverStore.GetDefaultSolver()
-	defaultSolver.Solve(&board)
+	if seeded, ok := defaultSolver.(interface {
+		SolveWithRand(*core.Board, *rand.Rand) bool
+	}); ok && options.Random != nil {
+		seeded.SolveWithRand(&board, options.Random)
+	} else {
+		defaultSolver.Solve(&board)
+	}
 
 	return board
 }
@@ -57,7 +64,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.Board, options Options) cor
 
 			// Use a simple geometric distribution to stop removing numbers with a probability of P.
 			// The expected number of iterations after the difficulty level is reached will be 1/P.
-			if util.RandomBool(0.125) {
+			if util.RandomBoolWithRand(0.125, options.Random) {
 				break
 			}
 		}
@@ -68,7 +75,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.Board, options Options) cor
 		}
 
 		// Test the non-empty positions in a random order and unset the first one that can be removed.
-		util.ShuffleArray(nonEmptyPositions)
+		util.ShuffleArrayWithRand(nonEmptyPositions, options.Random)
 
 		removedPositionIndex := -1
 		for j, position := range nonEmptyPositions {
@@ -134,7 +141,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.Board, options Options) cor
 func GenerateSudokuProblem(options Options) core.Board {
 	for {
 		solvedBoard := GenerateNormalizedSolvedBoard(options)
-		solvedBoard.Randomize()
+		solvedBoard.RandomizeWithRand(options.Random)
 
 		problem := GenerateSudokuProblemFromSolvedBoard(solvedBoard, options)
 
@@ -279,6 +286,7 @@ func generateBestEffortWithRound(opts BestEffortOptions, generate roundGenerator
 	}
 
 	if bestResult != nil {
+		bestResult.RoundsUsed = maxRounds
 		bestResult.DurationMs = time.Since(startTime).Milliseconds()
 		return *bestResult
 	}
@@ -287,7 +295,7 @@ func generateBestEffortWithRound(opts BestEffortOptions, generate roundGenerator
 
 func generateRound(opts BestEffortOptions, round int) GenerationResult {
 	solvedBoard := GenerateNormalizedSolvedBoard(opts.Options)
-	solvedBoard.Randomize()
+	solvedBoard.RandomizeWithRand(opts.Random)
 	problem := GenerateSudokuProblemFromSolvedBoard(solvedBoard, opts.Options)
 	classification := solver.ClassifyPuzzle(opts.solverStore, problem)
 	targetLevel := difficultyLevelName(opts.Difficulty)

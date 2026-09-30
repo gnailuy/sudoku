@@ -2,6 +2,7 @@ package solver
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/util"
@@ -26,21 +27,27 @@ func NewBacktracker() Backtracker {
 
 // Define the internal options for the solve function.
 type solveOptions struct {
-	Randomly       bool  // Randomly generate candidate numbers. When counting solutions, this option is ignored.
-	HintOnly       bool  // Only generate a solve path for hint generation without solving the board.
-	CountSolutions bool  // Count the number of solutions instead of returning the first solution, default is false.
-	RowOrder       []int // Order of rows to generate candidate positions.
-	ColumnOrder    []int // Order of columns to generate candidate positions.
+	Randomly       bool       // Randomly generate candidate numbers. When counting solutions, this option is ignored.
+	HintOnly       bool       // Only generate a solve path for hint generation without solving the board.
+	CountSolutions bool       // Count the number of solutions instead of returning the first solution, default is false.
+	RowOrder       []int      // Order of rows to generate candidate positions.
+	ColumnOrder    []int      // Order of columns to generate candidate positions.
+	Random         *rand.Rand // Optional deterministic source for randomized solving.
 }
 
 // Constructor like function to create a new solveOptions object.
 func newSolveOptions(randomly, hintOnly, countSolutions bool) solveOptions {
+	return newSolveOptionsWithRand(randomly, hintOnly, countSolutions, nil)
+}
+
+func newSolveOptionsWithRand(randomly, hintOnly, countSolutions bool, source *rand.Rand) solveOptions {
 	return solveOptions{
 		Randomly:       randomly,
 		HintOnly:       hintOnly,
 		CountSolutions: countSolutions,
-		RowOrder:       util.GenerateNumberArray(0, 9, randomly),
-		ColumnOrder:    util.GenerateNumberArray(0, 9, randomly),
+		RowOrder:       util.GenerateNumberArrayWithRand(0, 9, randomly, source),
+		ColumnOrder:    util.GenerateNumberArrayWithRand(0, 9, randomly, source),
+		Random:         source,
 	}
 }
 
@@ -62,7 +69,7 @@ func solve(board *core.Board, state *solveState, options solveOptions) bool {
 
 				// When solving randomly (not counting), shuffle candidates.
 				if !options.CountSolutions && options.Randomly {
-					util.ShuffleArray(candidateValues)
+					util.ShuffleArrayWithRand(candidateValues, options.Random)
 				}
 
 				for _, value := range candidateValues {
@@ -100,12 +107,18 @@ func solve(board *core.Board, state *solveState, options solveOptions) bool {
 
 // Solve solves the board in place using backtracking with random candidate order.
 func (s Backtracker) Solve(board *core.Board) bool {
+	return s.SolveWithRand(board, nil)
+}
+
+// SolveWithRand solves with source when non-nil, allowing reproducible
+// experiment generation without changing interactive random behavior.
+func (s Backtracker) SolveWithRand(board *core.Board, source *rand.Rand) bool {
 	if !board.IsValid() {
 		return false
 	}
 
 	state := &solveState{}
-	return solve(board, state, newSolveOptions(true, false, false))
+	return solve(board, state, newSolveOptionsWithRand(true, false, false, source))
 }
 
 // SolveDeterministic solves the board in place with stable candidate ordering

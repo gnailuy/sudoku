@@ -14,7 +14,7 @@ dependencies:
 
 # Roadmap
 
-The next approved milestone is a design-first exact-grade generation experiment for Hard, Expert, and Evil. The experiment compares trace-guided mutation with the current baseline under fixed reproducible budgets and changes no player-facing behavior unless a later implementation proposal passes the held-out evidence gate.
+The active milestone is the isolated exact-grade generation experiment for Hard, Expert, and Evil. The resumable harness, seeded baseline, trace-guided candidate, and explicit CLI are in place; exploratory policy measurement and one final held-out evaluation remain before any grade-specific implementation proposal.
 
 ## Related Docs
 
@@ -35,12 +35,11 @@ The current baseline has weak exact-hit evidence for Hard and Expert and only pa
 
 ## Approved Experiment Sequence
 
-1. Specify immutable exploratory and held-out seed manifests for Hard, Expert, and Evil using distinct canonical base-puzzle IDs.
-2. Specify equal per-sample wall-clock and classification-count budgets for the existing baseline and trace-guided candidate.
-3. Connect baseline and trace-guided execution adapters plus an explicit CLI to the isolated resumable `generationexperiment.Run` harness; adapters never mutate the live catalog or write harness state.
-4. Tune bounded mutation policy only on the exploratory split while preserving every failed, duplicate, wrong-grade, and strategy-unsolved observation.
-5. Run the final policy once on held-out seeds and publish raw counts, uncertainty, exact-hit yield, cost, failure shape, diversity, and replay evidence.
-6. Open a separate grade-specific implementation proposal only where held-out evidence passes the advancement gate.
+1. Materialize immutable exploratory and held-out seed manifests for Hard, Expert, and Evil using distinct canonical base-puzzle IDs and fixed equal budgets.
+2. Run `sudoku experiment generation` on the exploratory split and preserve every failed, duplicate, wrong-grade, strategy-unsolved, and timed-out observation.
+3. Tune only the bounded clue-mutation policy against exploratory evidence, keeping deterministic grades, solver configuration, and baseline budgets fixed.
+4. Freeze the selected policy, run it once on held-out seeds, and publish raw counts, uncertainty, exact-hit yield, cost, failure shape, diversity, and replay evidence.
+5. Open a separate grade-specific implementation proposal only where held-out evidence passes the advancement gate.
 
 Medium is excluded from the first experiment because the current pinned bank does not provide Medium seeds. A Medium arm requires a separately reviewed seed-independent method or a new traceable seed source.
 

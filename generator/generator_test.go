@@ -1,11 +1,28 @@
 package generator
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/gnailuy/sudoku/solver"
 )
+
+func TestSeededSolvedBoardGenerationIsDeterministic(t *testing.T) {
+	firstOptions := NewProblemOptions(solver.NewStore(), NewHardDifficulty())
+	firstOptions.Random = rand.New(rand.NewSource(42))
+	first := GenerateNormalizedSolvedBoard(firstOptions)
+	first.RandomizeWithRand(firstOptions.Random)
+
+	secondOptions := NewProblemOptions(solver.NewStore(), NewHardDifficulty())
+	secondOptions.Random = rand.New(rand.NewSource(42))
+	second := GenerateNormalizedSolvedBoard(secondOptions)
+	second.RandomizeWithRand(secondOptions.Random)
+
+	if first.ToString() != second.ToString() {
+		t.Fatalf("seeded solved boards differ:\n%s\n%s", first.ToString(), second.ToString())
+	}
+}
 
 func TestGenerateBestEffortEasy(t *testing.T) {
 	store := solver.NewStore()
@@ -80,6 +97,23 @@ func TestGenerateBestEffortReturnsCompletedBestResultAtDeadline(t *testing.T) {
 	})
 	if !result.TimedOut || result.RoundsUsed != 1 || result.Classification.Difficulty != "easy" {
 		t.Fatalf("result = %+v, want the completed first-round fallback at timeout", result)
+	}
+}
+
+func TestGenerateBestEffortReportsAllCompletedClassifications(t *testing.T) {
+	store := solver.NewStore()
+	opts := NewBestEffortOptions(store, NewHardDifficulty())
+	opts.MaxRounds = 2
+	opts.MaxDurationMs = 1000
+
+	result := generateBestEffortWithRound(opts, func(_ BestEffortOptions, round int) GenerationResult {
+		return GenerationResult{
+			Classification: solver.Classification{Difficulty: "easy"},
+			RoundsUsed:     round,
+		}
+	})
+	if result.RoundsUsed != 2 {
+		t.Fatalf("RoundsUsed = %d, want two completed classifications", result.RoundsUsed)
 	}
 }
 

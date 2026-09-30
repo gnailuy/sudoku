@@ -3,6 +3,8 @@ domain: Designs
 status: Active
 entry_points:
   - generationexperiment/runner.go
+  - generationexperiment/executors.go
+  - cmd/experiment.go
   - generator/generator.go
   - solver/classify.go
   - core/canonical.go
@@ -76,8 +78,10 @@ The experiment stores provenance and aggregate measurements but no player data. 
 
 `generationexperiment.Run` owns immutable manifest validation, stable baseline/candidate job ordering, append-only observations, resumable checkpoints, canonical duplicate accounting, and deterministic raw-count reports. Both arms receive the same manifest budget and sample seed through the `generationexperiment.Executor` boundary; execution adapters cannot write harness state or classify duplicates themselves.
 
+`generationexperiment.NewExecutor` connects the current generate-from-scratch baseline and bounded trace-guided clue mutation. Both adapters use the manifest random seed, classification limit, and wall-clock budget; the candidate moves toward the target grade by removing clues after lower or exact grades and restoring solution clues after higher or stalled classifications. `cmd.newGenerationExperimentCommand` exposes only explicit manifest and output paths and never opens the live catalog.
+
 The harness rejects seed reuse under Sudoku symmetry and digit relabelling, changed manifests, observations bound to another job, checkpoints ahead of durable observations, and execution metrics beyond either shared budget limit. A failed executor leaves prior observations resumable without manufacturing an outcome.
 
 ## Implementation Pointers
 
-`generator.GenerateBestEffort` is the baseline boundary. `solver.ClassifyPuzzle` provides the authoritative outcome and trace, and `core.CanonicalPuzzle` provides equivalence identity. Baseline and trace-guided executor adapters plus the explicit experiment CLI remain outside interactive play and API paths until they satisfy the harness contract.
+`generator.GenerateBestEffort` is the baseline boundary. `solver.ClassifyPuzzle` provides the authoritative outcome and trace, and `core.CanonicalPuzzle` provides equivalence identity. `generationexperiment.executeCandidate` owns the bounded exploratory mutation policy; experiment tuning and held-out evidence change no interactive or API path.
