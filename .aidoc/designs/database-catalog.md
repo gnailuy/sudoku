@@ -39,6 +39,8 @@ The pinned external corpus is `grantm/sudoku-exchange-puzzle-bank`'s public-doma
 
 `puzzle_provenance` stores any number of unique `(base_puzzle_id, source, source_ref)` records. Duplicate catalog insertion can add new provenance without replacing classification or history. A source label is descriptive; `source_ref` carries the source's immutable record identifier when one exists.
 
+Offline replenishment stages candidates outside SQLite. `db.PublishPuzzleBatch` admits only complete, uniquely identified candidates and inserts all base-puzzle and derivation-provenance rows in one transaction. A partial collision aborts the batch; a fully matching existing batch is accepted only as an idempotent resume after a prior complete publication.
+
 `play_runs` stores caller-owned run identity, the linked base-puzzle ID, the exact presented puzzle string, and `active`, `completed`, or `abandoned` status. Every tracked CLI, TUI, and HTTP session starts a run after presentation transformation; API recovery preserves the run ID instead of creating a second record. Presentation state never changes canonical catalog content.
 
 A player-driven completion atomically changes the active run to `completed` and increments the linked base puzzle's completion count. Repeated completion observation cannot increment either record twice, while automatic solve remains excluded by the shared `playrun.Tracker` policy.

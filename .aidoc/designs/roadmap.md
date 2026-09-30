@@ -14,7 +14,7 @@ dependencies:
 
 # Roadmap
 
-The next generator milestone is a separately reviewed offline Expert/Evil catalog replenisher. The milestone productizes the approved exact-seed clue-addition decision without retaining experiment datasets or changing interactive generation.
+The maintained generator scope ends with the offline Expert/Evil catalog replenisher. It productizes the approved exact-seed clue-addition decision without retaining experiment datasets or changing interactive generation.
 
 ## Related Docs
 
@@ -33,9 +33,9 @@ Catalog-first play made exact high-grade selection reliable. The remaining produ
 
 Exact-seed clue addition is the smallest approved direction that uses existing classification and canonicalization boundaries. A replenisher can validate a complete candidate batch before storage and keep player requests independent of search cost.
 
-## Approved Next Change
+## Maintained Replenishment Boundary
 
-The next proposal may implement offline Expert/Evil replenishment around the approved exact-seed clue-addition policy. The implementation must keep deterministic classification authoritative, reject canonical duplicates, record derivation provenance, and remain separate from normal play until independently reviewed.
+`sudoku replenish` implements offline Expert/Evil replenishment around the approved exact-seed clue-addition policy. Deterministic classification stays authoritative, canonical duplicates are rejected, derivation provenance identifies the seed and policy, and normal play never enters the search path.
 
 Hard stays outside the change because its decision evidence was inconclusive. Medium stays outside the change because the pinned catalog has no approved Medium seed source. Interactive deadlines, fallback behavior, solver semantics, visible grades, and current catalog acquisition remain unchanged.
 
@@ -47,4 +47,4 @@ Hard stays outside the change because its decision evidence was inconclusive. Me
 - Product documentation describes only current behavior and approved direction; transient measurements remain outside the repository.
 - Repository files contain no private hostname, credential, operator path, live port assignment, release identifier, or neighboring-application topology.
 
-Strategy-aware construction, blind budget expansion, player-difficulty labels, accounts, multi-user hosting, and production reliability ceremony remain outside this milestone. Each direction requires concrete product evidence and a separately approved design.
+No further generator work is scheduled. Strategy-aware construction, blind budget expansion, player-difficulty labels, accounts, multi-user hosting, and production reliability ceremony remain outside maintained scope; each direction requires concrete product evidence and a separately approved design.

@@ -41,7 +41,9 @@ The project index provides reading chains for common starting points and a compl
 1. `.aidoc/designs/difficulty-model.md` — strategy-grade contract, tier invariants, and configuration boundary
 2. `.aidoc/designs/difficulty-calibration.md` — strategy measurement contract, evidence, reports, and decision gates
 3. `.aidoc/designs/exact-grade-generation-experiment.md` — approved trace-guided mutation comparison and advancement gate
-4. `generationexperiment/runner.go` — immutable jobs, resumable observations, canonical duplicate accounting, and raw-count reports
+4. `replenisher/replenisher.go` — resumable exact-grade batch construction and publication
+5. `cmd/replenish.go` — explicit offline replenishment CLI
+6. `generationexperiment/runner.go` — immutable jobs, resumable observations, canonical duplicate accounting, and raw-count reports
 5. `generationexperiment/executors.go` — seeded baseline and bounded trace-guided mutation adapters
 6. `cmd/experiment.go` — explicit isolated experiment CLI
 7. `calibration/runner.go` — immutable manifests, reproducibility checks, observations, checkpoints, and reports
@@ -117,6 +119,8 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/difficulty-model.md` | Strategy-grade contract, within-grade scoring, clue guidance, and calibration boundary |
 | `.aidoc/designs/difficulty-calibration.md` | Strategy calibration methodology, corpus contract, evidence, reports, and decision gates |
 | `.aidoc/designs/exact-grade-generation-experiment.md` | Trace-guided mutation comparison, reproducibility contract, and advancement gate |
+| `replenisher/replenisher.go` | Offline exact-grade seed mutation, durable resume, validation, and batch publication |
+| `cmd/replenish.go` | Expert/Evil offline replenishment CLI boundary |
 | `generationexperiment/runner.go` | Isolated manifest-bound experiment harness, durable observations, resume, duplicate accounting, and reports |
 | `generationexperiment/executors.go` | Seeded baseline and trace-guided mutation execution adapters |
 | `cmd/experiment.go` | Explicit output-only generation experiment command |

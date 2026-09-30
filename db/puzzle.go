@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 // Puzzle represents a stored puzzle record.
@@ -112,6 +113,109 @@ func (db *DB) InsertPuzzle(p Puzzle) (bool, error) {
 		return false, fmt.Errorf("commit puzzle insert: %w", err)
 	}
 	return rows > 0, nil
+}
+
+// ReplenishmentSeeds returns stable exact-grade catalog seeds without
+// changing acquisition history.
+func (db *DB) ReplenishmentSeeds(difficulty string) ([]Puzzle, error) {
+	rows, err := db.conn.Query(`SELECT base_puzzle_id, canonical_puzzle, difficulty, score, max_technique
+		FROM base_puzzles WHERE difficulty = ? ORDER BY base_puzzle_id`, difficulty)
+	if err != nil {
+		return nil, fmt.Errorf("query replenishment seeds: %w", err)
+	}
+	defer rows.Close()
+	var seeds []Puzzle
+	for rows.Next() {
+		var seed Puzzle
+		if err := rows.Scan(&seed.BasePuzzleID, &seed.Puzzle, &seed.Difficulty, &seed.Score, &seed.MaxTechnique); err != nil {
+			return nil, fmt.Errorf("scan replenishment seed: %w", err)
+		}
+		seeds = append(seeds, seed)
+	}
+	return seeds, rows.Err()
+}
+
+// ContainsPuzzle reports whether canonical content already belongs to the catalog.
+func (db *DB) ContainsPuzzle(canonicalPuzzle string) (bool, error) {
+	var present int
+	err := db.conn.QueryRow(`SELECT EXISTS(SELECT 1 FROM base_puzzles WHERE canonical_puzzle = ?)`, canonicalPuzzle).Scan(&present)
+	if err != nil {
+		return false, fmt.Errorf("check catalog puzzle: %w", err)
+	}
+	return present == 1, nil
+}
+
+// PublishPuzzleBatch inserts a completely validated replenishment batch in
+// one transaction. A fully matching existing batch is an idempotent resume;
+// any partial collision aborts without publishing another row.
+func (db *DB) PublishPuzzleBatch(puzzles []Puzzle) (bool, error) {
+	if len(puzzles) == 0 {
+		return false, fmt.Errorf("replenishment batch is empty")
+	}
+	seen := make(map[string]struct{}, len(puzzles))
+	for index := range puzzles {
+		puzzle := &puzzles[index]
+		if puzzle.Puzzle == "" || puzzle.Difficulty == "" || puzzle.MaxTechnique == "" || puzzle.Source == "" || puzzle.SourceRef == "" {
+			return false, fmt.Errorf("replenishment puzzle %d is incomplete", index)
+		}
+		derivedID := BasePuzzleID(puzzle.Puzzle)
+		if puzzle.BasePuzzleID == "" {
+			puzzle.BasePuzzleID = derivedID
+		} else if puzzle.BasePuzzleID != derivedID {
+			return false, fmt.Errorf("replenishment puzzle %d has mismatched identity", index)
+		}
+		if _, duplicate := seen[puzzle.BasePuzzleID]; duplicate {
+			return false, fmt.Errorf("replenishment batch contains duplicate %s", puzzle.BasePuzzleID)
+		}
+		seen[puzzle.BasePuzzleID] = struct{}{}
+	}
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return false, fmt.Errorf("begin replenishment publication: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(puzzles)), ",")
+	args := make([]any, len(puzzles))
+	for index, puzzle := range puzzles {
+		args[index] = puzzle.BasePuzzleID
+	}
+	var existing int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM base_puzzles WHERE base_puzzle_id IN (`+placeholders+`)`, args...).Scan(&existing); err != nil {
+		return false, fmt.Errorf("check replenishment publication: %w", err)
+	}
+	if existing != 0 && existing != len(puzzles) {
+		return false, fmt.Errorf("replenishment batch partially collides with the catalog")
+	}
+	if existing == len(puzzles) {
+		for _, puzzle := range puzzles {
+			var count int
+			err := tx.QueryRow(`SELECT COUNT(*) FROM base_puzzles b JOIN puzzle_provenance p USING (base_puzzle_id)
+				WHERE b.base_puzzle_id = ? AND b.canonical_puzzle = ? AND b.difficulty = ? AND b.score = ? AND b.max_technique = ?
+				AND p.source = ? AND p.source_ref = ?`, puzzle.BasePuzzleID, puzzle.Puzzle, puzzle.Difficulty, puzzle.Score,
+				puzzle.MaxTechnique, puzzle.Source, puzzle.SourceRef).Scan(&count)
+			if err != nil {
+				return false, fmt.Errorf("verify resumed replenishment batch: %w", err)
+			}
+			if count != 1 {
+				return false, fmt.Errorf("existing replenishment batch does not match staged content")
+			}
+		}
+		return false, nil
+	}
+	for _, puzzle := range puzzles {
+		if _, err := tx.Exec(`INSERT INTO base_puzzles (base_puzzle_id, canonical_puzzle, difficulty, score, max_technique)
+			VALUES (?, ?, ?, ?, ?)`, puzzle.BasePuzzleID, puzzle.Puzzle, puzzle.Difficulty, puzzle.Score, puzzle.MaxTechnique); err != nil {
+			return false, fmt.Errorf("publish replenishment puzzle: %w", err)
+		}
+		if _, err := tx.Exec(`INSERT INTO puzzle_provenance (base_puzzle_id, source, source_ref) VALUES (?, ?, ?)`,
+			puzzle.BasePuzzleID, puzzle.Source, puzzle.SourceRef); err != nil {
+			return false, fmt.Errorf("publish replenishment provenance: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit replenishment publication: %w", err)
+	}
+	return true, nil
 }
 
 // GetRandom returns a random puzzle at the specified difficulty level,

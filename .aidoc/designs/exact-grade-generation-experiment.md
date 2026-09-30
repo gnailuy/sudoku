@@ -3,6 +3,9 @@ domain: Designs
 status: Active
 entry_points:
   - generator/generator.go
+  - cmd/replenish.go
+  - replenisher/replenisher.go
+  - db/puzzle.go
   - solver/classify.go
   - core/canonical.go
 dependencies:
@@ -11,9 +14,9 @@ dependencies:
   - .aidoc/designs/database-puzzle-selection.md
 ---
 
-# Exact-Grade Catalog Replenishment Decision
+# Exact-Grade Catalog Replenishment
 
-Exact-seed clue addition is the approved direction for an offline Expert/Evil catalog replenisher. The product keeps deterministic grades, canonical identity, provenance, and catalog-first play authoritative; experiment inputs, observations, and reports are not product artifacts and do not belong in the repository.
+The offline Expert/Evil catalog replenisher uses deterministic exact-seed clue addition while keeping strategy grades, canonical identity, provenance, and catalog-first play authoritative. Experiment inputs, observations, and reports are not product artifacts and do not belong in the repository.
 
 ## Related Docs
 
@@ -30,9 +33,9 @@ Catalog-first play already provides reliable exact Hard, Expert, and Evil puzzle
 
 The validated clue-addition direction starts from an exact-grade puzzle and restores a correct solution clue before authoritative reclassification. The direction uses existing solver feedback without changing strategy order, grade labels, score semantics, or the distinction between Evil and `strategy-unsolved`.
 
-## Approved Product Scope
+## Product Scope
 
-A separately reviewed product change may add an offline replenisher for Expert and Evil. Every accepted puzzle must pass `solver.ClassifyPuzzle`, remain in its requested exact grade, receive a unique `core.CanonicalPuzzle` identity, preserve source and derivation provenance, and enter the catalog through the existing storage boundary.
+`sudoku replenish` builds offline Expert or Evil batches from exact-grade catalog seeds. Every accepted puzzle must pass `solver.ClassifyPuzzle`, remain in its requested exact grade, receive a unique `core.CanonicalPuzzle` identity, preserve source and derivation provenance, and enter the catalog through the existing storage boundary.
 
 Hard remains excluded because the decision evidence was inconclusive. Medium remains excluded because the current pinned catalog does not provide an approved exact-grade seed source. Neither grade may enter the replenisher through relabeling or an unreviewed seed source.
 
@@ -49,4 +52,10 @@ Hard remains excluded because the decision evidence was inconclusive. Medium rem
 
 The repository records the product decision and implementation constraints, not one-off experiment manifests, observations, checkpoints, or reports. Version control preserves the decision's development history; current documentation describes only the approved product direction.
 
-`generator.GenerateBestEffort`, `solver.ClassifyPuzzle`, `core.CanonicalPuzzle`, and the catalog persistence APIs are the implementation boundaries for the separately reviewed replenisher. The existing `generationexperiment` command remains isolated from interactive and API paths and is not a product dependency.
+`replenisher.Run` owns deterministic search, durable state, duplicate rejection, and complete-batch publication. `solver.ClassifyPuzzle`, `core.CanonicalPuzzle`, and `db.PublishPuzzleBatch` remain the authoritative validation and storage boundaries. The existing `generationexperiment` command remains isolated from interactive and API paths and is not a product dependency.
+
+## Resume and Publication Contract
+
+The required state file records immutable command configuration, classifications consumed, accepted candidates, and publication status. Each classification replaces that file atomically with mode `0600`; rerunning the same command resumes it, while changed configuration is rejected. A signal stops after the most recent durable checkpoint.
+
+The live catalog is read-only during search. Publication begins only after the requested count is complete, inserts every base puzzle and derivation provenance row in one transaction, and rejects partial collisions. A fully matching existing batch is an idempotent successful resume for the narrow crash window after the database commit.
