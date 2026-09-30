@@ -138,6 +138,9 @@ func mutationDirection(target string, classification solver.Classification) bool
 	}
 	current := difficultyRank(classification.Difficulty)
 	wanted := difficultyRank(target)
+	if current == wanted {
+		return true
+	}
 	return current < wanted
 }
 

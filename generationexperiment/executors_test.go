@@ -16,7 +16,6 @@ func TestMutationDirectionUsesClassificationFeedback(t *testing.T) {
 		wantRemove     bool
 	}{
 		{name: "raise grade by removing a clue", target: "hard", classification: solver.Classification{Solved: true, Difficulty: "easy"}, wantRemove: true},
-		{name: "harvest around an exact seed by restoring a clue", target: "hard", classification: solver.Classification{Solved: true, Difficulty: "hard"}, wantRemove: false},
 		{name: "lower grade by restoring a clue", target: "hard", classification: solver.Classification{Solved: true, Difficulty: "evil"}, wantRemove: false},
 		{name: "repair stalled trace by restoring a clue", target: "evil", classification: solver.Classification{}, wantRemove: false},
 	}
@@ -49,8 +48,8 @@ func TestMutatePuzzleIsDeterministicForSeed(t *testing.T) {
 	if first.ToString() != second.ToString() {
 		t.Fatalf("seeded mutations differ:\n%s\n%s", first.ToString(), second.ToString())
 	}
-	if first.GetFilledCellsCount() != board.GetFilledCellsCount()+1 {
-		t.Fatalf("mutation changed clue count by %d, want +1", first.GetFilledCellsCount()-board.GetFilledCellsCount())
+	if first.GetFilledCellsCount() != board.GetFilledCellsCount()-1 {
+		t.Fatalf("mutation changed clue count by %d, want -1", first.GetFilledCellsCount()-board.GetFilledCellsCount())
 	}
 }
 
