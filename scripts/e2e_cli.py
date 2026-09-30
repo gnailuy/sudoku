@@ -17,6 +17,7 @@ PUZZLE_ZEROS = PUZZLE_DOTS.replace(".", "0")
 SOLUTION = "483921657967345821251876493548132976729564138136798245372689514814253769695417382"
 MULTIPLE_SOLUTIONS = "....7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
 UNIQUE_SECOND = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+HARD_SEED = "...8.......5214.......5768.6...4.1...83...5.....5.1.2.2.1.....7....9....97...3..."
 
 
 def isolated_env(root):
@@ -88,13 +89,15 @@ def main():
 
         # Startup, parsing, help, and backward-compatible root flags.
         output = run(binary, ["--help"], root)
-        contains(output, "calibrate", "generate", "import", "tui", "--input", "--level")
+        contains(output, "calibrate", "experiment", "generate", "import", "tui", "--input", "--level")
         output = run(binary, ["generate", "--help"], root)
         contains(output, "--count", "--difficulty", "--workers", "--timeout", "--rounds", "--db")
         output = run(binary, ["import", "--help"], root)
         contains(output, "--file", "--source", "--format", "--sha256", "--workers", "--db")
         output = run(binary, ["calibrate", "--help"], root)
         contains(output, "--manifest", "--output", "append-only", "resumable")
+        output = run(binary, ["experiment", "generation", "--help"], root)
+        contains(output, "--manifest", "--output", "equal budgets", "resumable")
 
         # Difficulty measurement is deterministic and resumes without
         # duplicating append-only observations.
@@ -160,6 +163,44 @@ def main():
         )
         if observations_path.read_text(encoding="utf-8").splitlines() != observations:
             raise AssertionError("changed manifest modified append-only observations")
+
+        # Exact-grade generation experiments run both arms with equal budgets,
+        # persist raw outcomes, and resume without repeating completed jobs.
+        generation_manifest = root / "generation-experiment.json"
+        generation_run = root / "generation-experiment-run"
+        generation_manifest.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "name": "e2e-generation-experiment",
+                    "repository_commit": "e2e-fixture",
+                    "solver_config_hash": "e2e-fixture",
+                    "policy_version": "trace-guided-v1",
+                    "budget": {"max_duration_ms": 1, "max_classifications": 1},
+                    "samples": [
+                        {
+                            "id": "hard-1",
+                            "split": "exploratory",
+                            "target_difficulty": "hard",
+                            "seed_id": "e2e-hard-1",
+                            "seed_puzzle": HARD_SEED,
+                            "random_seed": 42,
+                        }
+                    ],
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        output = run(binary, ["experiment", "generation", "--manifest", str(generation_manifest), "--output", str(generation_run)], root, timeout=30)
+        contains(output, "Observed 2/2 jobs (2 new).", "Manifest SHA-256")
+        output = run(binary, ["experiment", "generation", "--manifest", str(generation_manifest), "--output", str(generation_run)], root, timeout=30)
+        contains(output, "Observed 2/2 jobs (0 new).")
+        generation_observations = (generation_run / "observations.jsonl").read_text(encoding="utf-8").splitlines()
+        generation_report = json.loads((generation_run / "report.json").read_text(encoding="utf-8"))
+        if len(generation_observations) != 2 or not generation_report.get("complete"):
+            raise AssertionError("generation experiment did not preserve resumable two-arm artifacts")
 
         contains(run(binary, ["--input", PUZZLE_DOTS], root, "q\n"), "Exiting the game.", PUZZLE_DOTS)
         contains(run(binary, ["--input", PUZZLE_ZEROS], root, "q\n"), "Exiting the game.", PUZZLE_DOTS)
@@ -575,7 +616,7 @@ def main():
         if not auto_database.is_file() or not puzzle_rows(auto_database):
             raise AssertionError("root play did not auto-store the puzzle")
 
-    print("PASS: line CLI gameplay, sessions, calibration, import, generation, and SQLite composition")
+    print("PASS: line CLI gameplay, sessions, calibration, generation experiments, import, generation, and SQLite composition")
 
 
 if __name__ == "__main__":

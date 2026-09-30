@@ -40,6 +40,7 @@ func init() {
 	rootCmd.AddCommand(newTUICommand())
 	rootCmd.AddCommand(newAPICommand())
 	rootCmd.AddCommand(newCalibrateCommand())
+	rootCmd.AddCommand(newExperimentCommand())
 	rootCmd.AddCommand(newDatabaseCommand())
 }
 

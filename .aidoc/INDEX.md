@@ -42,30 +42,32 @@ The project index provides reading chains for common starting points and a compl
 2. `.aidoc/designs/difficulty-calibration.md` — strategy measurement contract, evidence, reports, and decision gates
 3. `.aidoc/designs/exact-grade-generation-experiment.md` — approved trace-guided mutation comparison and advancement gate
 4. `generationexperiment/runner.go` — immutable jobs, resumable observations, canonical duplicate accounting, and raw-count reports
-5. `calibration/runner.go` — immutable manifests, reproducibility checks, observations, checkpoints, and reports
-6. `calibration/baselines/mixed-generator-alignment-v6/report.md` — current 101-record measurement report
-7. `calibration/baselines/mixed-generator-alignment-v6/analysis.md` — generator alignment, trace, budget, and coverage interpretation
-8. `calibration/baselines/mixed-imported-expansion-v5/report.md` — preserved imported-stratum expansion results
-9. `calibration/baselines/mixed-generated-expansion-v4/report.md` — preserved generated-stratum expansion results
-10. `calibration/baselines/mixed-external-expansion-v3/report.md` — preserved expanded external baseline
-11. `calibration/baselines/mixed-pilot-v2/report.md` — preserved initial pilot baseline
-12. `cmd/calibrate.go` — resumable local measurement command
-13. `generator/difficulty.go` — difficulty levels and `StrategySolverKeys`
-14. `generator/generator.go` — board generation, cell removal, best-effort generation with limits
-15. `generator/options.go` — `Options` and `BestEffortOptions` (time/round limits)
-16. `solver/classify.go` — puzzle classification (difficulty tier, score, max technique)
-17. `.aidoc/designs/database-catalog.md` — base-puzzle identity, provenance, play-run separation, and rebuild boundary
-18. `core/canonical.go` — shared digit and Sudoku-symmetry canonicalization boundary
-19. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and rebuild contract
-20. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
-21. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
-22. `db/db.go` — SQLite database open, schema, and rebuild boundary
-23. `db/catalog.go` — provenance and presentation-specific play-run contracts
-24. `db/puzzle.go` — catalog CRUD, acquisition, and statistics
-25. `cmd/play.go` — fallback flow and auto-store
-26. `cmd/generate.go` — batch generation CLI
-27. `cmd/import.go` — plain and hash-pinned external import boundary
-28. `scripts/import_sudoku_exchange_diabolical.sh` — exact public-domain source pin and import composition
+5. `generationexperiment/executors.go` — seeded baseline and bounded trace-guided mutation adapters
+6. `cmd/experiment.go` — explicit isolated experiment CLI
+7. `calibration/runner.go` — immutable manifests, reproducibility checks, observations, checkpoints, and reports
+8. `calibration/baselines/mixed-generator-alignment-v6/report.md` — current 101-record measurement report
+9. `calibration/baselines/mixed-generator-alignment-v6/analysis.md` — generator alignment, trace, budget, and coverage interpretation
+10. `calibration/baselines/mixed-imported-expansion-v5/report.md` — preserved imported-stratum expansion results
+11. `calibration/baselines/mixed-generated-expansion-v4/report.md` — preserved generated-stratum expansion results
+12. `calibration/baselines/mixed-external-expansion-v3/report.md` — preserved expanded external baseline
+13. `calibration/baselines/mixed-pilot-v2/report.md` — preserved initial pilot baseline
+14. `cmd/calibrate.go` — resumable local measurement command
+15. `generator/difficulty.go` — difficulty levels and `StrategySolverKeys`
+16. `generator/generator.go` — board generation, cell removal, best-effort generation with limits
+17. `generator/options.go` — `Options` and `BestEffortOptions` (time/round limits)
+18. `solver/classify.go` — puzzle classification (difficulty tier, score, max technique)
+19. `.aidoc/designs/database-catalog.md` — base-puzzle identity, provenance, play-run separation, and rebuild boundary
+20. `core/canonical.go` — shared digit and Sudoku-symmetry canonicalization boundary
+21. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and rebuild contract
+22. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
+23. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
+24. `db/db.go` — SQLite database open, schema, and rebuild boundary
+25. `db/catalog.go` — provenance and presentation-specific play-run contracts
+26. `db/puzzle.go` — catalog CRUD, acquisition, and statistics
+27. `cmd/play.go` — fallback flow and auto-store
+28. `cmd/generate.go` — batch generation CLI
+29. `cmd/import.go` — plain and hash-pinned external import boundary
+30. `scripts/import_sudoku_exchange_diabolical.sh` — exact public-domain source pin and import composition
 
 ### Understanding the Roadmap
 1. `.aidoc/designs/roadmap.md` — approved exact-grade experiment sequence and maintained quality gates
@@ -116,6 +118,8 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/difficulty-calibration.md` | Strategy calibration methodology, corpus contract, evidence, reports, and decision gates |
 | `.aidoc/designs/exact-grade-generation-experiment.md` | Trace-guided mutation comparison, reproducibility contract, and advancement gate |
 | `generationexperiment/runner.go` | Isolated manifest-bound experiment harness, durable observations, resume, duplicate accounting, and reports |
+| `generationexperiment/executors.go` | Seeded baseline and trace-guided mutation execution adapters |
+| `cmd/experiment.go` | Explicit output-only generation experiment command |
 | `.aidoc/designs/roadmap.md` | Approved exact-grade generation experiment and maintained delivery gates |
 | `.aidoc/designs/deployment-hardening.md` | Backend artifact, service, isolation, access-policy, and failure contract |
 | `.aidoc/designs/database-catalog.md` | Stable base-puzzle identity, provenance, play-run separation, and destructive schema rebuild |

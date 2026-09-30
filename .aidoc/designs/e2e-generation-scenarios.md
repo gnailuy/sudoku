@@ -3,7 +3,9 @@ domain: Designs
 status: Active
 entry_points:
   - cmd/generate.go
+  - cmd/experiment.go
   - generator/generator.go
+  - generationexperiment/runner.go
 dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/game-engine.md
@@ -11,7 +13,7 @@ dependencies:
 
 # E2E Generation Scenarios
 
-The generation scenario catalog verifies generation flags, worker composition, hard deadlines, actual-grade reporting, database storage, validation, and deduplication through the built command.
+The generation scenario catalog verifies generation flags, worker composition, hard deadlines, actual-grade reporting, database storage, validation, deduplication, and isolated resumable experiment execution through the built command.
 
 ## Related Docs
 
@@ -61,5 +63,9 @@ Generation combines probabilistic puzzle construction with deterministic command
 ### 4.9 Generate with Hard Deadline
 **Action:** Execute the bounded generation case in `scripts/e2e_cli.py` with a one-millisecond per-puzzle timeout and an isolated database.
 **Expected:** The command returns within a bounded margin of the configured deadline, reports the timeout explicitly, and does not store an incomplete or unclassified puzzle.
+
+### 4.10 Run and Resume an Exact-Grade Experiment
+**Action:** Execute the fixed one-sample manifest in `scripts/e2e_cli.py` through `sudoku experiment generation`, then execute the same command again against the same output directory.
+**Expected:** The first run records one baseline and one candidate observation under equal budgets. The second run appends zero observations, preserves the complete two-arm report, and never creates or opens a puzzle database.
 
 ---

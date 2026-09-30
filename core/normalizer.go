@@ -1,6 +1,10 @@
 package core
 
-import "github.com/gnailuy/sudoku/util"
+import (
+	"math/rand"
+
+	"github.com/gnailuy/sudoku/util"
+)
 
 // Function to normalize a Sudoku board.
 func (board *Board) Normalize() {
@@ -28,11 +32,17 @@ func (board *Board) Normalize() {
 
 // Function to randomize a normalized Sudoku board.
 func (board *Board) Randomize() {
+	board.RandomizeWithRand(nil)
+}
+
+// RandomizeWithRand uses source when non-nil and otherwise preserves the
+// process-wide random behavior used by interactive generation.
+func (board *Board) RandomizeWithRand(source *rand.Rand) {
 	// Make a copy of the board.
 	boardCopy := board.Copy()
 
 	// Randomize the board with the below replacement plan.
-	randomArray := util.GenerateNumberArray(1, 10, true)
+	randomArray := util.GenerateNumberArrayWithRand(1, 10, true, source)
 
 	for j := 0; j < 9; j++ {
 		for k := 0; k < 9; k++ {
