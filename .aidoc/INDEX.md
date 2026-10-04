@@ -89,12 +89,13 @@ The project index provides reading chains for common starting points and a compl
 16. `accountauth/accountauth.go` — application identity resolution, digest-only session rotation, authentication, and logout
 17. `guestdoc/guestdoc.go` — sealed stateless guest games, key rotation, expiry, and revisioned actions
 18. `guestclaim/guestclaim.go` — authenticated exactly-once transition from sealed guest state to an owned game
-19. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
-20. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
-21. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
-22. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
-23. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
-23. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+19. `accountgame/accountgame.go` — owner-scoped reads, revisioned engine actions, and deletion
+20. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
+21. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
+22. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
+23. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
+24. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
+25. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
@@ -194,6 +195,7 @@ The project index provides reading chains for common starting points and a compl
 | `accountauth/accountauth.go` | Provider identity resolution and digest-only application-session rotation |
 | `guestdoc/guestdoc.go` | Sealed guest documents, bounded key rotation, expiry, and revisioned engine transitions |
 | `guestclaim/guestclaim.go` | Authenticated idempotent guest-to-account claim boundary |
+| `accountgame/accountgame.go` | Authenticated owner-scoped account-game operations |
 | `db/puzzle.go` | Puzzle CRUD, random query by difficulty, statistics |
 | `game/contract.go` | Stable engine actions, snapshots, results, and typed errors |
 | `game/serialization.go` | Versioned JSON session serialization, validation, and restoration |
