@@ -28,9 +28,7 @@ This document is the only backend location for deliberately deferred product and
 
 ## Product Expansion
 
-Possible product directions include single-user saved-game portability, accounts, account-scoped authorization, public multi-user hosting, cloud synchronization, shared games, collaboration, localization, and native mobile clients.
-
-Accounts and multi-user hosting form one product and security boundary. Any proposal must define identity, ownership, tenant isolation, authorization for every session operation, anonymous-player behavior, retention, abuse handling, and migration from the current single-operator model. A shared deployment credential is operational protection, not user identity.
+Possible product directions beyond the approved account milestone include shared games, collaboration, localization, native mobile clients, additional identity providers, and player-facing social features. `.aidoc/designs/user-accounts.md` is the canonical source for the active identity, guest, ownership, and cloud-continuity boundary.
 
 The TypeScript browser client remains a separate repository. This Go repository stays client-neutral unless a reviewed capability is shared by multiple clients and belongs in the engine or API.
 
