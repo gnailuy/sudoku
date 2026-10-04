@@ -129,6 +129,18 @@ func (db *DB) UserByExternalIdentity(issuer, subject string) (*User, error) {
 	return &user, nil
 }
 
+func (db *DB) UserByID(userID string) (*User, error) {
+	var user User
+	err := db.conn.QueryRow(`SELECT user_id, profile_email, display_name FROM users WHERE user_id = ?`, userID).Scan(&user.ID, &user.ProfileEmail, &user.DisplayName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get user by ID: %w", err)
+	}
+	return &user, nil
+}
+
 func (db *DB) CreateWebSession(session WebSession) error {
 	if session.ID == "" || session.UserID == "" || len(session.VerifierDigest) == 0 {
 		return errors.New("session identity, user, and verifier digest are required")

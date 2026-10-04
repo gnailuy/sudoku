@@ -31,7 +31,7 @@ Run the automated black-box lifecycle against the built backend with isolated st
 
 **Action:** Execute the matching case in `scripts/e2e_api.py`, which owns the canonical command sequence and fixture.
 
-The harness calls the running `sudoku api` process rather than importing Go handlers. It covers startup safety, process-lock exclusion, health, strict input, exact-origin CORS configuration, exact bearer authentication, lifecycle operations, revision conflict, export/import, restart recovery, and discard. Handler and command tests complement the black-box lane with malformed-input envelopes, preflight method/header rejection, concurrent session isolation, allowed-origin validation, and lock ownership. The scenarios below define the broader acceptance contract; frontend behavior remains in the separate client project.
+The harness calls the running `sudoku api` process rather than importing Go handlers. It covers startup safety, process-lock exclusion, health, strict input, exact-origin CORS configuration, exact bearer authentication, lifecycle operations, revision conflict, export/import, restart recovery, and discard. Handler and command tests complement the black-box lane with malformed-input envelopes, preflight method/header rejection, concurrent session isolation, allowed-origin validation, lock ownership, and the configured guest/account transport. The scenarios below define the broader acceptance contract; frontend behavior remains in the separate client project.
 
 ### 11.1 Startup, Binding, and Health
 **Action:** Start `sudoku api` with isolated XDG roots using the default listener and an explicit network listener, call `/healthz`, and request an unknown `/api/` path.
@@ -82,3 +82,10 @@ The harness calls the running `sudoku api` process rather than importing Go hand
 **Expected:** The valid artifact contains one executable and a schema-versioned manifest bound to `gnailuy/sudoku`, the trusted workflow run, and the full commit. Every malformed or mismatched artifact is rejected before deployment.
 
 **Automation:** `python3 -m unittest scripts/test_package_release.py`; the `trusted-release` job publishes only after every maintained `main` CI job passes.
+
+### 11.12 Guest and Account Transport
+**Action:** Run the deterministic HTTP integration with a local identity fixture and private test keys; create and mutate one sealed guest game, complete login, read the CSRF request proof, create an owned game, claim the guest twice, mutate/list/read/delete only owned games, revoke sessions, and delete the account.
+
+**Expected:** Guest responses atomically replace one authenticated encrypted document and create no guest identity or recovery row. The callback rotates a digest-only application session and emits a path-scoped secure HttpOnly cookie. Cookie mutations reject missing or incorrect HMAC request proof. Claim returns `201` once and the same game with `200` on a same-owner retry; cross-owner identifiers remain indistinguishable from absent games. Account deletion preserves shared catalog puzzles.
+
+**Automation:** `go test -count=1 ./webapi ./accountgame ./guestclaim ./guestdoc ./accountauth ./oidcauth ./db` exercises the provider fixture and real SQLite boundary. Built-binary browser acceptance remains coordinated with the frontend account slice and private deployment configuration.

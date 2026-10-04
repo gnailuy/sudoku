@@ -27,6 +27,7 @@ import (
 
 const (
 	BearerAuthScopes = "bearerAuth.Scopes"
+	CookieAuthScopes = "cookieAuth.Scopes"
 )
 
 // Defines values for ActionKind.
@@ -54,24 +55,30 @@ const (
 
 // Defines values for ErrorCode.
 const (
-	ErrorCodeForbiddenOrigin      ErrorCode = "forbidden-origin"
-	ErrorCodeImmutableCell        ErrorCode = "immutable-cell"
-	ErrorCodeInternalError        ErrorCode = "internal-error"
-	ErrorCodeInvalidAction        ErrorCode = "invalid-action"
-	ErrorCodeInvalidCell          ErrorCode = "invalid-cell"
-	ErrorCodeInvalidJson          ErrorCode = "invalid-json"
-	ErrorCodeInvalidRequest       ErrorCode = "invalid-request"
-	ErrorCodeInvalidSession       ErrorCode = "invalid-session"
-	ErrorCodeNoHint               ErrorCode = "no-hint"
-	ErrorCodeNoRedo               ErrorCode = "no-redo"
-	ErrorCodeNoUndo               ErrorCode = "no-undo"
-	ErrorCodeNoteNotAllowed       ErrorCode = "note-not-allowed"
-	ErrorCodePayloadTooLarge      ErrorCode = "payload-too-large"
-	ErrorCodePersistenceFailed    ErrorCode = "persistence-failed"
-	ErrorCodeRevisionConflict     ErrorCode = "revision-conflict"
-	ErrorCodeSessionNotFound      ErrorCode = "session-not-found"
-	ErrorCodeUnauthorized         ErrorCode = "unauthorized"
-	ErrorCodeUnsupportedMediaType ErrorCode = "unsupported-media-type"
+	ErrorCodeAccountGameNotFound   ErrorCode = "account-game-not-found"
+	ErrorCodeAccountUnauthorized   ErrorCode = "account-unauthorized"
+	ErrorCodeAccountUnavailable    ErrorCode = "account-unavailable"
+	ErrorCodeCsrfFailed            ErrorCode = "csrf-failed"
+	ErrorCodeForbiddenOrigin       ErrorCode = "forbidden-origin"
+	ErrorCodeGuestClaimConflict    ErrorCode = "guest-claim-conflict"
+	ErrorCodeGuestRevisionConflict ErrorCode = "guest-revision-conflict"
+	ErrorCodeImmutableCell         ErrorCode = "immutable-cell"
+	ErrorCodeInternalError         ErrorCode = "internal-error"
+	ErrorCodeInvalidAction         ErrorCode = "invalid-action"
+	ErrorCodeInvalidCell           ErrorCode = "invalid-cell"
+	ErrorCodeInvalidJson           ErrorCode = "invalid-json"
+	ErrorCodeInvalidRequest        ErrorCode = "invalid-request"
+	ErrorCodeInvalidSession        ErrorCode = "invalid-session"
+	ErrorCodeNoHint                ErrorCode = "no-hint"
+	ErrorCodeNoRedo                ErrorCode = "no-redo"
+	ErrorCodeNoUndo                ErrorCode = "no-undo"
+	ErrorCodeNoteNotAllowed        ErrorCode = "note-not-allowed"
+	ErrorCodePayloadTooLarge       ErrorCode = "payload-too-large"
+	ErrorCodePersistenceFailed     ErrorCode = "persistence-failed"
+	ErrorCodeRevisionConflict      ErrorCode = "revision-conflict"
+	ErrorCodeSessionNotFound       ErrorCode = "session-not-found"
+	ErrorCodeUnauthorized          ErrorCode = "unauthorized"
+	ErrorCodeUnsupportedMediaType  ErrorCode = "unsupported-media-type"
 )
 
 // Defines values for GameStatus.
@@ -80,6 +87,46 @@ const (
 	Invalid    GameStatus = "invalid"
 	Solved     GameStatus = "solved"
 )
+
+// Account defines model for Account.
+type Account struct {
+	CsrfToken   string `json:"csrf_token"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+}
+
+// AccountActionResponse defines model for AccountActionResponse.
+type AccountActionResponse struct {
+	Game   AccountGame  `json:"game"`
+	Result ActionResult `json:"result"`
+}
+
+// AccountGame defines model for AccountGame.
+type AccountGame struct {
+	ActualDifficulty Difficulty `json:"actual_difficulty"`
+	Id               string     `json:"id"`
+	Revision         Revision   `json:"revision"`
+	Snapshot         Snapshot   `json:"snapshot"`
+}
+
+// AccountGameList defines model for AccountGameList.
+type AccountGameList struct {
+	Games []AccountGameSummary `json:"games"`
+}
+
+// AccountGameSummary defines model for AccountGameSummary.
+type AccountGameSummary struct {
+	ActualDifficulty Difficulty `json:"actual_difficulty"`
+	Id               string     `json:"id"`
+	Revision         Revision   `json:"revision"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+}
+
+// AccountRevisionConflict defines model for AccountRevisionConflict.
+type AccountRevisionConflict struct {
+	CurrentRevision Revision    `json:"current_revision"`
+	Error           ErrorDetail `json:"error"`
+}
 
 // ActionKind defines model for ActionKind.
 type ActionKind string
@@ -151,6 +198,11 @@ type CellPosition struct {
 // CellValue Zero represents an empty cell.
 type CellValue = int
 
+// ClaimGuestGameRequest defines model for ClaimGuestGameRequest.
+type ClaimGuestGameRequest struct {
+	Document SealedGuestDocument `json:"document"`
+}
+
 // ClearValueAction defines model for ClearValueAction.
 type ClearValueAction struct {
 	Column           int      `json:"column"`
@@ -208,6 +260,29 @@ type ErrorDetail struct {
 
 // GameStatus defines model for GameStatus.
 type GameStatus string
+
+// GuestActionRequest defines model for GuestActionRequest.
+type GuestActionRequest struct {
+	Action   ActionRequest       `json:"action"`
+	Document SealedGuestDocument `json:"document"`
+}
+
+// GuestActionResponse defines model for GuestActionResponse.
+type GuestActionResponse struct {
+	ActualDifficulty Difficulty          `json:"actual_difficulty"`
+	Document         SealedGuestDocument `json:"document"`
+	Result           ActionResult        `json:"result"`
+	Revision         Revision            `json:"revision"`
+	Snapshot         Snapshot            `json:"snapshot"`
+}
+
+// GuestGame defines model for GuestGame.
+type GuestGame struct {
+	ActualDifficulty Difficulty          `json:"actual_difficulty"`
+	Document         SealedGuestDocument `json:"document"`
+	Revision         Revision            `json:"revision"`
+	Snapshot         Snapshot            `json:"snapshot"`
+}
 
 // Health defines model for Health.
 type Health struct {
@@ -297,6 +372,9 @@ type RevisionConflict struct {
 	Snapshot Snapshot `json:"snapshot"`
 }
 
+// SealedGuestDocument defines model for SealedGuestDocument.
+type SealedGuestDocument = string
+
 // Session defines model for Session.
 type Session struct {
 	ActualDifficulty    Difficulty  `json:"actual_difficulty"`
@@ -371,8 +449,35 @@ type ValueGrid = []ValueRow
 // ValueRow defines model for ValueRow.
 type ValueRow = []CellValue
 
+// AccountGameId defines model for AccountGameId.
+type AccountGameId = string
+
+// CsrfToken defines model for CsrfToken.
+type CsrfToken = string
+
+// OptionalSessionCookie defines model for OptionalSessionCookie.
+type OptionalSessionCookie = string
+
+// SessionCookie defines model for SessionCookie.
+type SessionCookie = string
+
+// AccountGameNotFound defines model for AccountGameNotFound.
+type AccountGameNotFound = Error
+
+// AccountUnauthorized defines model for AccountUnauthorized.
+type AccountUnauthorized = Error
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
+
+// ClaimConflict defines model for ClaimConflict.
+type ClaimConflict = Error
+
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
+// GuestRevisionConflict defines model for GuestRevisionConflict.
+type GuestRevisionConflict = Error
 
 // InternalError defines model for InternalError.
 type InternalError = Error
@@ -386,14 +491,108 @@ type PayloadTooLarge = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// Unavailable defines model for Unavailable.
+type Unavailable = Error
+
 // UnprocessableEntity defines model for UnprocessableEntity.
 type UnprocessableEntity = Error
 
 // UnsupportedMediaType defines model for UnsupportedMediaType.
 type UnsupportedMediaType = Error
 
+// DeleteCurrentAccountParams defines parameters for DeleteCurrentAccount.
+type DeleteCurrentAccountParams struct {
+	// XSudokuCSRF Request proof bound to the current application session.
+	XSudokuCSRF   CsrfToken     `json:"X-Sudoku-CSRF"`
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
+// GetCurrentAccountParams defines parameters for GetCurrentAccount.
+type GetCurrentAccountParams struct {
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
+// ListAccountGamesParams defines parameters for ListAccountGames.
+type ListAccountGamesParams struct {
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
+// CreateAccountGameParams defines parameters for CreateAccountGame.
+type CreateAccountGameParams struct {
+	// XSudokuCSRF Request proof bound to the current application session.
+	XSudokuCSRF   CsrfToken     `json:"X-Sudoku-CSRF"`
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
+// ClaimGuestGameParams defines parameters for ClaimGuestGame.
+type ClaimGuestGameParams struct {
+	// XSudokuCSRF Request proof bound to the current application session.
+	XSudokuCSRF   CsrfToken     `json:"X-Sudoku-CSRF"`
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
+// DeleteAccountGameParams defines parameters for DeleteAccountGame.
+type DeleteAccountGameParams struct {
+	// XSudokuCSRF Request proof bound to the current application session.
+	XSudokuCSRF   CsrfToken     `json:"X-Sudoku-CSRF"`
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
+// GetAccountGameParams defines parameters for GetAccountGame.
+type GetAccountGameParams struct {
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
+// ApplyAccountGameActionParams defines parameters for ApplyAccountGameAction.
+type ApplyAccountGameActionParams struct {
+	// XSudokuCSRF Request proof bound to the current application session.
+	XSudokuCSRF   CsrfToken     `json:"X-Sudoku-CSRF"`
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
+// RevokeAccountSessionsParams defines parameters for RevokeAccountSessions.
+type RevokeAccountSessionsParams struct {
+	// XSudokuCSRF Request proof bound to the current application session.
+	XSudokuCSRF   CsrfToken     `json:"X-Sudoku-CSRF"`
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
+// CompleteGoogleLoginParams defines parameters for CompleteGoogleLogin.
+type CompleteGoogleLoginParams struct {
+	State         string                 `form:"state" json:"state"`
+	Code          string                 `form:"code" json:"code"`
+	SudokuSession *OptionalSessionCookie `form:"sudoku_session,omitempty" json:"sudoku_session,omitempty"`
+}
+
+// BeginGoogleLoginParams defines parameters for BeginGoogleLogin.
+type BeginGoogleLoginParams struct {
+	ReturnTo string `form:"return_to" json:"return_to"`
+}
+
+// LogoutAccountParams defines parameters for LogoutAccount.
+type LogoutAccountParams struct {
+	// XSudokuCSRF Request proof bound to the current application session.
+	XSudokuCSRF   CsrfToken     `json:"X-Sudoku-CSRF"`
+	SudokuSession SessionCookie `form:"sudoku_session" json:"sudoku_session"`
+}
+
 // ImportSessionApplicationVndSudokuSessionPlusJSONBody defines parameters for ImportSession.
 type ImportSessionApplicationVndSudokuSessionPlusJSONBody = openapi_types.File
+
+// CreateAccountGameJSONRequestBody defines body for CreateAccountGame for application/json ContentType.
+type CreateAccountGameJSONRequestBody = CreateSessionRequest
+
+// ClaimGuestGameJSONRequestBody defines body for ClaimGuestGame for application/json ContentType.
+type ClaimGuestGameJSONRequestBody = ClaimGuestGameRequest
+
+// ApplyAccountGameActionJSONRequestBody defines body for ApplyAccountGameAction for application/json ContentType.
+type ApplyAccountGameActionJSONRequestBody = ActionRequest
+
+// CreateGuestGameJSONRequestBody defines body for CreateGuestGame for application/json ContentType.
+type CreateGuestGameJSONRequestBody = CreateSessionRequest
+
+// ApplyGuestActionJSONRequestBody defines body for ApplyGuestAction for application/json ContentType.
+type ApplyGuestActionJSONRequestBody = GuestActionRequest
 
 // CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
 type CreateSessionJSONRequestBody = CreateSessionRequest
@@ -824,6 +1023,48 @@ func (t *CreateSessionRequest_Source) UnmarshalJSON(b []byte) error {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Delete the account, sessions, and owned games
+	// (DELETE /api/v1/account)
+	DeleteCurrentAccount(w http.ResponseWriter, r *http.Request, params DeleteCurrentAccountParams)
+	// Read the authenticated account profile
+	// (GET /api/v1/account)
+	GetCurrentAccount(w http.ResponseWriter, r *http.Request, params GetCurrentAccountParams)
+	// List games owned by the authenticated account
+	// (GET /api/v1/account/games)
+	ListAccountGames(w http.ResponseWriter, r *http.Request, params ListAccountGamesParams)
+	// Create an account-owned game
+	// (POST /api/v1/account/games)
+	CreateAccountGame(w http.ResponseWriter, r *http.Request, params CreateAccountGameParams)
+	// Idempotently claim one sealed guest game
+	// (POST /api/v1/account/games/claim)
+	ClaimGuestGame(w http.ResponseWriter, r *http.Request, params ClaimGuestGameParams)
+	// Delete one owner-scoped account game
+	// (DELETE /api/v1/account/games/{accountGameId})
+	DeleteAccountGame(w http.ResponseWriter, r *http.Request, accountGameId AccountGameId, params DeleteAccountGameParams)
+	// Read one owner-scoped account game
+	// (GET /api/v1/account/games/{accountGameId})
+	GetAccountGame(w http.ResponseWriter, r *http.Request, accountGameId AccountGameId, params GetAccountGameParams)
+	// Apply one revisioned action to an owner-scoped game
+	// (POST /api/v1/account/games/{accountGameId}/actions)
+	ApplyAccountGameAction(w http.ResponseWriter, r *http.Request, accountGameId AccountGameId, params ApplyAccountGameActionParams)
+	// Revoke all application sessions for the account
+	// (POST /api/v1/account/sessions/revoke)
+	RevokeAccountSessions(w http.ResponseWriter, r *http.Request, params RevokeAccountSessionsParams)
+	// Complete Google OIDC and rotate the application session
+	// (GET /api/v1/auth/google/callback)
+	CompleteGoogleLogin(w http.ResponseWriter, r *http.Request, params CompleteGoogleLoginParams)
+	// Begin a single-use Google OIDC login
+	// (GET /api/v1/auth/google/start)
+	BeginGoogleLogin(w http.ResponseWriter, r *http.Request, params BeginGoogleLoginParams)
+	// Revoke the current application session
+	// (POST /api/v1/auth/logout)
+	LogoutAccount(w http.ResponseWriter, r *http.Request, params LogoutAccountParams)
+	// Create one stateless sealed guest game
+	// (POST /api/v1/guest/games)
+	CreateGuestGame(w http.ResponseWriter, r *http.Request)
+	// Apply one action to a sealed guest game
+	// (POST /api/v1/guest/games/actions)
+	ApplyGuestAction(w http.ResponseWriter, r *http.Request)
 	// List active and recovered sessions
 	// (GET /api/v1/sessions)
 	ListSessions(w http.ResponseWriter, r *http.Request)
@@ -861,6 +1102,764 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// DeleteCurrentAccount operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCurrentAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteCurrentAccountParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Sudoku-CSRF" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Sudoku-CSRF")]; found {
+		var XSudokuCSRF CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Sudoku-CSRF", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Sudoku-CSRF", valueList[0], &XSudokuCSRF, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Sudoku-CSRF", Err: err})
+			return
+		}
+
+		params.XSudokuCSRF = XSudokuCSRF
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Sudoku-CSRF is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Sudoku-CSRF", Err: err})
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCurrentAccount(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCurrentAccount operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCurrentAccountParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCurrentAccount(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountGames operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountGames(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountGamesParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountGames(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAccountGame operation middleware
+func (siw *ServerInterfaceWrapper) CreateAccountGame(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateAccountGameParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Sudoku-CSRF" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Sudoku-CSRF")]; found {
+		var XSudokuCSRF CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Sudoku-CSRF", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Sudoku-CSRF", valueList[0], &XSudokuCSRF, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Sudoku-CSRF", Err: err})
+			return
+		}
+
+		params.XSudokuCSRF = XSudokuCSRF
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Sudoku-CSRF is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Sudoku-CSRF", Err: err})
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAccountGame(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ClaimGuestGame operation middleware
+func (siw *ServerInterfaceWrapper) ClaimGuestGame(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ClaimGuestGameParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Sudoku-CSRF" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Sudoku-CSRF")]; found {
+		var XSudokuCSRF CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Sudoku-CSRF", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Sudoku-CSRF", valueList[0], &XSudokuCSRF, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Sudoku-CSRF", Err: err})
+			return
+		}
+
+		params.XSudokuCSRF = XSudokuCSRF
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Sudoku-CSRF is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Sudoku-CSRF", Err: err})
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClaimGuestGame(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAccountGame operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAccountGame(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "accountGameId" -------------
+	var accountGameId AccountGameId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountGameId", r.PathValue("accountGameId"), &accountGameId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountGameId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteAccountGameParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Sudoku-CSRF" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Sudoku-CSRF")]; found {
+		var XSudokuCSRF CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Sudoku-CSRF", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Sudoku-CSRF", valueList[0], &XSudokuCSRF, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Sudoku-CSRF", Err: err})
+			return
+		}
+
+		params.XSudokuCSRF = XSudokuCSRF
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Sudoku-CSRF is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Sudoku-CSRF", Err: err})
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAccountGame(w, r, accountGameId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountGame operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountGame(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "accountGameId" -------------
+	var accountGameId AccountGameId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountGameId", r.PathValue("accountGameId"), &accountGameId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountGameId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountGameParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountGame(w, r, accountGameId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplyAccountGameAction operation middleware
+func (siw *ServerInterfaceWrapper) ApplyAccountGameAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "accountGameId" -------------
+	var accountGameId AccountGameId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountGameId", r.PathValue("accountGameId"), &accountGameId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountGameId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApplyAccountGameActionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Sudoku-CSRF" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Sudoku-CSRF")]; found {
+		var XSudokuCSRF CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Sudoku-CSRF", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Sudoku-CSRF", valueList[0], &XSudokuCSRF, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Sudoku-CSRF", Err: err})
+			return
+		}
+
+		params.XSudokuCSRF = XSudokuCSRF
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Sudoku-CSRF is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Sudoku-CSRF", Err: err})
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyAccountGameAction(w, r, accountGameId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeAccountSessions operation middleware
+func (siw *ServerInterfaceWrapper) RevokeAccountSessions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokeAccountSessionsParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Sudoku-CSRF" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Sudoku-CSRF")]; found {
+		var XSudokuCSRF CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Sudoku-CSRF", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Sudoku-CSRF", valueList[0], &XSudokuCSRF, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Sudoku-CSRF", Err: err})
+			return
+		}
+
+		params.XSudokuCSRF = XSudokuCSRF
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Sudoku-CSRF is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Sudoku-CSRF", Err: err})
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeAccountSessions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteGoogleLogin operation middleware
+func (siw *ServerInterfaceWrapper) CompleteGoogleLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteGoogleLoginParams
+
+	// ------------- Required query parameter "state" -------------
+
+	if paramValue := r.URL.Query().Get("state"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "state", r.URL.Query(), &params.State)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		return
+	}
+
+	// ------------- Required query parameter "code" -------------
+
+	if paramValue := r.URL.Query().Get("code"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "code", r.URL.Query(), &params.Code)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value OptionalSessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: false})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteGoogleLogin(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BeginGoogleLogin operation middleware
+func (siw *ServerInterfaceWrapper) BeginGoogleLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BeginGoogleLoginParams
+
+	// ------------- Required query parameter "return_to" -------------
+
+	if paramValue := r.URL.Query().Get("return_to"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "return_to"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "return_to", r.URL.Query(), &params.ReturnTo)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "return_to", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BeginGoogleLogin(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LogoutAccount operation middleware
+func (siw *ServerInterfaceWrapper) LogoutAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LogoutAccountParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Sudoku-CSRF" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Sudoku-CSRF")]; found {
+		var XSudokuCSRF CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Sudoku-CSRF", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Sudoku-CSRF", valueList[0], &XSudokuCSRF, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Sudoku-CSRF", Err: err})
+			return
+		}
+
+		params.XSudokuCSRF = XSudokuCSRF
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Sudoku-CSRF is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Sudoku-CSRF", Err: err})
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sudoku_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sudoku_session", cookie.Value, &value, runtime.BindStyledParameterOptions{Explode: true, Required: true})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sudoku_session", Err: err})
+				return
+			}
+			params.SudokuSession = value
+
+		} else {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sudoku_session"})
+			return
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LogoutAccount(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateGuestGame operation middleware
+func (siw *ServerInterfaceWrapper) CreateGuestGame(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateGuestGame(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplyGuestAction operation middleware
+func (siw *ServerInterfaceWrapper) ApplyGuestAction(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyGuestAction(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListSessions operation middleware
 func (siw *ServerInterfaceWrapper) ListSessions(w http.ResponseWriter, r *http.Request) {
@@ -1211,6 +2210,20 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/account", wrapper.DeleteCurrentAccount)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/account", wrapper.GetCurrentAccount)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/account/games", wrapper.ListAccountGames)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/account/games", wrapper.CreateAccountGame)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/account/games/claim", wrapper.ClaimGuestGame)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/account/games/{accountGameId}", wrapper.DeleteAccountGame)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/account/games/{accountGameId}", wrapper.GetAccountGame)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/account/games/{accountGameId}/actions", wrapper.ApplyAccountGameAction)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/account/sessions/revoke", wrapper.RevokeAccountSessions)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/auth/google/callback", wrapper.CompleteGoogleLogin)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/auth/google/start", wrapper.BeginGoogleLogin)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/auth/logout", wrapper.LogoutAccount)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/guest/games", wrapper.CreateGuestGame)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/guest/games/actions", wrapper.ApplyGuestAction)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/sessions", wrapper.ListSessions)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/sessions", wrapper.CreateSession)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/sessions/import", wrapper.ImportSession)
@@ -1224,7 +2237,19 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	return m
 }
 
+type AccountGameNotFoundJSONResponse Error
+
+type AccountRevisionConflictJSONResponse AccountRevisionConflict
+
+type AccountUnauthorizedJSONResponse Error
+
 type BadRequestJSONResponse Error
+
+type ClaimConflictJSONResponse Error
+
+type ForbiddenJSONResponse Error
+
+type GuestRevisionConflictJSONResponse Error
 
 type InternalErrorJSONResponse Error
 
@@ -1241,9 +2266,1005 @@ type UnauthorizedJSONResponse struct {
 	Headers UnauthorizedResponseHeaders
 }
 
+type UnavailableJSONResponse Error
+
 type UnprocessableEntityJSONResponse Error
 
 type UnsupportedMediaTypeJSONResponse Error
+
+type DeleteCurrentAccountRequestObject struct {
+	Params DeleteCurrentAccountParams
+}
+
+type DeleteCurrentAccountResponseObject interface {
+	VisitDeleteCurrentAccountResponse(w http.ResponseWriter) error
+}
+
+type DeleteCurrentAccount204ResponseHeaders struct {
+	SetCookie string
+}
+
+type DeleteCurrentAccount204Response struct {
+	Headers DeleteCurrentAccount204ResponseHeaders
+}
+
+func (response DeleteCurrentAccount204Response) VisitDeleteCurrentAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteCurrentAccount401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response DeleteCurrentAccount401JSONResponse) VisitDeleteCurrentAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteCurrentAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteCurrentAccount403JSONResponse) VisitDeleteCurrentAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteCurrentAccount500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteCurrentAccount500JSONResponse) VisitDeleteCurrentAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteCurrentAccount503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response DeleteCurrentAccount503JSONResponse) VisitDeleteCurrentAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCurrentAccountRequestObject struct {
+	Params GetCurrentAccountParams
+}
+
+type GetCurrentAccountResponseObject interface {
+	VisitGetCurrentAccountResponse(w http.ResponseWriter) error
+}
+
+type GetCurrentAccount200JSONResponse Account
+
+func (response GetCurrentAccount200JSONResponse) VisitGetCurrentAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCurrentAccount401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response GetCurrentAccount401JSONResponse) VisitGetCurrentAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCurrentAccount500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetCurrentAccount500JSONResponse) VisitGetCurrentAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCurrentAccount503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetCurrentAccount503JSONResponse) VisitGetCurrentAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListAccountGamesRequestObject struct {
+	Params ListAccountGamesParams
+}
+
+type ListAccountGamesResponseObject interface {
+	VisitListAccountGamesResponse(w http.ResponseWriter) error
+}
+
+type ListAccountGames200JSONResponse AccountGameList
+
+func (response ListAccountGames200JSONResponse) VisitListAccountGamesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListAccountGames401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response ListAccountGames401JSONResponse) VisitListAccountGamesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListAccountGames500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListAccountGames500JSONResponse) VisitListAccountGamesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListAccountGames503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ListAccountGames503JSONResponse) VisitListAccountGamesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAccountGameRequestObject struct {
+	Params CreateAccountGameParams
+	Body   *CreateAccountGameJSONRequestBody
+}
+
+type CreateAccountGameResponseObject interface {
+	VisitCreateAccountGameResponse(w http.ResponseWriter) error
+}
+
+type CreateAccountGame201ResponseHeaders struct {
+	Location string
+}
+
+type CreateAccountGame201JSONResponse struct {
+	Body    AccountGame
+	Headers CreateAccountGame201ResponseHeaders
+}
+
+func (response CreateAccountGame201JSONResponse) VisitCreateAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreateAccountGame400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateAccountGame400JSONResponse) VisitCreateAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAccountGame401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response CreateAccountGame401JSONResponse) VisitCreateAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAccountGame403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateAccountGame403JSONResponse) VisitCreateAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAccountGame413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response CreateAccountGame413JSONResponse) VisitCreateAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAccountGame415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response CreateAccountGame415JSONResponse) VisitCreateAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAccountGame422JSONResponse struct {
+	UnprocessableEntityJSONResponse
+}
+
+func (response CreateAccountGame422JSONResponse) VisitCreateAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAccountGame500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateAccountGame500JSONResponse) VisitCreateAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAccountGame503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response CreateAccountGame503JSONResponse) VisitCreateAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGameRequestObject struct {
+	Params ClaimGuestGameParams
+	Body   *ClaimGuestGameJSONRequestBody
+}
+
+type ClaimGuestGameResponseObject interface {
+	VisitClaimGuestGameResponse(w http.ResponseWriter) error
+}
+
+type ClaimGuestGame200JSONResponse AccountGame
+
+func (response ClaimGuestGame200JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame201JSONResponse AccountGame
+
+func (response ClaimGuestGame201JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ClaimGuestGame400JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response ClaimGuestGame401JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ClaimGuestGame403JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame409JSONResponse struct{ ClaimConflictJSONResponse }
+
+func (response ClaimGuestGame409JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response ClaimGuestGame413JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response ClaimGuestGame415JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame422JSONResponse struct {
+	UnprocessableEntityJSONResponse
+}
+
+func (response ClaimGuestGame422JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ClaimGuestGame500JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimGuestGame503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ClaimGuestGame503JSONResponse) VisitClaimGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAccountGameRequestObject struct {
+	AccountGameId AccountGameId `json:"accountGameId"`
+	Params        DeleteAccountGameParams
+}
+
+type DeleteAccountGameResponseObject interface {
+	VisitDeleteAccountGameResponse(w http.ResponseWriter) error
+}
+
+type DeleteAccountGame204Response struct {
+}
+
+func (response DeleteAccountGame204Response) VisitDeleteAccountGameResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAccountGame401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response DeleteAccountGame401JSONResponse) VisitDeleteAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAccountGame403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAccountGame403JSONResponse) VisitDeleteAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAccountGame404JSONResponse struct {
+	AccountGameNotFoundJSONResponse
+}
+
+func (response DeleteAccountGame404JSONResponse) VisitDeleteAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAccountGame500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteAccountGame500JSONResponse) VisitDeleteAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAccountGame503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response DeleteAccountGame503JSONResponse) VisitDeleteAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAccountGameRequestObject struct {
+	AccountGameId AccountGameId `json:"accountGameId"`
+	Params        GetAccountGameParams
+}
+
+type GetAccountGameResponseObject interface {
+	VisitGetAccountGameResponse(w http.ResponseWriter) error
+}
+
+type GetAccountGame200JSONResponse AccountGame
+
+func (response GetAccountGame200JSONResponse) VisitGetAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAccountGame401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response GetAccountGame401JSONResponse) VisitGetAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAccountGame404JSONResponse struct {
+	AccountGameNotFoundJSONResponse
+}
+
+func (response GetAccountGame404JSONResponse) VisitGetAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAccountGame500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetAccountGame500JSONResponse) VisitGetAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAccountGame503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetAccountGame503JSONResponse) VisitGetAccountGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameActionRequestObject struct {
+	AccountGameId AccountGameId `json:"accountGameId"`
+	Params        ApplyAccountGameActionParams
+	Body          *ApplyAccountGameActionJSONRequestBody
+}
+
+type ApplyAccountGameActionResponseObject interface {
+	VisitApplyAccountGameActionResponse(w http.ResponseWriter) error
+}
+
+type ApplyAccountGameAction200JSONResponse AccountActionResponse
+
+func (response ApplyAccountGameAction200JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ApplyAccountGameAction400JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response ApplyAccountGameAction401JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApplyAccountGameAction403JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction404JSONResponse struct {
+	AccountGameNotFoundJSONResponse
+}
+
+func (response ApplyAccountGameAction404JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction409JSONResponse struct {
+	AccountRevisionConflictJSONResponse
+}
+
+func (response ApplyAccountGameAction409JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response ApplyAccountGameAction413JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response ApplyAccountGameAction415JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction422JSONResponse struct {
+	UnprocessableEntityJSONResponse
+}
+
+func (response ApplyAccountGameAction422JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ApplyAccountGameAction500JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyAccountGameAction503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ApplyAccountGameAction503JSONResponse) VisitApplyAccountGameActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevokeAccountSessionsRequestObject struct {
+	Params RevokeAccountSessionsParams
+}
+
+type RevokeAccountSessionsResponseObject interface {
+	VisitRevokeAccountSessionsResponse(w http.ResponseWriter) error
+}
+
+type RevokeAccountSessions204ResponseHeaders struct {
+	SetCookie string
+}
+
+type RevokeAccountSessions204Response struct {
+	Headers RevokeAccountSessions204ResponseHeaders
+}
+
+func (response RevokeAccountSessions204Response) VisitRevokeAccountSessionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokeAccountSessions401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response RevokeAccountSessions401JSONResponse) VisitRevokeAccountSessionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevokeAccountSessions403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RevokeAccountSessions403JSONResponse) VisitRevokeAccountSessionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevokeAccountSessions500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response RevokeAccountSessions500JSONResponse) VisitRevokeAccountSessionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevokeAccountSessions503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response RevokeAccountSessions503JSONResponse) VisitRevokeAccountSessionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CompleteGoogleLoginRequestObject struct {
+	Params CompleteGoogleLoginParams
+}
+
+type CompleteGoogleLoginResponseObject interface {
+	VisitCompleteGoogleLoginResponse(w http.ResponseWriter) error
+}
+
+type CompleteGoogleLogin303ResponseHeaders struct {
+	Location  string
+	SetCookie string
+}
+
+type CompleteGoogleLogin303Response struct {
+	Headers CompleteGoogleLogin303ResponseHeaders
+}
+
+func (response CompleteGoogleLogin303Response) VisitCompleteGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(303)
+	return nil
+}
+
+type CompleteGoogleLogin400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CompleteGoogleLogin400JSONResponse) VisitCompleteGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CompleteGoogleLogin500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CompleteGoogleLogin500JSONResponse) VisitCompleteGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CompleteGoogleLogin503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response CompleteGoogleLogin503JSONResponse) VisitCompleteGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type BeginGoogleLoginRequestObject struct {
+	Params BeginGoogleLoginParams
+}
+
+type BeginGoogleLoginResponseObject interface {
+	VisitBeginGoogleLoginResponse(w http.ResponseWriter) error
+}
+
+type BeginGoogleLogin303ResponseHeaders struct {
+	Location string
+}
+
+type BeginGoogleLogin303Response struct {
+	Headers BeginGoogleLogin303ResponseHeaders
+}
+
+func (response BeginGoogleLogin303Response) VisitBeginGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(303)
+	return nil
+}
+
+type BeginGoogleLogin400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response BeginGoogleLogin400JSONResponse) VisitBeginGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type BeginGoogleLogin500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response BeginGoogleLogin500JSONResponse) VisitBeginGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type BeginGoogleLogin503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response BeginGoogleLogin503JSONResponse) VisitBeginGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LogoutAccountRequestObject struct {
+	Params LogoutAccountParams
+}
+
+type LogoutAccountResponseObject interface {
+	VisitLogoutAccountResponse(w http.ResponseWriter) error
+}
+
+type LogoutAccount204ResponseHeaders struct {
+	SetCookie string
+}
+
+type LogoutAccount204Response struct {
+	Headers LogoutAccount204ResponseHeaders
+}
+
+func (response LogoutAccount204Response) VisitLogoutAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(204)
+	return nil
+}
+
+type LogoutAccount401JSONResponse struct {
+	AccountUnauthorizedJSONResponse
+}
+
+func (response LogoutAccount401JSONResponse) VisitLogoutAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LogoutAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response LogoutAccount403JSONResponse) VisitLogoutAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LogoutAccount500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response LogoutAccount500JSONResponse) VisitLogoutAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LogoutAccount503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response LogoutAccount503JSONResponse) VisitLogoutAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGuestGameRequestObject struct {
+	Body *CreateGuestGameJSONRequestBody
+}
+
+type CreateGuestGameResponseObject interface {
+	VisitCreateGuestGameResponse(w http.ResponseWriter) error
+}
+
+type CreateGuestGame201JSONResponse GuestGame
+
+func (response CreateGuestGame201JSONResponse) VisitCreateGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGuestGame400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateGuestGame400JSONResponse) VisitCreateGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGuestGame413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response CreateGuestGame413JSONResponse) VisitCreateGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGuestGame415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response CreateGuestGame415JSONResponse) VisitCreateGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGuestGame422JSONResponse struct {
+	UnprocessableEntityJSONResponse
+}
+
+func (response CreateGuestGame422JSONResponse) VisitCreateGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGuestGame500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateGuestGame500JSONResponse) VisitCreateGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGuestGame503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response CreateGuestGame503JSONResponse) VisitCreateGuestGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyGuestActionRequestObject struct {
+	Body *ApplyGuestActionJSONRequestBody
+}
+
+type ApplyGuestActionResponseObject interface {
+	VisitApplyGuestActionResponse(w http.ResponseWriter) error
+}
+
+type ApplyGuestAction200JSONResponse GuestActionResponse
+
+func (response ApplyGuestAction200JSONResponse) VisitApplyGuestActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyGuestAction400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ApplyGuestAction400JSONResponse) VisitApplyGuestActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyGuestAction409JSONResponse struct {
+	GuestRevisionConflictJSONResponse
+}
+
+func (response ApplyGuestAction409JSONResponse) VisitApplyGuestActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyGuestAction413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response ApplyGuestAction413JSONResponse) VisitApplyGuestActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyGuestAction415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response ApplyGuestAction415JSONResponse) VisitApplyGuestActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyGuestAction422JSONResponse struct {
+	UnprocessableEntityJSONResponse
+}
+
+func (response ApplyGuestAction422JSONResponse) VisitApplyGuestActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyGuestAction500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ApplyGuestAction500JSONResponse) VisitApplyGuestActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyGuestAction503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ApplyGuestAction503JSONResponse) VisitApplyGuestActionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
 
 type ListSessionsRequestObject struct {
 }
@@ -1777,6 +3798,48 @@ func (response GetHealth500JSONResponse) VisitGetHealthResponse(w http.ResponseW
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Delete the account, sessions, and owned games
+	// (DELETE /api/v1/account)
+	DeleteCurrentAccount(ctx context.Context, request DeleteCurrentAccountRequestObject) (DeleteCurrentAccountResponseObject, error)
+	// Read the authenticated account profile
+	// (GET /api/v1/account)
+	GetCurrentAccount(ctx context.Context, request GetCurrentAccountRequestObject) (GetCurrentAccountResponseObject, error)
+	// List games owned by the authenticated account
+	// (GET /api/v1/account/games)
+	ListAccountGames(ctx context.Context, request ListAccountGamesRequestObject) (ListAccountGamesResponseObject, error)
+	// Create an account-owned game
+	// (POST /api/v1/account/games)
+	CreateAccountGame(ctx context.Context, request CreateAccountGameRequestObject) (CreateAccountGameResponseObject, error)
+	// Idempotently claim one sealed guest game
+	// (POST /api/v1/account/games/claim)
+	ClaimGuestGame(ctx context.Context, request ClaimGuestGameRequestObject) (ClaimGuestGameResponseObject, error)
+	// Delete one owner-scoped account game
+	// (DELETE /api/v1/account/games/{accountGameId})
+	DeleteAccountGame(ctx context.Context, request DeleteAccountGameRequestObject) (DeleteAccountGameResponseObject, error)
+	// Read one owner-scoped account game
+	// (GET /api/v1/account/games/{accountGameId})
+	GetAccountGame(ctx context.Context, request GetAccountGameRequestObject) (GetAccountGameResponseObject, error)
+	// Apply one revisioned action to an owner-scoped game
+	// (POST /api/v1/account/games/{accountGameId}/actions)
+	ApplyAccountGameAction(ctx context.Context, request ApplyAccountGameActionRequestObject) (ApplyAccountGameActionResponseObject, error)
+	// Revoke all application sessions for the account
+	// (POST /api/v1/account/sessions/revoke)
+	RevokeAccountSessions(ctx context.Context, request RevokeAccountSessionsRequestObject) (RevokeAccountSessionsResponseObject, error)
+	// Complete Google OIDC and rotate the application session
+	// (GET /api/v1/auth/google/callback)
+	CompleteGoogleLogin(ctx context.Context, request CompleteGoogleLoginRequestObject) (CompleteGoogleLoginResponseObject, error)
+	// Begin a single-use Google OIDC login
+	// (GET /api/v1/auth/google/start)
+	BeginGoogleLogin(ctx context.Context, request BeginGoogleLoginRequestObject) (BeginGoogleLoginResponseObject, error)
+	// Revoke the current application session
+	// (POST /api/v1/auth/logout)
+	LogoutAccount(ctx context.Context, request LogoutAccountRequestObject) (LogoutAccountResponseObject, error)
+	// Create one stateless sealed guest game
+	// (POST /api/v1/guest/games)
+	CreateGuestGame(ctx context.Context, request CreateGuestGameRequestObject) (CreateGuestGameResponseObject, error)
+	// Apply one action to a sealed guest game
+	// (POST /api/v1/guest/games/actions)
+	ApplyGuestAction(ctx context.Context, request ApplyGuestActionRequestObject) (ApplyGuestActionResponseObject, error)
 	// List active and recovered sessions
 	// (GET /api/v1/sessions)
 	ListSessions(ctx context.Context, request ListSessionsRequestObject) (ListSessionsResponseObject, error)
@@ -1833,6 +3896,404 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// DeleteCurrentAccount operation middleware
+func (sh *strictHandler) DeleteCurrentAccount(w http.ResponseWriter, r *http.Request, params DeleteCurrentAccountParams) {
+	var request DeleteCurrentAccountRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteCurrentAccount(ctx, request.(DeleteCurrentAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteCurrentAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteCurrentAccountResponseObject); ok {
+		if err := validResponse.VisitDeleteCurrentAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCurrentAccount operation middleware
+func (sh *strictHandler) GetCurrentAccount(w http.ResponseWriter, r *http.Request, params GetCurrentAccountParams) {
+	var request GetCurrentAccountRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCurrentAccount(ctx, request.(GetCurrentAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCurrentAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCurrentAccountResponseObject); ok {
+		if err := validResponse.VisitGetCurrentAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountGames operation middleware
+func (sh *strictHandler) ListAccountGames(w http.ResponseWriter, r *http.Request, params ListAccountGamesParams) {
+	var request ListAccountGamesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountGames(ctx, request.(ListAccountGamesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountGames")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountGamesResponseObject); ok {
+		if err := validResponse.VisitListAccountGamesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateAccountGame operation middleware
+func (sh *strictHandler) CreateAccountGame(w http.ResponseWriter, r *http.Request, params CreateAccountGameParams) {
+	var request CreateAccountGameRequestObject
+
+	request.Params = params
+
+	var body CreateAccountGameJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateAccountGame(ctx, request.(CreateAccountGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateAccountGame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateAccountGameResponseObject); ok {
+		if err := validResponse.VisitCreateAccountGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClaimGuestGame operation middleware
+func (sh *strictHandler) ClaimGuestGame(w http.ResponseWriter, r *http.Request, params ClaimGuestGameParams) {
+	var request ClaimGuestGameRequestObject
+
+	request.Params = params
+
+	var body ClaimGuestGameJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClaimGuestGame(ctx, request.(ClaimGuestGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClaimGuestGame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClaimGuestGameResponseObject); ok {
+		if err := validResponse.VisitClaimGuestGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAccountGame operation middleware
+func (sh *strictHandler) DeleteAccountGame(w http.ResponseWriter, r *http.Request, accountGameId AccountGameId, params DeleteAccountGameParams) {
+	var request DeleteAccountGameRequestObject
+
+	request.AccountGameId = accountGameId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAccountGame(ctx, request.(DeleteAccountGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAccountGame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAccountGameResponseObject); ok {
+		if err := validResponse.VisitDeleteAccountGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountGame operation middleware
+func (sh *strictHandler) GetAccountGame(w http.ResponseWriter, r *http.Request, accountGameId AccountGameId, params GetAccountGameParams) {
+	var request GetAccountGameRequestObject
+
+	request.AccountGameId = accountGameId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountGame(ctx, request.(GetAccountGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountGame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountGameResponseObject); ok {
+		if err := validResponse.VisitGetAccountGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplyAccountGameAction operation middleware
+func (sh *strictHandler) ApplyAccountGameAction(w http.ResponseWriter, r *http.Request, accountGameId AccountGameId, params ApplyAccountGameActionParams) {
+	var request ApplyAccountGameActionRequestObject
+
+	request.AccountGameId = accountGameId
+	request.Params = params
+
+	var body ApplyAccountGameActionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyAccountGameAction(ctx, request.(ApplyAccountGameActionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyAccountGameAction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplyAccountGameActionResponseObject); ok {
+		if err := validResponse.VisitApplyAccountGameActionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeAccountSessions operation middleware
+func (sh *strictHandler) RevokeAccountSessions(w http.ResponseWriter, r *http.Request, params RevokeAccountSessionsParams) {
+	var request RevokeAccountSessionsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeAccountSessions(ctx, request.(RevokeAccountSessionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeAccountSessions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeAccountSessionsResponseObject); ok {
+		if err := validResponse.VisitRevokeAccountSessionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CompleteGoogleLogin operation middleware
+func (sh *strictHandler) CompleteGoogleLogin(w http.ResponseWriter, r *http.Request, params CompleteGoogleLoginParams) {
+	var request CompleteGoogleLoginRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteGoogleLogin(ctx, request.(CompleteGoogleLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteGoogleLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteGoogleLoginResponseObject); ok {
+		if err := validResponse.VisitCompleteGoogleLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BeginGoogleLogin operation middleware
+func (sh *strictHandler) BeginGoogleLogin(w http.ResponseWriter, r *http.Request, params BeginGoogleLoginParams) {
+	var request BeginGoogleLoginRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BeginGoogleLogin(ctx, request.(BeginGoogleLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BeginGoogleLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BeginGoogleLoginResponseObject); ok {
+		if err := validResponse.VisitBeginGoogleLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LogoutAccount operation middleware
+func (sh *strictHandler) LogoutAccount(w http.ResponseWriter, r *http.Request, params LogoutAccountParams) {
+	var request LogoutAccountRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LogoutAccount(ctx, request.(LogoutAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LogoutAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutAccountResponseObject); ok {
+		if err := validResponse.VisitLogoutAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateGuestGame operation middleware
+func (sh *strictHandler) CreateGuestGame(w http.ResponseWriter, r *http.Request) {
+	var request CreateGuestGameRequestObject
+
+	var body CreateGuestGameJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateGuestGame(ctx, request.(CreateGuestGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateGuestGame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateGuestGameResponseObject); ok {
+		if err := validResponse.VisitCreateGuestGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplyGuestAction operation middleware
+func (sh *strictHandler) ApplyGuestAction(w http.ResponseWriter, r *http.Request) {
+	var request ApplyGuestActionRequestObject
+
+	var body ApplyGuestActionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyGuestAction(ctx, request.(ApplyGuestActionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyGuestAction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplyGuestActionResponseObject); ok {
+		if err := validResponse.VisitApplyGuestActionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListSessions operation middleware
@@ -2085,79 +4546,107 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"tIkcZXNbAAA=",
+	"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",
+	"WfL+DSyx1Ntmyy8uFv8fAAD///UGlKOHmwAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
