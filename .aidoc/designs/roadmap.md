@@ -30,12 +30,12 @@ The next approved milestone adds optional Google accounts while preserving guest
 
 Guest-first play keeps Sudoku immediate while accounts add explicit cross-device continuity and a My games surface. One browser-held guest game avoids an anonymous game library and gives the claim boundary one understandable, auditable transition.
 
-The account milestone replaces anonymous server recovery with sealed browser-held guest state, then adds Google identity, revocable web sessions, account-owned games, and one idempotent claim transaction. Existing catalog and game-engine boundaries remain authoritative.
+The account milestone replaces anonymous server recovery with sealed browser-held guest state, then adds Google identity, revocable web sessions, account-owned games, and one idempotent claim transaction. Schema version 3 now provides the provider-keyed identity, digest-only session, and owner-scoped account-game persistence foundation; runtime authentication, sealing, claim, and OpenAPI wiring come next. Existing catalog and game-engine boundaries remain authoritative.
 
 ## Approved Delivery Sequence
 
 1. Keep the backend and frontend account design documents aligned on ownership states, sealed guest documents, OIDC and web sessions, claim, deletion, retention, and threat model.
-2. Implement backend identity/session tables, Google OIDC, guest sealed-document actions, account-game authorization, idempotent claim, logout/revocation, and the OpenAPI contract.
+2. Extend the backend persistence foundation with Google OIDC, guest sealed-document actions, account-game HTTP authorization, idempotent claim, logout/revocation, and the OpenAPI contract.
 3. Implement the frontend's single-record IndexedDB repository, guest recovery, sign-in return, explicit claim, My games, and account controls.
 4. Prove desktop and phone acceptance, stage the coordinated pair, then remove the anonymous server-session path; development sessions may be discarded rather than migrated.
 

@@ -24,6 +24,7 @@ The SQLite schema separates stable base-puzzle identity, independently traceable
 | `.aidoc/designs/database-puzzle-selection.md` | Defines acquisition and balanced reuse of base puzzles |
 | `.aidoc/designs/database-play-statistics.md` | Defines acquisition and completion counters |
 | `.aidoc/designs/e2e-database-scenarios.md` | Owns destructive rebuild and schema-boundary acceptance |
+| `.aidoc/designs/user-accounts.md` | Defines application identity, sessions, owned games, and catalog preservation |
 
 ## Why Identity Is Separate
 
@@ -45,11 +46,17 @@ Offline replenishment stages candidates outside SQLite. `db.PublishPuzzleBatch` 
 
 A player-driven completion atomically changes the active run to `completed` and increments the linked base puzzle's completion count. Repeated completion observation cannot increment either record twice, while automatic solve remains excluded by the shared `playrun.Tracker` policy.
 
+## Account Ownership
+
+Schema version 3 adds `users`, provider-keyed `external_identities`, digest-only `web_sessions`, and owner-scoped `account_games`. Account games reference the shared base puzzle and one presentation-specific play run while storing complete durable engine state and an optimistic revision. Deleting a user cascades identities, sessions, and owned games but preserves the catalog and play-run history.
+
+The persistence boundary resolves account games with both owner and game identifiers, so another user's game is indistinguishable from an absent game. External identity uses the provider issuer and subject pair; profile email remains mutable metadata and never links accounts.
+
 ## Destructive Schema Boundary
 
-Schema version 2 intentionally does not migrate the legacy `puzzles` table. Legacy rows lack enough canonicalization and provenance evidence to choose stable base-puzzle identities without guessing. `db.Open` returns `db.ErrRebuildRequired` and names the supported command instead of silently rewriting data.
+Schema version 3 intentionally does not migrate earlier development schemas. Legacy rows lack enough identity, provenance, or ownership evidence to backfill the current boundaries without guessing. `db.Open` returns `db.ErrRebuildRequired` and names the supported command instead of silently rewriting data.
 
-`sudoku db rebuild --db <path> --yes` atomically drops the disposable catalog, provenance, play-run, and legacy tables, then creates schema version 2. Interactive use requires the exact word `rebuild`; non-interactive use requires `--yes`. The database file remains in place, and any failed transaction leaves the prior schema intact.
+`sudoku db rebuild --db <path> --yes` atomically drops account games, web sessions, external identities, users, catalog, provenance, play-run, and legacy tables, then creates schema version 3. Interactive use requires the exact word `rebuild`; non-interactive use requires `--yes`. The database file remains in place, and any failed transaction leaves the prior schema intact.
 
 ## Failure and Integrity Boundaries
 
@@ -59,7 +66,8 @@ Schema version 2 intentionally does not migrate the legacy `puzzles` table. Lega
 - New play runs begin as `active`; status updates reject unknown states.
 - Rebuild is the only supported transition from a legacy development schema.
 - Catalog import never infers provenance from a filename, grade, or puzzle content; the pinned helper supplies an explicit commit-bound source label and each parsed record supplies its published source hash.
+- Foreign keys cascade private identity state on account deletion without deleting shared catalog rows or play-run history.
 
 ## Verification
 
-Package tests prove full symmetry collapse, deterministic base-puzzle IDs, additive provenance on duplicate catalog content, independent transformed presentation storage, atomic run completion, constrained status, explicit legacy rejection, atomic rebuild, and existing acquisition/statistics behavior. Built-binary scenarios prove hash-pinned import and rebuild behavior plus exact presented-board linkage, stable base identity, completion status, and run-ID preservation across API restart recovery.
+Package tests prove full symmetry collapse, deterministic base-puzzle IDs, additive provenance on duplicate catalog content, independent transformed presentation storage, atomic run completion, provider-keyed identity, session expiry and revocation, owner-scoped optimistic game updates, account-deletion cascades, explicit legacy rejection, atomic rebuild, and existing acquisition/statistics behavior. Built-binary scenarios prove hash-pinned import and rebuild behavior plus exact presented-board linkage, stable base identity, completion status, and run-ID preservation across API restart recovery.
