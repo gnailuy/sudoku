@@ -39,6 +39,16 @@ type WebSession struct {
 	RevokedAt         *time.Time
 }
 
+// WebSessionRotation contains the durable inputs for one completed external
+// login. CandidateUserID is used only when the provider identity is new.
+type WebSessionRotation struct {
+	Identity               ExternalIdentity
+	CandidateUserID        string
+	Session                WebSession
+	PreviousVerifierDigest []byte
+	Now                    time.Time
+}
+
 // AccountGame is durable game state authorized through its owning user.
 type AccountGame struct {
 	ID               string
@@ -150,6 +160,123 @@ func (db *DB) ActiveWebSession(verifierDigest []byte, now time.Time) (*WebSessio
 	}
 	session.RotatedFromID = rotatedFrom.String
 	return &session, nil
+}
+
+// RefreshActiveWebSession advances last-seen and idle expiry without extending
+// the absolute lifetime. Invalid, revoked, and expired digests resolve as absent.
+func (db *DB) RefreshActiveWebSession(verifierDigest []byte, now time.Time, idleLifetime time.Duration) (*WebSession, error) {
+	if len(verifierDigest) == 0 || now.IsZero() || idleLifetime <= 0 {
+		return nil, errors.New("verifier digest, current time, and idle lifetime are required")
+	}
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin web session refresh: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	var session WebSession
+	var rotatedFrom sql.NullString
+	err = tx.QueryRow(`SELECT web_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id
+		FROM web_sessions WHERE verifier_digest = ? AND revoked_at IS NULL
+		AND idle_expires_at > ? AND absolute_expires_at > ?`, verifierDigest, now.UTC(), now.UTC()).Scan(
+		&session.ID, &session.UserID, &session.VerifierDigest, &session.IdleExpiresAt, &session.AbsoluteExpiresAt, &rotatedFrom,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get active web session for refresh: %w", err)
+	}
+	if !bytes.Equal(session.VerifierDigest, verifierDigest) {
+		return nil, nil
+	}
+	session.RotatedFromID = rotatedFrom.String
+	session.IdleExpiresAt = now.UTC().Add(idleLifetime)
+	if session.IdleExpiresAt.After(session.AbsoluteExpiresAt) {
+		session.IdleExpiresAt = session.AbsoluteExpiresAt
+	}
+	if _, err = tx.Exec(`UPDATE web_sessions SET last_seen_at = ?, idle_expires_at = ? WHERE web_session_id = ? AND revoked_at IS NULL`, now.UTC(), session.IdleExpiresAt, session.ID); err != nil {
+		return nil, fmt.Errorf("refresh active web session: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit web session refresh: %w", err)
+	}
+	return &session, nil
+}
+
+// RotateWebSessionForIdentity atomically resolves or creates the account,
+// refreshes mutable profile attributes, revokes the presented prior session,
+// and creates the replacement session. Profile email is never an identity key.
+func (db *DB) RotateWebSessionForIdentity(rotation WebSessionRotation) (User, WebSession, error) {
+	if rotation.Identity.Issuer == "" || rotation.Identity.Subject == "" || rotation.CandidateUserID == "" {
+		return User{}, WebSession{}, errors.New("issuer, subject, and candidate user identity are required")
+	}
+	if rotation.Session.ID == "" || len(rotation.Session.VerifierDigest) == 0 {
+		return User{}, WebSession{}, errors.New("session identity and verifier digest are required")
+	}
+	if rotation.Now.IsZero() || !rotation.Session.IdleExpiresAt.After(rotation.Now) || !rotation.Session.IdleExpiresAt.Before(rotation.Session.AbsoluteExpiresAt) {
+		return User{}, WebSession{}, errors.New("valid session time bounds are required")
+	}
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return User{}, WebSession{}, fmt.Errorf("begin web session rotation: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var user User
+	err = tx.QueryRow(`SELECT u.user_id, u.profile_email, u.display_name
+		FROM external_identities i JOIN users u ON u.user_id = i.user_id
+		WHERE i.issuer = ? AND i.subject = ?`, rotation.Identity.Issuer, rotation.Identity.Subject).Scan(&user.ID, &user.ProfileEmail, &user.DisplayName)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		user = User{ID: rotation.CandidateUserID, ProfileEmail: rotation.Identity.ProfileEmail, DisplayName: rotation.Identity.DisplayName}
+		if _, err = tx.Exec(`INSERT INTO users (user_id, profile_email, display_name) VALUES (?, ?, ?)`, user.ID, user.ProfileEmail, user.DisplayName); err != nil {
+			return User{}, WebSession{}, fmt.Errorf("create login user: %w", err)
+		}
+		if _, err = tx.Exec(`INSERT INTO external_identities (issuer, subject, user_id, profile_email, display_name) VALUES (?, ?, ?, ?, ?)`, rotation.Identity.Issuer, rotation.Identity.Subject, user.ID, user.ProfileEmail, user.DisplayName); err != nil {
+			return User{}, WebSession{}, fmt.Errorf("create login identity: %w", err)
+		}
+	case err != nil:
+		return User{}, WebSession{}, fmt.Errorf("resolve login identity: %w", err)
+	default:
+		user.ProfileEmail = rotation.Identity.ProfileEmail
+		user.DisplayName = rotation.Identity.DisplayName
+		if _, err = tx.Exec(`UPDATE external_identities SET profile_email = ?, display_name = ?, updated_at = ? WHERE issuer = ? AND subject = ?`, user.ProfileEmail, user.DisplayName, rotation.Now.UTC(), rotation.Identity.Issuer, rotation.Identity.Subject); err != nil {
+			return User{}, WebSession{}, fmt.Errorf("refresh login identity: %w", err)
+		}
+		if _, err = tx.Exec(`UPDATE users SET profile_email = ?, display_name = ?, updated_at = ? WHERE user_id = ?`, user.ProfileEmail, user.DisplayName, rotation.Now.UTC(), user.ID); err != nil {
+			return User{}, WebSession{}, fmt.Errorf("refresh login user: %w", err)
+		}
+	}
+
+	var previousSessionID string
+	if len(rotation.PreviousVerifierDigest) > 0 {
+		err = tx.QueryRow(`SELECT web_session_id FROM web_sessions WHERE verifier_digest = ? AND revoked_at IS NULL`, rotation.PreviousVerifierDigest).Scan(&previousSessionID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return User{}, WebSession{}, fmt.Errorf("resolve previous web session: %w", err)
+		}
+		if err == nil {
+			if _, err = tx.Exec(`UPDATE web_sessions SET revoked_at = ? WHERE web_session_id = ? AND revoked_at IS NULL`, rotation.Now.UTC(), previousSessionID); err != nil {
+				return User{}, WebSession{}, fmt.Errorf("revoke previous web session: %w", err)
+			}
+		}
+	}
+
+	rotation.Session.UserID = user.ID
+	rotation.Session.RotatedFromID = previousSessionID
+	var rotatedFrom any
+	if previousSessionID != "" {
+		rotatedFrom = previousSessionID
+	}
+	if _, err = tx.Exec(`INSERT INTO web_sessions
+		(web_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id)
+		VALUES (?, ?, ?, ?, ?, ?)`, rotation.Session.ID, rotation.Session.UserID, rotation.Session.VerifierDigest,
+		rotation.Session.IdleExpiresAt.UTC(), rotation.Session.AbsoluteExpiresAt.UTC(), rotatedFrom); err != nil {
+		return User{}, WebSession{}, fmt.Errorf("create rotated web session: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return User{}, WebSession{}, fmt.Errorf("commit web session rotation: %w", err)
+	}
+	return user, rotation.Session, nil
 }
 
 func (db *DB) RevokeWebSession(userID, sessionID string) (bool, error) {

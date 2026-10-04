@@ -168,3 +168,63 @@ func TestDeleteUserCascadesPrivateStateAndPreservesCatalog(t *testing.T) {
 		t.Fatalf("play run = %+v, %v", run, err)
 	}
 }
+
+func TestWebSessionRotationIsAtomic(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if err := database.CreateUser(User{ID: "user-a"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.LinkExternalIdentity(ExternalIdentity{Issuer: "https://issuer.example", Subject: "subject-a", UserID: "user-a"}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	oldDigest := []byte("old-digest")
+	if err := database.CreateWebSession(WebSession{ID: "session-a", UserID: "user-a", VerifierDigest: oldDigest, IdleExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: now.Add(24 * time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = database.RotateWebSessionForIdentity(WebSessionRotation{
+		Identity:               ExternalIdentity{Issuer: "https://issuer.example", Subject: "subject-a"},
+		CandidateUserID:        "unused-user",
+		PreviousVerifierDigest: oldDigest,
+		Now:                    now.Add(time.Minute),
+		Session: WebSession{
+			ID: "session-a", VerifierDigest: []byte("replacement-digest"),
+			IdleExpiresAt: now.Add(2 * time.Hour), AbsoluteExpiresAt: now.Add(24 * time.Hour),
+		},
+	})
+	if err == nil {
+		t.Fatal("expected duplicate replacement session identity to fail")
+	}
+	active, err := database.ActiveWebSession(oldDigest, now.Add(2*time.Minute))
+	if err != nil || active == nil || active.ID != "session-a" {
+		t.Fatalf("prior session after rollback = %+v, %v", active, err)
+	}
+}
+
+func TestRefreshActiveWebSessionCapsIdleExpiryAtAbsoluteLifetime(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if err := database.CreateUser(User{ID: "user-a"}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	digest := []byte("digest-a")
+	absolute := now.Add(2 * time.Hour)
+	if err := database.CreateWebSession(WebSession{ID: "session-a", UserID: "user-a", VerifierDigest: digest, IdleExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: absolute}); err != nil {
+		t.Fatal(err)
+	}
+	refreshed, err := database.RefreshActiveWebSession(digest, now.Add(30*time.Minute), 3*time.Hour)
+	if err != nil || refreshed == nil || !refreshed.IdleExpiresAt.Equal(absolute) {
+		t.Fatalf("refreshed session = %+v, %v", refreshed, err)
+	}
+	if expired, err := database.RefreshActiveWebSession(digest, absolute, time.Hour); err != nil || expired != nil {
+		t.Fatalf("absolute-expired session = %+v, %v", expired, err)
+	}
+}
