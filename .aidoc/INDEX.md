@@ -84,12 +84,13 @@ The project index provides reading chains for common starting points and a compl
 11. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
 12. `.aidoc/designs/user-accounts.md` — approved guest, identity, ownership, claim, and account security contract
 13. `db/accounts.go` — provider-keyed identities, digest-only sessions, and owner-scoped durable games
-14. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
-15. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
-16. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
-17. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
-18. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
-19. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+14. `guestdoc/guestdoc.go` — sealed stateless guest games, key rotation, expiry, and revisioned actions
+15. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
+16. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
+17. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
+18. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
+19. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
+20. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
@@ -184,6 +185,7 @@ The project index provides reading chains for common starting points and a compl
 | `scripts/coverage_report.py` | Package-level Go coverage summary for risk-based CI review |
 | `db/db.go` | SQLite puzzle and account database — open, close, schema migration |
 | `db/accounts.go` | Provider identity, revocable session, and owner-scoped account-game persistence |
+| `guestdoc/guestdoc.go` | Sealed guest documents, bounded key rotation, expiry, and revisioned engine transitions |
 | `db/puzzle.go` | Puzzle CRUD, random query by difficulty, statistics |
 | `game/contract.go` | Stable engine actions, snapshots, results, and typed errors |
 | `game/serialization.go` | Versioned JSON session serialization, validation, and restoration |
