@@ -165,12 +165,19 @@ func createSchema(conn *sql.Conn) error {
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS guest_claims (
+			claim_fingerprint BLOB PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			account_game_id TEXT NOT NULL UNIQUE,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
 		`CREATE INDEX IF NOT EXISTS base_puzzles_acquisition_idx ON base_puzzles (difficulty, play_count, last_played_at)`,
 		`CREATE INDEX IF NOT EXISTS puzzle_provenance_base_idx ON puzzle_provenance (base_puzzle_id)`,
 		`CREATE INDEX IF NOT EXISTS play_runs_base_idx ON play_runs (base_puzzle_id, created_at)`,
 		`CREATE INDEX IF NOT EXISTS external_identities_user_idx ON external_identities (user_id)`,
 		`CREATE INDEX IF NOT EXISTS web_sessions_user_idx ON web_sessions (user_id, revoked_at)`,
 		`CREATE INDEX IF NOT EXISTS account_games_user_idx ON account_games (user_id, updated_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS guest_claims_user_idx ON guest_claims (user_id, created_at)`,
 	}
 	for _, statement := range statements {
 		if _, err := conn.ExecContext(context.Background(), statement); err != nil {
@@ -201,7 +208,7 @@ func Rebuild(path string) (err error) {
 			_, _ = dedicated.ExecContext(context.Background(), `ROLLBACK`)
 		}
 	}()
-	for _, table := range []string{"account_games", "web_sessions", "external_identities", "users", "play_runs", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
+	for _, table := range []string{"guest_claims", "account_games", "web_sessions", "external_identities", "users", "play_runs", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
 		if _, err = dedicated.ExecContext(context.Background(), `DROP TABLE IF EXISTS `+table); err != nil {
 			return fmt.Errorf("drop %s: %w", table, err)
 		}

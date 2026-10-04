@@ -9,6 +9,7 @@ import (
 )
 
 var ErrIdentityAlreadyLinked = errors.New("external identity is already linked to another user")
+var ErrGuestAlreadyClaimed = errors.New("guest game is already claimed")
 
 // User is one application account. Email and display name are mutable profile
 // attributes and are never used as identity keys.
@@ -59,6 +60,14 @@ type AccountGame struct {
 	Revision         int64
 	ActualDifficulty string
 	UpdatedAt        time.Time
+}
+
+// GuestClaim contains the durable inputs for one authenticated transition from
+// a sealed guest document to an owner-scoped account game.
+type GuestClaim struct {
+	Fingerprint     []byte
+	AccountGame     AccountGame
+	PresentedPuzzle string
 }
 
 func (db *DB) CreateUser(user User) error {
@@ -313,11 +322,71 @@ func (db *DB) CreateAccountGame(accountGame AccountGame) error {
 	return nil
 }
 
+// ClaimGuestGame atomically creates the presentation-specific play run,
+// account game, and stable claim record. A retry by the same owner returns the
+// original game; another owner receives the same bounded claimed error.
+func (db *DB) ClaimGuestGame(claim GuestClaim) (AccountGame, bool, error) {
+	game := claim.AccountGame
+	if len(claim.Fingerprint) == 0 || claim.PresentedPuzzle == "" || game.ID == "" || game.UserID == "" || game.BasePuzzleID == "" || game.PlayRunID == "" || len(game.EngineState) == 0 || game.ActualDifficulty == "" {
+		return AccountGame{}, false, errors.New("claim fingerprint, presentation, account game, owner, puzzle, play run, state, and difficulty are required")
+	}
+	if game.Revision < 0 {
+		return AccountGame{}, false, errors.New("account game revision must be non-negative")
+	}
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return AccountGame{}, false, fmt.Errorf("begin guest claim: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var existingUserID, existingGameID string
+	err = tx.QueryRow(`SELECT user_id, account_game_id FROM guest_claims WHERE claim_fingerprint = ?`, claim.Fingerprint).Scan(&existingUserID, &existingGameID)
+	switch {
+	case err == nil && existingUserID != game.UserID:
+		return AccountGame{}, false, ErrGuestAlreadyClaimed
+	case err == nil:
+		existing, lookupErr := accountGameByID(tx, game.UserID, existingGameID)
+		if lookupErr != nil {
+			return AccountGame{}, false, lookupErr
+		}
+		if existing == nil {
+			return AccountGame{}, false, ErrGuestAlreadyClaimed
+		}
+		return *existing, false, nil
+	case !errors.Is(err, sql.ErrNoRows):
+		return AccountGame{}, false, fmt.Errorf("resolve guest claim: %w", err)
+	}
+
+	if _, err = tx.Exec(`INSERT INTO play_runs (play_run_id, base_puzzle_id, presented_puzzle, status) VALUES (?, ?, ?, 'active')`, game.PlayRunID, game.BasePuzzleID, claim.PresentedPuzzle); err != nil {
+		return AccountGame{}, false, fmt.Errorf("create claimed play run: %w", err)
+	}
+	if _, err = tx.Exec(`INSERT INTO account_games
+		(account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`, game.ID, game.UserID, game.BasePuzzleID, game.PlayRunID, game.EngineState, game.Revision, game.ActualDifficulty); err != nil {
+		return AccountGame{}, false, fmt.Errorf("create claimed account game: %w", err)
+	}
+	if _, err = tx.Exec(`INSERT INTO guest_claims (claim_fingerprint, user_id, account_game_id) VALUES (?, ?, ?)`, claim.Fingerprint, game.UserID, game.ID); err != nil {
+		return AccountGame{}, false, fmt.Errorf("record guest claim: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return AccountGame{}, false, fmt.Errorf("commit guest claim: %w", err)
+	}
+	return game, true, nil
+}
+
 // AccountGameByID includes the owner predicate in the query so callers cannot
 // distinguish another user's game from an absent game.
 func (db *DB) AccountGameByID(userID, accountGameID string) (*AccountGame, error) {
+	return accountGameByID(db.conn, userID, accountGameID)
+}
+
+type accountGameQuery interface {
+	QueryRow(string, ...any) *sql.Row
+}
+
+func accountGameByID(query accountGameQuery, userID, accountGameID string) (*AccountGame, error) {
 	var accountGame AccountGame
-	err := db.conn.QueryRow(`SELECT account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty, updated_at
+	err := query.QueryRow(`SELECT account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty, updated_at
 		FROM account_games WHERE account_game_id = ? AND user_id = ?`, accountGameID, userID).Scan(
 		&accountGame.ID, &accountGame.UserID, &accountGame.BasePuzzleID, &accountGame.PlayRunID, &accountGame.EngineState, &accountGame.Revision, &accountGame.ActualDifficulty, &accountGame.UpdatedAt,
 	)
