@@ -67,6 +67,8 @@ Already authenticated players create account-owned games from the beginning. Acc
 
 ## API and Persistence Shape
 
+The SQLite persistence foundation stores provider-keyed identities, verifier-digest web sessions, and owner-scoped account games in schema version 3. Account games link shared base puzzles to presentation-specific play runs, retain complete engine state with optimistic revisions, and disappear with their owning user while catalog rows and play-run history remain.
+
 The OpenAPI contract names guest and account resources separately. Guest operations carry sealed documents; authentication operations start login, complete callback, report the current account, log out, and revoke sessions; account-game operations list summaries, create, read, mutate, delete, and claim one guest document.
 
 Account mutations retain optimistic revisions and existing typed engine actions. CSRF protection applies to cookie-authenticated mutations through same-origin enforcement plus a dedicated token or equivalent explicit request proof; login, callback, claim, and destructive account operations receive bounded rate limits.
@@ -80,6 +82,8 @@ The design defends against forged guest state, OAuth login CSRF and code interce
 Authorization failures reveal no game existence across users. Database, sealing, or persistence failures never claim success; account state remains transactional, while guest state remains usable until the browser atomically replaces its local document.
 
 ## Acceptance Boundary
+
+Package acceptance already proves issuer-subject identity without email linking, digest-only session lookup, expiry and immediate revocation, owner-scoped reads and optimistic mutations, private-state cascades, and catalog preservation. Runtime account and guest routes remain unavailable until the authentication, sealing, and OpenAPI layers adopt that persistence boundary.
 
 Built-binary acceptance proves guest start, action, completion, refresh-compatible replacement, tamper rejection, expiry/schema rejection, and zero durable guest rows. Authentication tests use a deterministic local OIDC fixture to prove state, nonce, PKCE, issuer/audience, rotation, expiry, logout, and revocation without external network dependence.
 

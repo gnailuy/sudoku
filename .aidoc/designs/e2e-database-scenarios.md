@@ -52,7 +52,7 @@ Database behavior crosses generation, classification, persistence, and startup. 
 ### Explicit Destructive Rebuild
 **Setup:** Create an obsolete `puzzles` table with one row.
 **Action:** Open it through `db stats`, attempt an unconfirmed non-interactive rebuild, then run `db rebuild --yes`.
-**Expected:** Normal opening fails closed with rebuild guidance, missing confirmation changes nothing, and confirmed rebuild creates the versioned base-puzzle, provenance, and play-run tables without preserving unverifiable legacy rows.
+**Expected:** Normal opening fails closed with rebuild guidance, missing confirmation changes nothing, and confirmed rebuild creates the versioned catalog, play-run, identity, web-session, and account-game tables without preserving unverifiable legacy rows.
 
 ### Source and Failure Boundaries
 **Action:** Exercise an empty grade, custom database path, conflicting `--input` or `--resume`, and deterministic generated-fallback accounting.

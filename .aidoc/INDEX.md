@@ -83,12 +83,13 @@ The project index provides reading chains for common starting points and a compl
 10. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
 11. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
 12. `.aidoc/designs/user-accounts.md` — approved guest, identity, ownership, claim, and account security contract
-13. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
-14. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
-15. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
-16. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
-17. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
-18. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+13. `db/accounts.go` — provider-keyed identities, digest-only sessions, and owner-scoped durable games
+14. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
+15. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
+16. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
+17. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
+18. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
+19. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
@@ -181,7 +182,8 @@ The project index provides reading chains for common starting points and a compl
 | `scripts/e2e_api.py` | Built-binary HTTP lifecycle E2E harness |
 | `scripts/e2e_tui.py` | Built-binary PTY TUI and recovery E2E harness |
 | `scripts/coverage_report.py` | Package-level Go coverage summary for risk-based CI review |
-| `db/db.go` | SQLite puzzle database — open, close, schema migration |
+| `db/db.go` | SQLite puzzle and account database — open, close, schema migration |
+| `db/accounts.go` | Provider identity, revocable session, and owner-scoped account-game persistence |
 | `db/puzzle.go` | Puzzle CRUD, random query by difficulty, statistics |
 | `game/contract.go` | Stable engine actions, snapshots, results, and typed errors |
 | `game/serialization.go` | Versioned JSON session serialization, validation, and restoration |

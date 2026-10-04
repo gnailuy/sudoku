@@ -453,14 +453,23 @@ def main():
         )
         contains(
             run(binary, ["db", "rebuild", "--db", str(legacy_database), "--yes"], root),
-            "All catalog, provenance, and play-run rows will be deleted.",
-            "Catalog rebuilt at schema version 2.",
+            "All catalog, play-run, account, identity, and web-session rows will be deleted.",
+            "Database rebuilt at schema version 3.",
         )
         with sqlite3.connect(legacy_database) as connection:
             names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             version = connection.execute("SELECT version FROM schema_metadata WHERE singleton=1").fetchone()[0]
-        if version != 2 or not {"base_puzzles", "puzzle_provenance", "play_runs"}.issubset(names) or "puzzles" in names:
-            raise AssertionError(f"catalog rebuild produced unexpected schema: version={version}, tables={names}")
+        required_tables = {
+            "base_puzzles",
+            "puzzle_provenance",
+            "play_runs",
+            "users",
+            "external_identities",
+            "web_sessions",
+            "account_games",
+        }
+        if version != 3 or not required_tables.issubset(names) or "puzzles" in names:
+            raise AssertionError(f"database rebuild produced unexpected schema: version={version}, tables={names}")
 
         # Public database acquisition exhausts never-played rows before reuse.
         acquisition_database = root / "acquisition.db"

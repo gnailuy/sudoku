@@ -147,11 +147,11 @@ func newDatabaseRebuildCommand() *cobra.Command {
 	var yes bool
 	command := &cobra.Command{
 		Use:   "rebuild",
-		Short: "Destructively rebuild the disposable puzzle catalog",
+		Short: "Destructively rebuild the development database",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			resolved := resolveDatabasePath(path)
-			fmt.Fprintf(command.OutOrStdout(), "Database: %s\nAll catalog, provenance, and play-run rows will be deleted.\n", resolved)
+			fmt.Fprintf(command.OutOrStdout(), "Database: %s\nAll catalog, play-run, account, identity, and web-session rows will be deleted.\n", resolved)
 			if !yes {
 				inputFile, interactive := command.InOrStdin().(*os.File)
 				if !interactive {
@@ -174,7 +174,7 @@ func newDatabaseRebuildCommand() *cobra.Command {
 			if err := db.Rebuild(resolved); err != nil {
 				return err
 			}
-			fmt.Fprintf(command.OutOrStdout(), "Catalog rebuilt at schema version %d.\n", db.SchemaVersion)
+			fmt.Fprintf(command.OutOrStdout(), "Database rebuilt at schema version %d.\n", db.SchemaVersion)
 			return nil
 		},
 	}

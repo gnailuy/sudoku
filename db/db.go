@@ -16,7 +16,7 @@ import (
 type DB struct{ conn *sql.DB }
 
 const (
-	SchemaVersion            = 2
+	SchemaVersion            = 3
 	busyTimeoutMilliseconds  = 5000
 	sqliteBusyCode           = 5
 	journalModeRetryInterval = 10 * time.Millisecond
@@ -97,7 +97,7 @@ func (db *DB) migrate() (err error) {
 func createSchema(conn *sql.Conn) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS schema_metadata (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), version INTEGER NOT NULL)`,
-		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 2)`,
+		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 3)`,
 		`CREATE TABLE IF NOT EXISTS base_puzzles (
 			base_puzzle_id TEXT PRIMARY KEY,
 			canonical_puzzle TEXT NOT NULL UNIQUE,
@@ -126,9 +126,51 @@ func createSchema(conn *sql.Conn) error {
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS users (
+			user_id TEXT PRIMARY KEY,
+			profile_email TEXT NOT NULL DEFAULT '',
+			display_name TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS external_identities (
+			issuer TEXT NOT NULL,
+			subject TEXT NOT NULL,
+			user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			profile_email TEXT NOT NULL DEFAULT '',
+			display_name TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (issuer, subject)
+		)`,
+		`CREATE TABLE IF NOT EXISTS web_sessions (
+			web_session_id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			verifier_digest BLOB NOT NULL UNIQUE,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			idle_expires_at TIMESTAMP NOT NULL,
+			absolute_expires_at TIMESTAMP NOT NULL,
+			rotated_from_id TEXT REFERENCES web_sessions(web_session_id),
+			revoked_at TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS account_games (
+			account_game_id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			base_puzzle_id TEXT NOT NULL REFERENCES base_puzzles(base_puzzle_id),
+			play_run_id TEXT NOT NULL UNIQUE REFERENCES play_runs(play_run_id),
+			engine_state BLOB NOT NULL,
+			revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
+			actual_difficulty TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
 		`CREATE INDEX IF NOT EXISTS base_puzzles_acquisition_idx ON base_puzzles (difficulty, play_count, last_played_at)`,
 		`CREATE INDEX IF NOT EXISTS puzzle_provenance_base_idx ON puzzle_provenance (base_puzzle_id)`,
 		`CREATE INDEX IF NOT EXISTS play_runs_base_idx ON play_runs (base_puzzle_id, created_at)`,
+		`CREATE INDEX IF NOT EXISTS external_identities_user_idx ON external_identities (user_id)`,
+		`CREATE INDEX IF NOT EXISTS web_sessions_user_idx ON web_sessions (user_id, revoked_at)`,
+		`CREATE INDEX IF NOT EXISTS account_games_user_idx ON account_games (user_id, updated_at DESC)`,
 	}
 	for _, statement := range statements {
 		if _, err := conn.ExecContext(context.Background(), statement); err != nil {
@@ -159,7 +201,7 @@ func Rebuild(path string) (err error) {
 			_, _ = dedicated.ExecContext(context.Background(), `ROLLBACK`)
 		}
 	}()
-	for _, table := range []string{"play_runs", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
+	for _, table := range []string{"account_games", "web_sessions", "external_identities", "users", "play_runs", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
 		if _, err = dedicated.ExecContext(context.Background(), `DROP TABLE IF EXISTS `+table); err != nil {
 			return fmt.Errorf("drop %s: %w", table, err)
 		}
