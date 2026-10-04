@@ -1,12 +1,14 @@
 module github.com/gnailuy/sudoku
 
-go 1.23
+go 1.23.0
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.4
+	github.com/coreos/go-oidc/v3 v3.15.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/spf13/cobra v1.7.0
+	golang.org/x/oauth2 v0.28.0
 	modernc.org/sqlite v1.34.5
 )
 
@@ -23,12 +25,13 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.15.2
 	github.com/rivo/uniseg v0.4.7 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 )
 
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -44,10 +47,11 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/sync v0.11.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/tools v0.28.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/ccgo/v4 v4.23.16 // indirect
