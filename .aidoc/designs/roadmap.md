@@ -14,37 +14,39 @@ dependencies:
 
 # Roadmap
 
-The maintained generator scope ends with the offline Expert/Evil catalog replenisher. It productizes the approved exact-seed clue-addition decision without retaining experiment datasets or changing interactive generation.
+The next approved milestone adds optional Google accounts while preserving guest-first play. Delivery begins with the cross-repository ownership and security contract, then implements backend identity and game ownership before the browser adopts the explicit one-game claim flow.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|--------------|
-| `.aidoc/designs/exact-grade-generation-experiment.md` | Canonical replenishment decision and product invariants |
-| `.aidoc/designs/difficulty-model.md` | Fixed deterministic grade and within-grade score contract |
-| `.aidoc/designs/database-catalog.md` | Catalog identity, provenance, and storage boundaries |
-| `.aidoc/designs/database-puzzle-selection.md` | Current acquisition, recycling, and fallback contract |
-| `.aidoc/designs/deployment-hardening.md` | Maintained portable deployment and replacement contract |
+| `.aidoc/designs/user-accounts.md` | Approved guest, identity, claim, and account contract |
+| `.aidoc/designs/web-api.md` | Current client-neutral API and revision boundary |
+| `.aidoc/designs/database-catalog.md` | Shared catalog and presentation-specific play runs |
 | `.aidoc/designs/e2e-test-scenarios.md` | Maintained black-box verification baseline |
+| `.aidoc/designs/deployment-hardening.md` | Portable artifact and replacement contract |
 
-## Why Replenishment Comes Next
+## Why Accounts Come Next
 
-Catalog-first play made exact high-grade selection reliable. The remaining product opportunity is controlled offline supply growth, not a new interactive generator or a repository of experiment outputs.
+Guest-first play keeps Sudoku immediate while accounts add explicit cross-device continuity and a My games surface. One browser-held guest game avoids an anonymous game library and gives the claim boundary one understandable, auditable transition.
 
-Exact-seed clue addition is the smallest approved direction that uses existing classification and canonicalization boundaries. A replenisher can validate a complete candidate batch before storage and keep player requests independent of search cost.
+The account milestone replaces anonymous server recovery with sealed browser-held guest state, then adds Google identity, revocable web sessions, account-owned games, and one idempotent claim transaction. Existing catalog and game-engine boundaries remain authoritative.
 
-## Maintained Replenishment Boundary
+## Approved Delivery Sequence
 
-`sudoku replenish` implements offline Expert/Evil replenishment around the approved exact-seed clue-addition policy. Deterministic classification stays authoritative, canonical duplicates are rejected, derivation provenance identifies the seed and policy, and normal play never enters the search path.
+1. Keep the backend and frontend account design documents aligned on ownership states, sealed guest documents, OIDC and web sessions, claim, deletion, retention, and threat model.
+2. Implement backend identity/session tables, Google OIDC, guest sealed-document actions, account-game authorization, idempotent claim, logout/revocation, and the OpenAPI contract.
+3. Implement the frontend's single-record IndexedDB repository, guest recovery, sign-in return, explicit claim, My games, and account controls.
+4. Prove desktop and phone acceptance, stage the coordinated pair, then remove the anonymous server-session path; development sessions may be discarded rather than migrated.
 
-Hard stays outside the change because its decision evidence was inconclusive. Medium stays outside the change because the pinned catalog has no approved Medium seed source. Interactive deadlines, fallback behavior, solver semantics, visible grades, and current catalog acquisition remain unchanged.
+Generator behavior, solver semantics, visible grades, catalog acquisition, and gameplay interactions remain unchanged. Google is the only version 1 identity provider; email links, shared games, collaboration, and broader social features remain separate decisions.
 
 ## Delivery Gates
 
-- Unit and integration tests cover exact-grade acceptance, canonical duplicates, provenance, interruption, and atomic batch publication.
-- Applicable built-binary E2E scenarios prove that normal CLI and API play remain unchanged.
+- Unit and integration tests cover sealing failures, OIDC validation, session rotation and revocation, ownership, CSRF, rate limits, and transactional claim behavior.
+- Applicable built-binary E2E scenarios prove zero durable guest rows, exact one-game claim, cross-user denial, cross-browser account resume, deletion, and unchanged CLI/TUI behavior.
 - Pull-request CI keeps unit, race, vet, lint, API contract, API E2E, line-CLI E2E, and TUI PTY E2E independent and green.
-- Product documentation describes only current behavior and approved direction; transient measurements remain outside the repository.
+- Product documentation describes only current behavior and approved direction; generated HTML, credentials, and environment-specific topology remain outside the repository.
 - Repository files contain no private hostname, credential, operator path, live port assignment, release identifier, or neighboring-application topology.
 
-No further generator work is scheduled. Strategy-aware construction, blind budget expansion, player-difficulty labels, accounts, multi-user hosting, and production reliability ceremony remain outside maintained scope; each direction requires concrete product evidence and a separately approved design.
+No further generator work is scheduled. Strategy-aware construction, blind budget expansion, player-difficulty labels, shared games, collaboration, and production reliability ceremony remain outside maintained scope; each direction requires concrete product evidence and a separately approved design.

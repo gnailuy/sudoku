@@ -25,6 +25,7 @@ The versioned, general-purpose HTTP backend exposes the existing game engine wit
 | `.aidoc/designs/background-autosave.md` | Private recovery storage available to API sessions |
 | `.aidoc/designs/e2e-api-scenarios.md` | Black-box HTTP acceptance coverage |
 | `.aidoc/architecture/guidelines.md` | Package dependency boundaries |
+| `.aidoc/designs/user-accounts.md` | Approved guest and account ownership boundary |
 
 ## Why the API Is Client-Neutral
 
@@ -89,7 +90,7 @@ Only one `sudoku api` process may own the API recovery namespace at a time. Star
 
 Browser cross-origin access is disabled by default. A repeatable `--allowed-origin` option may enable any exact `http` or `https` origin needed by a separately deployed frontend; wildcards, `null`, path-bearing origins, and malformed origins are rejected. Preflight responses advertise only required methods and headers, including `Authorization` when authentication is active, and browser requests must match a configured origin exactly.
 
-Opaque session IDs prevent accidental collisions and never substitute for authentication. Internet-facing deployments terminate TLS at a trusted reverse proxy or platform boundary; `sudoku api` does not infer identity from forwarded headers. Account-specific authorization, multi-tenant isolation, distributed rate limiting, and shared-game collaboration remain separate product work.
+Opaque legacy session IDs prevent accidental collisions and never substitute for authentication. Internet-facing deployments terminate TLS at a trusted reverse proxy or platform boundary; `sudoku api` does not infer identity from forwarded headers. `.aidoc/designs/user-accounts.md` defines the approved replacement with sealed guest documents and account-scoped authorization; shared-game collaboration remains separate product work.
 
 ## Verification
 

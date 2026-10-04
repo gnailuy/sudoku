@@ -82,12 +82,13 @@ The project index provides reading chains for common starting points and a compl
 9. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and explicit reset behavior
 10. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
 11. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
-12. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
-13. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
-14. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
-15. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
-16. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
-17. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+12. `.aidoc/designs/user-accounts.md` — approved guest, identity, ownership, claim, and account security contract
+13. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
+14. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
+15. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
+16. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
+17. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
+18. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
@@ -130,6 +131,7 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/database-play-statistics.md` | Current completion counters, acquisition/completion statistics, and explicit history reset |
 | `.aidoc/designs/database-concurrency.md` | SQLite connection policy, mixed-workload stress, and multi-process acceptance contract |
 | `.aidoc/designs/future-directions.md` | Non-priority product and production directions with decision gates |
+| `.aidoc/designs/user-accounts.md` | Approved guest, identity, ownership, claim, and account security contract |
 | `.aidoc/designs/web-api.md` | Contract-first OpenAPI workflow, resources, revisions, recovery, client access, and network security boundary |
 | `.aidoc/designs/background-autosave.md` | Background autosave lifecycle, privacy, retention, and conflict design |
 | `.aidoc/designs/automatic-candidates.md` | Automatic-candidate engine contract, TUI interaction, and rendering constraints |
