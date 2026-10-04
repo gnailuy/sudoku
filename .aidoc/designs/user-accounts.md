@@ -69,7 +69,7 @@ Already authenticated players create account-owned games from the beginning. Acc
 
 The SQLite persistence foundation stores provider-keyed identities, verifier-digest web sessions, and owner-scoped account games in schema version 3. Account games link shared base puzzles to presentation-specific play runs, retain complete engine state with optimistic revisions, and disappear with their owning user while catalog rows and play-run history remain.
 
-The OpenAPI contract names guest and account resources separately. Guest operations carry sealed documents; authentication operations start login, complete callback, report the current account, log out, and revoke sessions; account-game operations list summaries, create, read, mutate, delete, and claim one guest document.
+The OpenAPI contract names guest and account resources separately. Guest operations carry sealed documents; authentication operations start login, complete callback, report the current account, log out, and revoke sessions; account-game operations list summaries, create, read, mutate, delete, and claim one guest document. `oidcauth.Manager` owns short-lived single-use state, nonce, PKCE, return-path, issuer, audience, and token-time validation, while `oidcauth.GoogleProvider` owns discovery, code exchange, signature verification, and profile-claim extraction.
 
 Account mutations retain optimistic revisions and existing typed engine actions. CSRF protection applies to cookie-authenticated mutations through same-origin enforcement plus a dedicated token or equivalent explicit request proof; login, callback, claim, and destructive account operations receive bounded rate limits.
 
@@ -83,7 +83,7 @@ Authorization failures reveal no game existence across users. Database, sealing,
 
 ## Acceptance Boundary
 
-Package acceptance proves issuer-subject identity without email linking, digest-only session lookup, expiry and immediate revocation, owner-scoped reads and optimistic mutations, private-state cascades, and catalog preservation. `guestdoc.Sealer` now provides AES-256-GCM sealed documents, versioned key selection, bounded decrypt-only rotation keys, expiry and payload validation, revision-checked engine actions, and active-key resealing without durable guest rows. Runtime account and guest routes remain unavailable until authentication, claim, and OpenAPI wiring adopt these boundaries.
+Package acceptance proves issuer-subject identity without email linking, digest-only session lookup, expiry and immediate revocation, owner-scoped reads and optimistic mutations, private-state cascades, and catalog preservation. `guestdoc.Sealer` provides AES-256-GCM sealed documents, versioned key selection, bounded decrypt-only rotation keys, expiry and payload validation, revision-checked engine actions, and active-key resealing without durable guest rows. `oidcauth.Manager` and `oidcauth.GoogleProvider` provide the bounded Google login transaction and verified issuer-subject profile result without storing Google tokens. Runtime account and guest routes remain unavailable until application-session rotation, claim, and OpenAPI wiring adopt these boundaries.
 
 Built-binary acceptance will prove guest start, action, completion, refresh-compatible replacement, tamper rejection, expiry/schema rejection, and zero durable guest rows when the routes become available. Authentication tests use a deterministic local OIDC fixture to prove state, nonce, PKCE, issuer/audience, rotation, expiry, logout, and revocation without external network dependence.
 
