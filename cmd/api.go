@@ -24,7 +24,7 @@ import (
 )
 
 func newAPICommand() *cobra.Command {
-	var listen, token, dbPath string
+	var listen, token, dbPath, accountsConfig string
 	var origins []string
 	var readTimeout, writeTimeout, idleTimeout, shutdownTimeout time.Duration
 	command := &cobra.Command{
@@ -32,13 +32,14 @@ func newAPICommand() *cobra.Command {
 		Short: "Serve the versioned Sudoku HTTP API",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runAPI(cmd, apiConfig{listen: listen, token: token, dbPath: dbPath, origins: origins, readTimeout: readTimeout, writeTimeout: writeTimeout, idleTimeout: idleTimeout, shutdownTimeout: shutdownTimeout})
+			return runAPI(cmd, apiConfig{listen: listen, token: token, dbPath: dbPath, accountsConfig: accountsConfig, origins: origins, readTimeout: readTimeout, writeTimeout: writeTimeout, idleTimeout: idleTimeout, shutdownTimeout: shutdownTimeout})
 		},
 	}
 	flags := command.Flags()
 	flags.StringVar(&listen, "listen", "127.0.0.1:8080", "HTTP listen address")
 	flags.StringVar(&token, "auth-token", "", "bearer token required for non-loopback listeners")
 	flags.StringVar(&dbPath, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	flags.StringVar(&accountsConfig, "accounts-config", "", "private JSON configuration enabling guest and account routes")
 	flags.StringSliceVar(&origins, "allowed-origin", nil, "allowed browser origin (repeatable)")
 	flags.DurationVar(&readTimeout, "read-timeout", 15*time.Second, "maximum request read time")
 	flags.DurationVar(&writeTimeout, "write-timeout", 30*time.Second, "maximum response write time")
@@ -48,7 +49,7 @@ func newAPICommand() *cobra.Command {
 }
 
 type apiConfig struct {
-	listen, token, dbPath                                   string
+	listen, token, dbPath, accountsConfig                   string
 	origins                                                 []string
 	readTimeout, writeTimeout, idleTimeout, shutdownTimeout time.Duration
 }
@@ -120,6 +121,12 @@ func runAPI(command *cobra.Command, config apiConfig) error {
 		}
 		return webapi.Difficulty(classification.Difficulty), nil
 	})
+	accounts, closeAccounts, err := loadAccountRuntime(command.Context(), config.accountsConfig, config.dbPath, options)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = closeAccounts() }()
+	server.SetAccountRuntime(accounts)
 
 	httpServer := &http.Server{Addr: config.listen, Handler: webapi.NewHandler(server, config.token, config.origins), ReadTimeout: config.readTimeout, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: config.writeTimeout, IdleTimeout: config.idleTimeout, MaxHeaderBytes: 32 << 10}
 	listener, err := net.Listen("tcp", config.listen)

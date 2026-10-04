@@ -176,6 +176,7 @@ type Server struct {
 	createGame        CreateGame
 	createTrackedGame CreateTrackedGame
 	classifyGame      ClassifyGame
+	accounts          *AccountRuntime
 }
 
 func NewServer(registry *Registry, createGame CreateGame) *Server {
@@ -452,7 +453,7 @@ func middleware(next http.Handler, token string, origins map[string]struct{}) ht
 				return
 			}
 		}
-		if r.URL.Path != "/healthz" && token != "" {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/sessions") && token != "" {
 			value, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 			if !ok || value == "" || subtle.ConstantTimeCompare([]byte(value), []byte(token)) != 1 {
 				w.Header().Set("WWW-Authenticate", "Bearer")
@@ -707,60 +708,63 @@ func validateJSONRequest(path string, data []byte) error {
 	if err := decodeStrict(data, &object); err != nil {
 		return err
 	}
-	allowed := map[string]bool{}
 	switch {
-	case path == "/api/v1/sessions":
-		allowed["source"] = true
-		raw, ok := object["source"]
-		if !ok {
-			return errors.New("source is required")
+	case path == "/api/v1/sessions" || path == "/api/v1/guest/games" || path == "/api/v1/account/games":
+		if err := requireKeys(object, "source"); err != nil {
+			return err
 		}
 		var source map[string]json.RawMessage
-		if err := decodeStrict(raw, &source); err != nil {
+		if err := decodeStrict(object["source"], &source); err != nil {
 			return err
 		}
 		var kind string
 		if err := json.Unmarshal(source["kind"], &kind); err != nil {
 			return errors.New("source kind is required")
 		}
-		if kind == "difficulty" {
-			if err := requireKeys(source, "kind", "difficulty"); err != nil {
-				return err
-			}
-		} else if kind == "puzzle" {
-			if err := requireKeys(source, "kind", "puzzle"); err != nil {
-				return err
-			}
-		} else {
+		switch kind {
+		case "difficulty":
+			return requireKeys(source, "kind", "difficulty")
+		case "puzzle":
+			return requireKeys(source, "kind", "puzzle")
+		default:
 			return errors.New("unknown source kind")
 		}
+	case path == "/api/v1/account/games/claim":
+		return requireKeys(object, "document")
+	case path == "/api/v1/guest/games/actions":
+		if err := requireKeys(object, "document", "action"); err != nil {
+			return err
+		}
+		var action map[string]json.RawMessage
+		if err := decodeStrict(object["action"], &action); err != nil {
+			return err
+		}
+		return validateActionObject(action)
 	case strings.HasSuffix(path, "/actions"):
-		var kind string
-		if err := json.Unmarshal(object["kind"], &kind); err != nil {
-			return errors.New("action kind is required")
-		}
-		keys := []string{"kind", "expected_revision"}
-		switch kind {
-		case "set-value", "adopt-candidates-as-notes":
-			keys = append(keys, "row", "column", "value")
-		case "set-notes":
-			keys = append(keys, "row", "column", "values")
-		case "clear-value":
-			keys = append(keys, "row", "column")
-		case "reset", "undo", "redo", "apply-hint", "repair", "solve":
-		default:
-			return errors.New("unknown action kind")
-		}
-		return requireKeys(object, keys...)
+		return validateActionObject(object)
 	default:
 		return nil
 	}
-	for key := range object {
-		if !allowed[key] {
-			return fmt.Errorf("unknown field %q", key)
-		}
+}
+
+func validateActionObject(object map[string]json.RawMessage) error {
+	var kind string
+	if err := json.Unmarshal(object["kind"], &kind); err != nil {
+		return errors.New("action kind is required")
 	}
-	return nil
+	keys := []string{"kind", "expected_revision"}
+	switch kind {
+	case "set-value", "adopt-candidates-as-notes":
+		keys = append(keys, "row", "column", "value")
+	case "set-notes":
+		keys = append(keys, "row", "column", "values")
+	case "clear-value":
+		keys = append(keys, "row", "column")
+	case "reset", "undo", "redo", "apply-hint", "repair", "solve":
+	default:
+		return errors.New("unknown action kind")
+	}
+	return requireKeys(object, keys...)
 }
 
 func requireKeys(object map[string]json.RawMessage, keys ...string) error {

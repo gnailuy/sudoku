@@ -25,6 +25,14 @@ tags:
     description: Durable authoritative game sessions
   - name: Gameplay
     description: Session reads and game-engine actions
+  - name: Guest
+    description: Stateless sealed guest games
+  - name: Authentication
+    description: Google OIDC and revocable application sessions
+  - name: Account
+    description: Authenticated account profile and lifecycle
+  - name: Account Games
+    description: Owner-scoped durable games
 
 paths:
   /healthz:
@@ -301,6 +309,342 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+
+  /api/v1/guest/games:
+    post:
+      tags: [Guest]
+      operationId: createGuestGame
+      summary: Create one stateless sealed guest game
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+      responses:
+        "201":
+          description: A replacement-ready sealed guest document and authoritative state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestGame"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/guest/games/actions:
+    post:
+      tags: [Guest]
+      operationId: applyGuestAction
+      summary: Apply one action to a sealed guest game
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestActionRequest"
+      responses:
+        "200":
+          description: A replacement sealed document and authoritative transition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestActionResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/GuestRevisionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/auth/google/start:
+    get:
+      tags: [Authentication]
+      operationId: beginGoogleLogin
+      summary: Begin a single-use Google OIDC login
+      security: []
+      parameters:
+        - name: return_to
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 512
+      responses:
+        "303":
+          description: Redirect to Google authorization.
+          headers:
+            Location:
+              required: true
+              schema: { type: string, format: uri }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/auth/google/callback:
+    get:
+      tags: [Authentication]
+      operationId: completeGoogleLogin
+      summary: Complete Google OIDC and rotate the application session
+      security: []
+      parameters:
+        - { $ref: "#/components/parameters/OptionalSessionCookie" }
+        - name: state
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 512 }
+        - name: code
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 4096 }
+      responses:
+        "303":
+          description: Set the application-session cookie, then return to the allowlisted path.
+          headers:
+            Location:
+              required: true
+              schema: { type: string }
+            Set-Cookie:
+              required: true
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logoutAccount
+      summary: Revoke the current application session
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/SessionCookie" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+      responses:
+        "204":
+          description: The current session is revoked and cookies are cleared.
+          headers:
+            Set-Cookie:
+              required: true
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/account:
+    get:
+      tags: [Account]
+      operationId: getCurrentAccount
+      summary: Read the authenticated account profile
+      security: [{ cookieAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/SessionCookie" }]
+      responses:
+        "200":
+          description: Current application account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [Account]
+      operationId: deleteCurrentAccount
+      summary: Delete the account, sessions, and owned games
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/SessionCookie" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+      responses:
+        "204":
+          description: Account-private data was deleted, the current cookie was cleared, and shared puzzles remain.
+          headers:
+            Set-Cookie:
+              required: true
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/account/sessions/revoke:
+    post:
+      tags: [Authentication]
+      operationId: revokeAccountSessions
+      summary: Revoke all application sessions for the account
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/SessionCookie" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+      responses:
+        "204":
+          description: Every account session is revoked and the current cookie is cleared.
+          headers:
+            Set-Cookie:
+              required: true
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/account/games:
+    get:
+      tags: [Account Games]
+      operationId: listAccountGames
+      summary: List games owned by the authenticated account
+      security: [{ cookieAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/SessionCookie" }]
+      responses:
+        "200":
+          description: Most recently updated account games.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountGameList" }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    post:
+      tags: [Account Games]
+      operationId: createAccountGame
+      summary: Create an account-owned game
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/SessionCookie" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateSessionRequest" }
+      responses:
+        "201":
+          description: Durable owner-scoped game.
+          headers:
+            Location:
+              required: true
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountGame" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/account/games/claim:
+    post:
+      tags: [Account Games]
+      operationId: claimGuestGame
+      summary: Idempotently claim one sealed guest game
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/SessionCookie" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimGuestGameRequest" }
+      responses:
+        "200":
+          description: Existing durable game returned for a same-owner retry.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountGame" }
+        "201":
+          description: The guest game became an account game.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountGame" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/ClaimConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/account/games/{accountGameId}:
+    parameters: [{ $ref: "#/components/parameters/AccountGameId" }]
+    get:
+      tags: [Account Games]
+      operationId: getAccountGame
+      summary: Read one owner-scoped account game
+      security: [{ cookieAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/SessionCookie" }]
+      responses:
+        "200":
+          description: Current durable game.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountGame" }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "404": { $ref: "#/components/responses/AccountGameNotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [Account Games]
+      operationId: deleteAccountGame
+      summary: Delete one owner-scoped account game
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/SessionCookie" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+      responses:
+        "204": { description: The owned game was deleted. }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/AccountGameNotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/account/games/{accountGameId}/actions:
+    parameters: [{ $ref: "#/components/parameters/AccountGameId" }]
+    post:
+      tags: [Account Games]
+      operationId: applyAccountGameAction
+      summary: Apply one revisioned action to an owner-scoped game
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/SessionCookie" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ActionRequest" }
+      responses:
+        "200":
+          description: Persisted authoritative transition.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountActionResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/AccountGameNotFound" }
+        "409": { $ref: "#/components/responses/AccountRevisionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -308,8 +652,34 @@ components:
       scheme: bearer
       bearerFormat: opaque-token
       description: Required whenever the server is configured for authenticated access.
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sudoku_session
+      description: Opaque HttpOnly application-session verifier.
 
   parameters:
+    SessionCookie:
+      name: sudoku_session
+      in: cookie
+      required: true
+      schema: { type: string, minLength: 43, maxLength: 128 }
+    OptionalSessionCookie:
+      name: sudoku_session
+      in: cookie
+      required: false
+      schema: { type: string, minLength: 43, maxLength: 128 }
+    CsrfToken:
+      name: X-Sudoku-CSRF
+      in: header
+      required: true
+      schema: { type: string, minLength: 43, maxLength: 128 }
+      description: Request proof bound to the current application session.
+    AccountGameId:
+      name: accountGameId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^ag_[a-f0-9]{32}$' }
     SessionId:
       name: sessionId
       in: path
@@ -319,6 +689,41 @@ components:
         $ref: "#/components/schemas/SessionId"
 
   responses:
+    AccountUnauthorized:
+      description: The application session cookie is missing, invalid, revoked, or expired.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Same-origin or CSRF request proof failed.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    AccountGameNotFound:
+      description: The game is absent or not owned by the authenticated account.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unavailable:
+      description: Account routes are not configured for this runtime.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    GuestRevisionConflict:
+      description: The sealed guest document revision is stale.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ClaimConflict:
+      description: The guest document was already claimed by a different account.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    AccountRevisionConflict:
+      description: The expected account-game revision is stale.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/AccountRevisionConflict" }
     BadRequest:
       description: The request is malformed or violates the transport contract.
       content:
@@ -407,6 +812,102 @@ components:
               message: the request could not be completed
 
   schemas:
+    SealedGuestDocument:
+      type: string
+      minLength: 1
+      maxLength: 2097152
+
+    GuestGame:
+      type: object
+      additionalProperties: false
+      required: [document, revision, actual_difficulty, snapshot]
+      properties:
+        document: { $ref: "#/components/schemas/SealedGuestDocument" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        actual_difficulty: { $ref: "#/components/schemas/Difficulty" }
+        snapshot: { $ref: "#/components/schemas/Snapshot" }
+
+    GuestActionRequest:
+      type: object
+      additionalProperties: false
+      required: [document, action]
+      properties:
+        document: { $ref: "#/components/schemas/SealedGuestDocument" }
+        action: { $ref: "#/components/schemas/ActionRequest" }
+
+    GuestActionResponse:
+      type: object
+      additionalProperties: false
+      required: [document, revision, actual_difficulty, snapshot, result]
+      properties:
+        document: { $ref: "#/components/schemas/SealedGuestDocument" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        actual_difficulty: { $ref: "#/components/schemas/Difficulty" }
+        snapshot: { $ref: "#/components/schemas/Snapshot" }
+        result: { $ref: "#/components/schemas/ActionResult" }
+
+    Account:
+      type: object
+      additionalProperties: false
+      required: [email, display_name, csrf_token]
+      properties:
+        email: { type: string, maxLength: 320 }
+        display_name: { type: string, maxLength: 200 }
+        csrf_token: { type: string, minLength: 43, maxLength: 128 }
+
+    AccountGameSummary:
+      type: object
+      additionalProperties: false
+      required: [id, revision, actual_difficulty, updated_at]
+      properties:
+        id: { type: string, pattern: '^ag_[a-f0-9]{32}$' }
+        revision: { $ref: "#/components/schemas/Revision" }
+        actual_difficulty: { $ref: "#/components/schemas/Difficulty" }
+        updated_at: { type: string, format: date-time }
+
+    AccountGameList:
+      type: object
+      additionalProperties: false
+      required: [games]
+      properties:
+        games:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/AccountGameSummary" }
+
+    AccountGame:
+      type: object
+      additionalProperties: false
+      required: [id, revision, actual_difficulty, snapshot]
+      properties:
+        id: { type: string, pattern: '^ag_[a-f0-9]{32}$' }
+        revision: { $ref: "#/components/schemas/Revision" }
+        actual_difficulty: { $ref: "#/components/schemas/Difficulty" }
+        snapshot: { $ref: "#/components/schemas/Snapshot" }
+
+    ClaimGuestGameRequest:
+      type: object
+      additionalProperties: false
+      required: [document]
+      properties:
+        document: { $ref: "#/components/schemas/SealedGuestDocument" }
+
+    AccountActionResponse:
+      type: object
+      additionalProperties: false
+      required: [game, result]
+      properties:
+        game: { $ref: "#/components/schemas/AccountGame" }
+        result: { $ref: "#/components/schemas/ActionResult" }
+
+    AccountRevisionConflict:
+      type: object
+      additionalProperties: false
+      required: [error, current_revision]
+      properties:
+        error: { $ref: "#/components/schemas/ErrorDetail" }
+        current_revision: { $ref: "#/components/schemas/Revision" }
+
     Health:
       type: object
       additionalProperties: false
@@ -471,6 +972,12 @@ components:
         - no-hint
         - persistence-failed
         - internal-error
+        - account-unavailable
+        - account-unauthorized
+        - csrf-failed
+        - account-game-not-found
+        - guest-revision-conflict
+        - guest-claim-conflict
 
     CellPosition:
       type: object

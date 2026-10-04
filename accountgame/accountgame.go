@@ -3,8 +3,11 @@
 package accountgame
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/gnailuy/sudoku/db"
 	"github.com/gnailuy/sudoku/game"
@@ -18,6 +21,7 @@ var (
 )
 
 type store interface {
+	CreateAccountGame(db.AccountGame) error
 	AccountGameByID(string, string) (*db.AccountGame, error)
 	AccountGamesByUser(string, int) ([]db.AccountGame, error)
 	UpdateAccountGame(string, string, int64, []byte) (bool, error)
@@ -28,12 +32,14 @@ type store interface {
 type Config struct {
 	Store   store
 	Options game.Options
+	Random  io.Reader
 }
 
 // Service authorizes every operation with the authenticated user's identity.
 type Service struct {
 	store   store
 	options game.Options
+	random  io.Reader
 }
 
 // State is one authorized durable game and its detached engine snapshot.
@@ -63,7 +69,38 @@ func New(config Config) (*Service, error) {
 	if config.Store == nil {
 		return nil, ErrInvalidConfiguration
 	}
-	return &Service{store: config.Store, options: config.Options}, nil
+	random := config.Random
+	if random == nil {
+		random = rand.Reader
+	}
+	return &Service{store: config.Store, options: config.Options, random: random}, nil
+}
+
+// Create persists one already-linked play run as an owner-scoped game.
+func (service *Service) Create(userID string, current game.Game, basePuzzleID, playRunID, actualDifficulty string) (State, error) {
+	if userID == "" {
+		return State{}, ErrAuthenticatedIdentityRequired
+	}
+	if basePuzzleID == "" || playRunID == "" || actualDifficulty == "" {
+		return State{}, ErrInvalidConfiguration
+	}
+	identifier := make([]byte, 16)
+	if _, err := io.ReadFull(service.random, identifier); err != nil {
+		return State{}, fmt.Errorf("create account game identity: %w", err)
+	}
+	serialized, err := current.Serialize()
+	if err != nil {
+		return State{}, fmt.Errorf("serialize account game: %w", err)
+	}
+	record := db.AccountGame{
+		ID: "ag_" + hex.EncodeToString(identifier), UserID: userID,
+		BasePuzzleID: basePuzzleID, PlayRunID: playRunID, EngineState: serialized,
+		ActualDifficulty: actualDifficulty,
+	}
+	if err := service.store.CreateAccountGame(record); err != nil {
+		return State{}, err
+	}
+	return State{Game: record, Snapshot: current.Snapshot()}, nil
 }
 
 // List returns bounded summaries for only the authenticated owner.
