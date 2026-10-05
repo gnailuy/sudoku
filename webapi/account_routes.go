@@ -183,7 +183,10 @@ func (s *Server) GetCurrentAccount(_ context.Context, request GetCurrentAccountR
 	if !s.accounts.valid() {
 		return GetCurrentAccount503JSONResponse{UnavailableJSONResponse(unavailable())}, nil
 	}
-	verifier := string(request.Params.SudokuSession)
+	if request.Params.SudokuSession == nil {
+		return GetCurrentAccount401JSONResponse{AccountUnauthorizedJSONResponse(accountUnauthorized())}, nil
+	}
+	verifier := string(*request.Params.SudokuSession)
 	session, err := s.accounts.authenticate(verifier)
 	if err != nil {
 		return GetCurrentAccount500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to authenticate session"))}, nil

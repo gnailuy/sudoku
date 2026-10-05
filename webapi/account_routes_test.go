@@ -119,6 +119,11 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 		t.Fatalf("guest action = %+v, %v", guestAction, err)
 	}
 
+	unauthenticated := request(t, handler, http.MethodGet, "/api/v1/account", "", "", nil)
+	if unauthenticated.Code != http.StatusUnauthorized || !strings.Contains(unauthenticated.Body.String(), "account-unauthorized") {
+		t.Fatalf("unauthenticated account status=%d body=%s", unauthenticated.Code, unauthenticated.Body.String())
+	}
+
 	loginAccount := func() (string, Account) {
 		t.Helper()
 		begin := request(t, handler, http.MethodGet, "/api/v1/auth/google/start?return_to=%2Fapp%2Fgame", "", "", nil)
@@ -201,8 +206,18 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 
 func TestAccountRoutesRemainUnavailableWithoutPrivateConfiguration(t *testing.T) {
 	handler, _, _ := testHandler(t, "", nil)
-	response := request(t, handler, http.MethodPost, "/api/v1/guest/games", "application/json", `{"source":{"kind":"puzzle","puzzle":"`+knownPuzzle+`"}}`, nil)
-	if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), "account-unavailable") {
-		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	for _, test := range []struct {
+		method      string
+		path        string
+		contentType string
+		body        string
+	}{
+		{method: http.MethodPost, path: "/api/v1/guest/games", contentType: "application/json", body: `{"source":{"kind":"puzzle","puzzle":"` + knownPuzzle + `"}}`},
+		{method: http.MethodGet, path: "/api/v1/account"},
+	} {
+		response := request(t, handler, test.method, test.path, test.contentType, test.body, nil)
+		if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), "account-unavailable") {
+			t.Fatalf("%s %s status=%d body=%s", test.method, test.path, response.Code, response.Body.String())
+		}
 	}
 }

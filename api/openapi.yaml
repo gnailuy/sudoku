@@ -445,7 +445,7 @@ paths:
       operationId: getCurrentAccount
       summary: Read the authenticated account profile
       security: [{ cookieAuth: [] }]
-      parameters: [{ $ref: "#/components/parameters/SessionCookie" }]
+      parameters: [{ $ref: "#/components/parameters/OptionalSessionCookie" }]
       responses:
         "200":
           description: Current application account.
