@@ -181,14 +181,14 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 	if listed.Code != http.StatusOK || !strings.Contains(listed.Body.String(), accountGame.Id) {
 		t.Fatalf("account list status=%d body=%s", listed.Code, listed.Body.String())
 	}
-	logout := request(t, handler, http.MethodPost, "/api/v1/auth/logout", "application/json", `{}`, headers)
+	logout := request(t, handler, http.MethodPost, "/api/v1/auth/logout", "", "", headers)
 	if logout.Code != http.StatusNoContent || !strings.Contains(logout.Header().Get("Set-Cookie"), "Max-Age=0") {
 		t.Fatalf("logout status=%d headers=%v body=%s", logout.Code, logout.Header(), logout.Body.String())
 	}
 
 	cookie, account = loginAccount()
 	headers = map[string]string{"Cookie": cookie, "X-Sudoku-CSRF": account.CsrfToken}
-	revoked := request(t, handler, http.MethodPost, "/api/v1/account/sessions/revoke", "application/json", `{}`, headers)
+	revoked := request(t, handler, http.MethodPost, "/api/v1/account/sessions/revoke", "", "", headers)
 	if revoked.Code != http.StatusNoContent || !strings.Contains(revoked.Header().Get("Set-Cookie"), "Max-Age=0") {
 		t.Fatalf("revoke status=%d headers=%v body=%s", revoked.Code, revoked.Header(), revoked.Body.String())
 	}
