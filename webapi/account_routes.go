@@ -102,7 +102,7 @@ func (runtime *AccountRuntime) clearCookie() string {
 }
 
 func accountGame(state accountgame.State) AccountGame {
-	return AccountGame{Id: state.Game.ID, Revision: state.Game.Revision, ActualDifficulty: Difficulty(state.Game.ActualDifficulty), Snapshot: apiSnapshot(state.Snapshot)}
+	return AccountGame{Id: state.Game.ID, Revision: state.Game.Revision, ActualDifficulty: Difficulty(state.Game.ActualDifficulty), ElapsedSeconds: state.Game.ElapsedSeconds, Snapshot: apiSnapshot(state.Snapshot)}
 }
 
 func (s *Server) CreateGuestGame(_ context.Context, request CreateGuestGameRequestObject) (CreateGuestGameResponseObject, error) {
@@ -222,6 +222,27 @@ func (s *Server) LogoutAccount(_ context.Context, request LogoutAccountRequestOb
 	return LogoutAccount204Response{Headers: LogoutAccount204ResponseHeaders{SetCookie: s.accounts.clearCookie()}}, nil
 }
 
+func (s *Server) DeleteAllAccountGames(_ context.Context, request DeleteAllAccountGamesRequestObject) (DeleteAllAccountGamesResponseObject, error) {
+	if !s.accounts.valid() {
+		return DeleteAllAccountGames503JSONResponse{UnavailableJSONResponse(unavailable())}, nil
+	}
+	verifier := string(request.Params.SudokuSession)
+	session, err := s.accounts.authenticate(verifier)
+	if err != nil {
+		return DeleteAllAccountGames500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to authenticate session"))}, nil
+	}
+	if session == nil {
+		return DeleteAllAccountGames401JSONResponse{AccountUnauthorizedJSONResponse(accountUnauthorized())}, nil
+	}
+	if !s.accounts.validCSRF(verifier, string(request.Params.XSudokuCSRF)) {
+		return DeleteAllAccountGames403JSONResponse{ForbiddenJSONResponse(csrfFailed())}, nil
+	}
+	if _, err := s.accounts.Games.DeleteAll(session.UserID); err != nil {
+		return DeleteAllAccountGames500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to delete account games"))}, nil
+	}
+	return DeleteAllAccountGames204Response{}, nil
+}
+
 func (s *Server) ListAccountGames(_ context.Context, request ListAccountGamesRequestObject) (ListAccountGamesResponseObject, error) {
 	if !s.accounts.valid() {
 		return ListAccountGames503JSONResponse{UnavailableJSONResponse(unavailable())}, nil
@@ -239,7 +260,7 @@ func (s *Server) ListAccountGames(_ context.Context, request ListAccountGamesReq
 	}
 	items := make([]AccountGameSummary, len(rows))
 	for i, row := range rows {
-		items[i] = AccountGameSummary{Id: row.ID, Revision: row.Revision, ActualDifficulty: Difficulty(row.ActualDifficulty), UpdatedAt: row.UpdatedAt}
+		items[i] = AccountGameSummary{Id: row.ID, Revision: row.Revision, ActualDifficulty: Difficulty(row.ActualDifficulty), Status: GameStatus(row.Status), ElapsedSeconds: row.ElapsedSeconds, UpdatedAt: row.UpdatedAt}
 	}
 	return ListAccountGames200JSONResponse(AccountGameList{Games: items}), nil
 }
@@ -358,6 +379,37 @@ func (s *Server) DeleteAccountGame(_ context.Context, request DeleteAccountGameR
 		return DeleteAccountGame500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to delete account game"))}, nil
 	}
 	return DeleteAccountGame204Response{}, nil
+}
+
+func (s *Server) UpdateAccountGamePresentation(_ context.Context, request UpdateAccountGamePresentationRequestObject) (UpdateAccountGamePresentationResponseObject, error) {
+	if !s.accounts.valid() {
+		return UpdateAccountGamePresentation503JSONResponse{UnavailableJSONResponse(unavailable())}, nil
+	}
+	verifier := string(request.Params.SudokuSession)
+	session, err := s.accounts.authenticate(verifier)
+	if err != nil {
+		return UpdateAccountGamePresentation500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to authenticate session"))}, nil
+	}
+	if session == nil {
+		return UpdateAccountGamePresentation401JSONResponse{AccountUnauthorizedJSONResponse(accountUnauthorized())}, nil
+	}
+	if !s.accounts.validCSRF(verifier, string(request.Params.XSudokuCSRF)) {
+		return UpdateAccountGamePresentation403JSONResponse{ForbiddenJSONResponse(csrfFailed())}, nil
+	}
+	if request.Body == nil {
+		return UpdateAccountGamePresentation400JSONResponse{BadRequestJSONResponse(apiError(ErrorCodeInvalidRequest, "request body is required"))}, nil
+	}
+	if request.Body.ElapsedSeconds < 0 {
+		return UpdateAccountGamePresentation422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidRequest, "elapsed_seconds must be non-negative"))}, nil
+	}
+	state, err := s.accounts.Games.UpdateElapsed(session.UserID, request.AccountGameId, request.Body.ElapsedSeconds)
+	if errors.Is(err, accountgame.ErrNotFound) {
+		return UpdateAccountGamePresentation404JSONResponse{AccountGameNotFoundJSONResponse(accountNotFound())}, nil
+	}
+	if err != nil {
+		return UpdateAccountGamePresentation500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodePersistenceFailed, "unable to persist account game time"))}, nil
+	}
+	return UpdateAccountGamePresentation200JSONResponse(accountGame(state)), nil
 }
 
 func (s *Server) ApplyAccountGameAction(_ context.Context, request ApplyAccountGameActionRequestObject) (ApplyAccountGameActionResponseObject, error) {

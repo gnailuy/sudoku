@@ -59,12 +59,12 @@ func TestServiceReportsCurrentRevisionWhenPersistenceLosesARace(t *testing.T) {
 
 type conflictingStore struct{ *db.DB }
 
-func (store *conflictingStore) UpdateAccountGame(userID, accountGameID string, expectedRevision int64, engineState []byte) (bool, error) {
+func (store *conflictingStore) UpdateAccountGame(userID, accountGameID string, expectedRevision int64, engineState []byte, status string) (bool, error) {
 	current, err := store.AccountGameByID(userID, accountGameID)
 	if err != nil || current == nil {
 		return false, err
 	}
-	if _, err := store.DB.UpdateAccountGame(userID, accountGameID, expectedRevision, current.EngineState); err != nil {
+	if _, err := store.DB.UpdateAccountGame(userID, accountGameID, expectedRevision, current.EngineState, status); err != nil {
 		return false, err
 	}
 	return false, nil
@@ -149,7 +149,7 @@ func newTestService(t *testing.T) (*Service, *db.DB, game.Options) {
 	}
 	if err := database.CreateAccountGame(db.AccountGame{
 		ID: "game-a", UserID: "user-a", BasePuzzleID: basePuzzleID, PlayRunID: "run-a",
-		EngineState: serialized, ActualDifficulty: "easy",
+		EngineState: serialized, ActualDifficulty: "easy", Status: "in-progress",
 	}); err != nil {
 		database.Close()
 		t.Fatal(err)

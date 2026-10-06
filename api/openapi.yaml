@@ -512,6 +512,20 @@ paths:
         "401": { $ref: "#/components/responses/AccountUnauthorized" }
         "500": { $ref: "#/components/responses/InternalError" }
         "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [Account Games]
+      operationId: deleteAllAccountGames
+      summary: Delete every game owned by the authenticated account
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/SessionCookie" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+      responses:
+        "204": { description: Every owned game was deleted. }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
     post:
       tags: [Account Games]
       operationId: createAccountGame
@@ -610,6 +624,36 @@ paths:
         "401": { $ref: "#/components/responses/AccountUnauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/AccountGameNotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /api/v1/account/games/{accountGameId}/presentation:
+    parameters: [{ $ref: "#/components/parameters/AccountGameId" }]
+    put:
+      tags: [Account Games]
+      operationId: updateAccountGamePresentation
+      summary: Persist owner-scoped elapsed presentation time
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/SessionCookie" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccountGamePresentationRequest" }
+      responses:
+        "200":
+          description: Current durable game with monotonic elapsed time.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountGame" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/AccountGameNotFound" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
         "500": { $ref: "#/components/responses/InternalError" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
@@ -858,11 +902,13 @@ components:
     AccountGameSummary:
       type: object
       additionalProperties: false
-      required: [id, revision, actual_difficulty, updated_at]
+      required: [id, revision, actual_difficulty, status, elapsed_seconds, updated_at]
       properties:
         id: { type: string, pattern: '^ag_[a-f0-9]{32}$' }
         revision: { $ref: "#/components/schemas/Revision" }
         actual_difficulty: { $ref: "#/components/schemas/Difficulty" }
+        status: { $ref: "#/components/schemas/GameStatus" }
+        elapsed_seconds: { type: integer, format: int64, minimum: 0 }
         updated_at: { type: string, format: date-time }
 
     AccountGameList:
@@ -878,12 +924,20 @@ components:
     AccountGame:
       type: object
       additionalProperties: false
-      required: [id, revision, actual_difficulty, snapshot]
+      required: [id, revision, actual_difficulty, elapsed_seconds, snapshot]
       properties:
         id: { type: string, pattern: '^ag_[a-f0-9]{32}$' }
         revision: { $ref: "#/components/schemas/Revision" }
         actual_difficulty: { $ref: "#/components/schemas/Difficulty" }
+        elapsed_seconds: { type: integer, format: int64, minimum: 0 }
         snapshot: { $ref: "#/components/schemas/Snapshot" }
+
+    AccountGamePresentationRequest:
+      type: object
+      additionalProperties: false
+      required: [elapsed_seconds]
+      properties:
+        elapsed_seconds: { type: integer, format: int64, minimum: 0 }
 
     ClaimGuestGameRequest:
       type: object

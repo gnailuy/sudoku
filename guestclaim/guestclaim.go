@@ -64,6 +64,10 @@ func (service *Service) Claim(userID, token string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	status := document.Status
+	if status == "" {
+		status = "in-progress"
+	}
 	accountGameID, err := service.randomID("ag_")
 	if err != nil {
 		return Result{}, fmt.Errorf("create account game identity: %w", err)
@@ -79,6 +83,7 @@ func (service *Service) Claim(userID, token string) (Result, error) {
 			ID: accountGameID, UserID: userID, BasePuzzleID: document.BasePuzzleID,
 			PlayRunID: playRunID, EngineState: document.EngineState,
 			Revision: document.Revision, ActualDifficulty: document.ActualDifficulty,
+			Status: status,
 		},
 		PresentedPuzzle: document.PresentedPuzzle,
 	})

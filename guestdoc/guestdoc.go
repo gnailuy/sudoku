@@ -47,6 +47,7 @@ type Document struct {
 	EngineState      json.RawMessage `json:"engine_state"`
 	Revision         int64           `json:"revision"`
 	ActualDifficulty string          `json:"actual_difficulty"`
+	Status           string          `json:"status,omitempty"`
 	IssuedAt         time.Time       `json:"issued_at"`
 	ExpiresAt        time.Time       `json:"expires_at"`
 }
@@ -149,6 +150,7 @@ func (sealer *Sealer) Create(current *game.Game, basePuzzleID, actualDifficulty 
 		EngineState:      state,
 		Revision:         0,
 		ActualDifficulty: actualDifficulty,
+		Status:           string(current.Snapshot().Status),
 		IssuedAt:         now,
 		ExpiresAt:        now.Add(sealer.lifetime),
 	}
@@ -256,6 +258,7 @@ func (sealer *Sealer) Apply(token string, expectedRevision int64, action game.Ac
 		return Transition{}, payloadError(err)
 	}
 	document.EngineState = state
+	document.Status = string(current.Snapshot().Status)
 	document.Revision++
 	replacement, err := sealer.Seal(document)
 	if err != nil {
@@ -269,7 +272,7 @@ func validateDocument(document Document, now time.Time, maxLifetime time.Duratio
 		return &Error{Code: ErrorUnsupportedVersion}
 	}
 	lifetime := document.ExpiresAt.Sub(document.IssuedAt)
-	if !validHex(document.ID, 16) || !validBasePuzzleID(document.BasePuzzleID) || !core.IsValidSudokuString(document.PresentedPuzzle) || document.Revision < 0 || !validDifficulty(document.ActualDifficulty) || document.IssuedAt.IsZero() || lifetime <= 0 || lifetime > maxLifetime || document.IssuedAt.After(now.Add(5*time.Minute)) || int64(len(document.EngineState)) > sessionfile.MaxSize {
+	if !validHex(document.ID, 16) || !validBasePuzzleID(document.BasePuzzleID) || !core.IsValidSudokuString(document.PresentedPuzzle) || document.Revision < 0 || !validDifficulty(document.ActualDifficulty) || document.Status != "" && !validGameStatus(document.Status) || document.IssuedAt.IsZero() || lifetime <= 0 || lifetime > maxLifetime || document.IssuedAt.After(now.Add(5*time.Minute)) || int64(len(document.EngineState)) > sessionfile.MaxSize {
 		return payloadError(nil)
 	}
 	if enforceExpiry && !now.Before(document.ExpiresAt) {
@@ -307,6 +310,10 @@ func validHex(value string, byteCount int) bool {
 
 func validBasePuzzleID(value string) bool {
 	return strings.HasPrefix(value, "bp_") && validHex(strings.TrimPrefix(value, "bp_"), 32)
+}
+
+func validGameStatus(value string) bool {
+	return value == string(game.StatusInProgress) || value == string(game.StatusInvalid) || value == string(game.StatusSolved)
 }
 
 func validDifficulty(value string) bool {

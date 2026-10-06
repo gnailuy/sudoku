@@ -24,8 +24,10 @@ type store interface {
 	CreateAccountGame(db.AccountGame) error
 	AccountGameByID(string, string) (*db.AccountGame, error)
 	AccountGamesByUser(string, int) ([]db.AccountGame, error)
-	UpdateAccountGame(string, string, int64, []byte) (bool, error)
+	UpdateAccountGame(string, string, int64, []byte, string) (bool, error)
+	UpdateAccountGameElapsed(string, string, int64) (bool, error)
 	DeleteAccountGame(string, string) (bool, error)
+	DeleteAllAccountGames(string) (int64, error)
 }
 
 // Config binds owner-scoped persistence to the engine restoration contract.
@@ -95,7 +97,7 @@ func (service *Service) Create(userID string, current game.Game, basePuzzleID, p
 	record := db.AccountGame{
 		ID: "ag_" + hex.EncodeToString(identifier), UserID: userID,
 		BasePuzzleID: basePuzzleID, PlayRunID: playRunID, EngineState: serialized,
-		ActualDifficulty: actualDifficulty,
+		ActualDifficulty: actualDifficulty, Status: string(current.Snapshot().Status),
 	}
 	if err := service.store.CreateAccountGame(record); err != nil {
 		return State{}, err
@@ -156,7 +158,7 @@ func (service *Service) Apply(userID, accountGameID string, expectedRevision int
 	if err != nil {
 		return Transition{}, fmt.Errorf("serialize account game: %w", err)
 	}
-	updated, err := service.store.UpdateAccountGame(userID, accountGameID, expectedRevision, serialized)
+	updated, err := service.store.UpdateAccountGame(userID, accountGameID, expectedRevision, serialized, string(current.Snapshot().Status))
 	if err != nil {
 		return Transition{}, err
 	}
@@ -172,8 +174,27 @@ func (service *Service) Apply(userID, accountGameID string, expectedRevision int
 	}
 	state.Game.EngineState = serialized
 	state.Game.Revision++
+	state.Game.Status = string(current.Snapshot().Status)
 	state.Snapshot = current.Snapshot()
 	return Transition{State: state, Result: result}, nil
+}
+
+// UpdateElapsed persists presentation time independently from gameplay revisions.
+func (service *Service) UpdateElapsed(userID, accountGameID string, elapsedSeconds int64) (State, error) {
+	if userID == "" {
+		return State{}, ErrAuthenticatedIdentityRequired
+	}
+	if accountGameID == "" || elapsedSeconds < 0 {
+		return State{}, ErrNotFound
+	}
+	updated, err := service.store.UpdateAccountGameElapsed(userID, accountGameID, elapsedSeconds)
+	if err != nil {
+		return State{}, err
+	}
+	if !updated {
+		return State{}, ErrNotFound
+	}
+	return service.Get(userID, accountGameID)
 }
 
 // Delete removes one owner-scoped game. Another owner's identifier is
@@ -193,4 +214,12 @@ func (service *Service) Delete(userID, accountGameID string) (bool, error) {
 		return false, ErrNotFound
 	}
 	return true, nil
+}
+
+// DeleteAll removes every game owned by one authenticated account.
+func (service *Service) DeleteAll(userID string) (int64, error) {
+	if userID == "" {
+		return 0, ErrAuthenticatedIdentityRequired
+	}
+	return service.store.DeleteAllAccountGames(userID)
 }
