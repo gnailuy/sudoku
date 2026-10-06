@@ -461,7 +461,7 @@ func middleware(next http.Handler, token string, origins map[string]struct{}) ht
 				return
 			}
 		}
-		if r.Method == http.MethodPost {
+		if r.Method == http.MethodPost && postRequiresBody(r.URL.Path) {
 			want := "application/json"
 			if r.URL.Path == "/api/v1/sessions/import" {
 				want = SessionMediaType
@@ -490,6 +490,20 @@ func middleware(next http.Handler, token string, origins map[string]struct{}) ht
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func postRequiresBody(path string) bool {
+	switch path {
+	case "/api/v1/sessions",
+		"/api/v1/sessions/import",
+		"/api/v1/guest/games",
+		"/api/v1/guest/games/actions",
+		"/api/v1/account/games",
+		"/api/v1/account/games/claim":
+		return true
+	default:
+		return strings.HasSuffix(path, "/actions")
+	}
 }
 
 func validPreflight(r *http.Request) bool {

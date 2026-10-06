@@ -144,6 +144,24 @@ func TestSessionLifecycleRecoveryAndTransfer(t *testing.T) {
 	}
 }
 
+func TestBodylessAccountMutationsDoNotRequireJSONContentType(t *testing.T) {
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}), "", nil)
+
+	for _, path := range []string{
+		"/api/v1/auth/logout",
+		"/api/v1/account/sessions/revoke",
+	} {
+		t.Run(path, func(t *testing.T) {
+			w := request(t, handler, http.MethodPost, path, "", "", nil)
+			if w.Code != http.StatusNoContent {
+				t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
 func TestSecurityCORSAndRequestValidation(t *testing.T) {
 	handler, _, _ := testHandler(t, "secret", []string{"https://client.example"})
 	if w := request(t, handler, http.MethodGet, "/healthz", "", "", nil); w.Code != http.StatusOK {
