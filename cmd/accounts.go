@@ -18,6 +18,7 @@ import (
 	"github.com/gnailuy/sudoku/guestclaim"
 	"github.com/gnailuy/sudoku/guestdoc"
 	"github.com/gnailuy/sudoku/oidcauth"
+	"github.com/gnailuy/sudoku/recovery"
 	"github.com/gnailuy/sudoku/solver"
 	"github.com/gnailuy/sudoku/webapi"
 )
@@ -148,18 +149,40 @@ func loadAccountRuntime(ctx context.Context, path, databasePath string, options 
 			return current, baseID, difficulty, err
 		},
 		CreateOwned: func(kind, value string) (game.Game, string, string, webapi.Difficulty, error) {
-			current, _, tracker, err := createTrackedSession(createRequest(kind, value), io.Discard, io.Discard)
-			if err != nil {
-				return game.Game{}, "", "", "", err
-			}
-			if tracker == nil || tracker.RunID() == "" {
-				return game.Game{}, "", "", "", errors.New("unable to create durable play run")
-			}
-			difficulty, baseID, err := classify(current)
-			return current, baseID, tracker.RunID(), difficulty, err
+			return createOwnedSession(database, createRequest(kind, value))
 		},
 	}
 	return runtime, closeDatabase, nil
+}
+
+func createOwnedSession(database *db.DB, request sessionRequest) (game.Game, string, string, webapi.Difficulty, error) {
+	current, _, err := createSession(request, io.Discard, io.Discard)
+	if err != nil {
+		return game.Game{}, "", "", "", err
+	}
+	classification := solver.ClassifyPuzzle(solverStore, current.ProblemBoard())
+	if classification.Outcome != solver.ClassificationSolved {
+		return game.Game{}, "", "", "", errors.New("puzzle is not solvable by the strategy classifier")
+	}
+	canonical := normalizePuzzleForDB(solverStore, current.ProblemBoard())
+	if _, err := database.InsertPuzzle(db.Puzzle{
+		Puzzle: canonical, Difficulty: classification.Difficulty, Score: classification.Score,
+		MaxTechnique: classification.MaxTechnique, Source: "account-play",
+	}); err != nil {
+		return game.Game{}, "", "", "", fmt.Errorf("persist account puzzle: %w", err)
+	}
+	runID, err := recovery.NewID()
+	if err != nil {
+		return game.Game{}, "", "", "", fmt.Errorf("create play run identity: %w", err)
+	}
+	baseID := db.BasePuzzleID(canonical)
+	presented := current.ProblemBoard()
+	if err := database.InsertPlayRun(db.PlayRun{
+		ID: runID, BasePuzzleID: baseID, PresentedPuzzle: presented.ToString(),
+	}); err != nil {
+		return game.Game{}, "", "", "", fmt.Errorf("create durable play run: %w", err)
+	}
+	return current, baseID, runID, webapi.Difficulty(classification.Difficulty), nil
 }
 
 func decodeSecret(value string) ([]byte, error) {

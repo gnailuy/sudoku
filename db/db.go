@@ -4,6 +4,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -16,7 +17,7 @@ import (
 type DB struct{ conn *sql.DB }
 
 const (
-	SchemaVersion            = 3
+	SchemaVersion            = 4
 	busyTimeoutMilliseconds  = 5000
 	sqliteBusyCode           = 5
 	journalModeRetryInterval = 10 * time.Millisecond
@@ -81,7 +82,16 @@ func (db *DB) migrate() (err error) {
 	}
 	if legacy || current {
 		var version int
-		if scanErr := conn.QueryRowContext(context.Background(), `SELECT version FROM schema_metadata WHERE singleton = 1`).Scan(&version); scanErr != nil || version != SchemaVersion {
+		if scanErr := conn.QueryRowContext(context.Background(), `SELECT version FROM schema_metadata WHERE singleton = 1`).Scan(&version); scanErr != nil {
+			return ErrRebuildRequired
+		}
+		if version == 3 && current {
+			if err = migrateVersion3To4(conn); err != nil {
+				return err
+			}
+			version = 4
+		}
+		if version != SchemaVersion {
 			return ErrRebuildRequired
 		}
 	}
@@ -97,7 +107,7 @@ func (db *DB) migrate() (err error) {
 func createSchema(conn *sql.Conn) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS schema_metadata (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), version INTEGER NOT NULL)`,
-		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 3)`,
+		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 4)`,
 		`CREATE TABLE IF NOT EXISTS base_puzzles (
 			base_puzzle_id TEXT PRIMARY KEY,
 			canonical_puzzle TEXT NOT NULL UNIQUE,
@@ -162,6 +172,8 @@ func createSchema(conn *sql.Conn) error {
 			engine_state BLOB NOT NULL,
 			revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
 			actual_difficulty TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'in-progress' CHECK (status IN ('in-progress', 'invalid', 'solved')),
+			elapsed_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_seconds >= 0),
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
@@ -185,6 +197,65 @@ func createSchema(conn *sql.Conn) error {
 		}
 	}
 	return nil
+}
+
+func migrateVersion3To4(conn *sql.Conn) error {
+	for _, statement := range []string{
+		`ALTER TABLE account_games ADD COLUMN status TEXT NOT NULL DEFAULT 'in-progress' CHECK (status IN ('in-progress', 'invalid', 'solved'))`,
+		`ALTER TABLE account_games ADD COLUMN elapsed_seconds INTEGER NOT NULL DEFAULT 0 CHECK (elapsed_seconds >= 0)`,
+	} {
+		if _, err := conn.ExecContext(context.Background(), statement); err != nil {
+			return fmt.Errorf("upgrade catalog schema to version 4: %w", err)
+		}
+	}
+	rows, err := conn.QueryContext(context.Background(), `SELECT account_game_id, engine_state FROM account_games`)
+	if err != nil {
+		return fmt.Errorf("read account games for version 4: %w", err)
+	}
+	type update struct{ id, status string }
+	updates := make([]update, 0)
+	for rows.Next() {
+		var id string
+		var state []byte
+		if err := rows.Scan(&id, &state); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan account game for version 4: %w", err)
+		}
+		var payload struct {
+			Puzzle  string `json:"puzzle"`
+			Current struct {
+				Values  string `json:"values"`
+				Invalid string `json:"invalid"`
+			} `json:"current"`
+		}
+		if err := json.Unmarshal(state, &payload); err != nil {
+			rows.Close()
+			return fmt.Errorf("decode account game for version 4: %w", err)
+		}
+		status := "in-progress"
+		if strings.Trim(payload.Current.Invalid, ".0") != "" {
+			status = "invalid"
+		} else if nonEmptyCells(payload.Puzzle)+nonEmptyCells(payload.Current.Values) == 81 {
+			status = "solved"
+		}
+		updates = append(updates, update{id: id, status: status})
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("close account games for version 4: %w", err)
+	}
+	for _, item := range updates {
+		if _, err := conn.ExecContext(context.Background(), `UPDATE account_games SET status = ? WHERE account_game_id = ?`, item.status, item.id); err != nil {
+			return fmt.Errorf("backfill account game status for version 4: %w", err)
+		}
+	}
+	if _, err := conn.ExecContext(context.Background(), `UPDATE schema_metadata SET version = 4 WHERE singleton = 1 AND version = 3`); err != nil {
+		return fmt.Errorf("finish catalog schema version 4: %w", err)
+	}
+	return nil
+}
+
+func nonEmptyCells(board string) int {
+	return len(strings.ReplaceAll(strings.ReplaceAll(board, ".", ""), "0", ""))
 }
 
 // Rebuild atomically discards the disposable development catalog and creates

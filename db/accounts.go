@@ -59,6 +59,8 @@ type AccountGame struct {
 	EngineState      []byte
 	Revision         int64
 	ActualDifficulty string
+	Status           string
+	ElapsedSeconds   int64
 	UpdatedAt        time.Time
 }
 
@@ -319,15 +321,15 @@ func (db *DB) RevokeAllWebSessions(userID string) (int64, error) {
 }
 
 func (db *DB) CreateAccountGame(accountGame AccountGame) error {
-	if accountGame.ID == "" || accountGame.UserID == "" || accountGame.BasePuzzleID == "" || accountGame.PlayRunID == "" || len(accountGame.EngineState) == 0 || accountGame.ActualDifficulty == "" {
-		return errors.New("account game identity, owner, puzzle, play run, state, and difficulty are required")
+	if accountGame.ID == "" || accountGame.UserID == "" || accountGame.BasePuzzleID == "" || accountGame.PlayRunID == "" || len(accountGame.EngineState) == 0 || accountGame.ActualDifficulty == "" || !validAccountGameStatus(accountGame.Status) {
+		return errors.New("account game identity, owner, puzzle, play run, state, difficulty, and status are required")
 	}
-	if accountGame.Revision < 0 {
-		return errors.New("account game revision must be non-negative")
+	if accountGame.Revision < 0 || accountGame.ElapsedSeconds < 0 {
+		return errors.New("account game revision and elapsed time must be non-negative")
 	}
 	_, err := db.conn.Exec(`INSERT INTO account_games
-		(account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`, accountGame.ID, accountGame.UserID, accountGame.BasePuzzleID, accountGame.PlayRunID, accountGame.EngineState, accountGame.Revision, accountGame.ActualDifficulty)
+		(account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty, status, elapsed_seconds)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, accountGame.ID, accountGame.UserID, accountGame.BasePuzzleID, accountGame.PlayRunID, accountGame.EngineState, accountGame.Revision, accountGame.ActualDifficulty, accountGame.Status, accountGame.ElapsedSeconds)
 	if err != nil {
 		return fmt.Errorf("create account game: %w", err)
 	}
@@ -373,8 +375,8 @@ func (db *DB) ClaimGuestGame(claim GuestClaim) (AccountGame, bool, error) {
 		return AccountGame{}, false, fmt.Errorf("create claimed play run: %w", err)
 	}
 	if _, err = tx.Exec(`INSERT INTO account_games
-		(account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`, game.ID, game.UserID, game.BasePuzzleID, game.PlayRunID, game.EngineState, game.Revision, game.ActualDifficulty); err != nil {
+		(account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty, status, elapsed_seconds)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, game.ID, game.UserID, game.BasePuzzleID, game.PlayRunID, game.EngineState, game.Revision, game.ActualDifficulty, game.Status, game.ElapsedSeconds); err != nil {
 		return AccountGame{}, false, fmt.Errorf("create claimed account game: %w", err)
 	}
 	if _, err = tx.Exec(`INSERT INTO guest_claims (claim_fingerprint, user_id, account_game_id) VALUES (?, ?, ?)`, claim.Fingerprint, game.UserID, game.ID); err != nil {
@@ -398,9 +400,9 @@ type accountGameQuery interface {
 
 func accountGameByID(query accountGameQuery, userID, accountGameID string) (*AccountGame, error) {
 	var accountGame AccountGame
-	err := query.QueryRow(`SELECT account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty, updated_at
+	err := query.QueryRow(`SELECT account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty, status, elapsed_seconds, updated_at
 		FROM account_games WHERE account_game_id = ? AND user_id = ?`, accountGameID, userID).Scan(
-		&accountGame.ID, &accountGame.UserID, &accountGame.BasePuzzleID, &accountGame.PlayRunID, &accountGame.EngineState, &accountGame.Revision, &accountGame.ActualDifficulty, &accountGame.UpdatedAt,
+		&accountGame.ID, &accountGame.UserID, &accountGame.BasePuzzleID, &accountGame.PlayRunID, &accountGame.EngineState, &accountGame.Revision, &accountGame.ActualDifficulty, &accountGame.Status, &accountGame.ElapsedSeconds, &accountGame.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -417,7 +419,7 @@ func (db *DB) AccountGamesByUser(userID string, limit int) ([]AccountGame, error
 	if userID == "" || limit < 1 || limit > 100 {
 		return nil, errors.New("user identity and a limit from 1 through 100 are required")
 	}
-	rows, err := db.conn.Query(`SELECT account_game_id, user_id, base_puzzle_id, play_run_id, revision, actual_difficulty, updated_at
+	rows, err := db.conn.Query(`SELECT account_game_id, user_id, base_puzzle_id, play_run_id, revision, actual_difficulty, status, elapsed_seconds, updated_at
 		FROM account_games WHERE user_id = ? ORDER BY updated_at DESC, account_game_id LIMIT ?`, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list account games: %w", err)
@@ -426,7 +428,7 @@ func (db *DB) AccountGamesByUser(userID string, limit int) ([]AccountGame, error
 	games := make([]AccountGame, 0)
 	for rows.Next() {
 		var game AccountGame
-		if err := rows.Scan(&game.ID, &game.UserID, &game.BasePuzzleID, &game.PlayRunID, &game.Revision, &game.ActualDifficulty, &game.UpdatedAt); err != nil {
+		if err := rows.Scan(&game.ID, &game.UserID, &game.BasePuzzleID, &game.PlayRunID, &game.Revision, &game.ActualDifficulty, &game.Status, &game.ElapsedSeconds, &game.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan account game: %w", err)
 		}
 		games = append(games, game)
@@ -438,14 +440,27 @@ func (db *DB) AccountGamesByUser(userID string, limit int) ([]AccountGame, error
 }
 
 // UpdateAccountGame uses optimistic revision matching and owner-scoped lookup.
-func (db *DB) UpdateAccountGame(userID, accountGameID string, expectedRevision int64, engineState []byte) (bool, error) {
-	if expectedRevision < 0 || len(engineState) == 0 {
-		return false, errors.New("expected revision and engine state are required")
+func (db *DB) UpdateAccountGame(userID, accountGameID string, expectedRevision int64, engineState []byte, status string) (bool, error) {
+	if expectedRevision < 0 || len(engineState) == 0 || !validAccountGameStatus(status) {
+		return false, errors.New("expected revision, engine state, and status are required")
 	}
-	result, err := db.conn.Exec(`UPDATE account_games SET engine_state = ?, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
-		WHERE account_game_id = ? AND user_id = ? AND revision = ?`, engineState, accountGameID, userID, expectedRevision)
+	result, err := db.conn.Exec(`UPDATE account_games SET engine_state = ?, status = ?, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+		WHERE account_game_id = ? AND user_id = ? AND revision = ?`, engineState, status, accountGameID, userID, expectedRevision)
 	if err != nil {
 		return false, fmt.Errorf("update account game: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
+}
+
+func (db *DB) UpdateAccountGameElapsed(userID, accountGameID string, elapsedSeconds int64) (bool, error) {
+	if userID == "" || accountGameID == "" || elapsedSeconds < 0 {
+		return false, errors.New("owner, account game, and non-negative elapsed time are required")
+	}
+	result, err := db.conn.Exec(`UPDATE account_games SET elapsed_seconds = MAX(elapsed_seconds, ?), updated_at = CURRENT_TIMESTAMP
+		WHERE account_game_id = ? AND user_id = ?`, elapsedSeconds, accountGameID, userID)
+	if err != nil {
+		return false, fmt.Errorf("update account game elapsed time: %w", err)
 	}
 	rows, err := result.RowsAffected()
 	return rows == 1, err
@@ -458,6 +473,21 @@ func (db *DB) DeleteAccountGame(userID, accountGameID string) (bool, error) {
 	}
 	rows, err := result.RowsAffected()
 	return rows == 1, err
+}
+
+func (db *DB) DeleteAllAccountGames(userID string) (int64, error) {
+	if userID == "" {
+		return 0, errors.New("user identity is required")
+	}
+	result, err := db.conn.Exec(`DELETE FROM account_games WHERE user_id = ?`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("delete all account games: %w", err)
+	}
+	return result.RowsAffected()
+}
+
+func validAccountGameStatus(status string) bool {
+	return status == "in-progress" || status == "invalid" || status == "solved"
 }
 
 // DeleteUser removes identities, sessions, and owned games through foreign-key

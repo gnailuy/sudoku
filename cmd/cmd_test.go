@@ -301,6 +301,31 @@ func TestCreateSessionRestoresSerializedState(t *testing.T) {
 	}
 }
 
+func TestCreateOwnedSessionPersistsMediumPuzzleBeforePlayRun(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "catalog.db")
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	const mediumPuzzle = ".5..4....4.1.....3.8753.1.48............8..7..7...1.497.39....5..84.2937945....2."
+	current, baseID, runID, difficulty, err := createOwnedSession(database, sessionRequest{input: mediumPuzzle, dbPath: dbPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if difficulty != "medium" || baseID == "" || runID == "" {
+		t.Fatalf("owned Medium game identity = %q, %q, %q", difficulty, baseID, runID)
+	}
+	run, err := database.PlayRunByID(runID)
+	if err != nil || run == nil {
+		t.Fatalf("play run = %+v, %v", run, err)
+	}
+	presented := current.ProblemBoard()
+	if run.BasePuzzleID != baseID || run.PresentedPuzzle != presented.ToString() {
+		t.Fatalf("play run does not preserve Medium presentation: %+v", run)
+	}
+}
+
 func TestTrackedSessionLinksPresentedBoardToStableBasePuzzle(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "catalog.db")
 	current, _, tracker, err := createTrackedSession(sessionRequest{input: testKnownPuzzle, dbPath: dbPath}, io.Discard, io.Discard)
