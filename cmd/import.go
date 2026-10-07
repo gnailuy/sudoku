@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gnailuy/sudoku/calibration"
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/db"
 	"github.com/gnailuy/sudoku/solver"
@@ -40,6 +42,7 @@ func init() {
 	importCmd.Flags().String("source", "imported", "Source label for imported puzzles")
 	importCmd.Flags().String("format", "plain", "Input format: plain or sudoku-exchange")
 	importCmd.Flags().String("sha256", "", "Expected lowercase SHA-256 of the complete input file")
+	importCmd.Flags().String("analysis-manifest", "", "Write a new immutable calibration manifest (sudoku-exchange only)")
 	importCmd.Flags().IntP("workers", "w", 1, "Parallel canonicalization/classification workers")
 	importCmd.Flags().String("db", "", "Database path (default: $XDG_DATA_HOME/sudoku/puzzles.db)")
 	_ = importCmd.MarkFlagRequired("file")
@@ -65,6 +68,7 @@ func runImport(cmd *cobra.Command) error {
 	source, _ := cmd.Flags().GetString("source")
 	inputFormat, _ := cmd.Flags().GetString("format")
 	expectedSHA256, _ := cmd.Flags().GetString("sha256")
+	analysisManifestPath, _ := cmd.Flags().GetString("analysis-manifest")
 	workers, _ := cmd.Flags().GetInt("workers")
 	dbPath, _ := cmd.Flags().GetString("db")
 
@@ -77,6 +81,16 @@ func runImport(cmd *cobra.Command) error {
 	}
 	if inputFormat == "sudoku-exchange" && expectedSHA256 == "" {
 		return fmt.Errorf("sudoku-exchange imports require --sha256 to pin the source file")
+	}
+	if analysisManifestPath != "" && inputFormat != "sudoku-exchange" {
+		return fmt.Errorf("--analysis-manifest requires --format sudoku-exchange")
+	}
+	if analysisManifestPath != "" {
+		if _, err := os.Stat(analysisManifestPath); err == nil {
+			return fmt.Errorf("analysis manifest already exists: %s", analysisManifestPath)
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("inspect analysis manifest: %w", err)
+		}
 	}
 	if expectedSHA256 != "" {
 		actual, err := fileSHA256(filePath)
@@ -123,7 +137,7 @@ func runImport(cmd *cobra.Command) error {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		records = append(records, importRecord{lineNumber: lineNum, line: line})
+		records = append(records, importRecord{index: len(records), lineNumber: lineNum, line: line})
 	}
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("read file: %w", err)
@@ -152,8 +166,21 @@ func runImport(cmd *cobra.Command) error {
 		close(results)
 	}()
 
-	processed := 0
+	prepared := make([]importResult, len(records))
 	for result := range results {
+		prepared[result.index] = result
+	}
+
+	if analysisManifestPath != "" {
+		manifest := sudokuExchangeAnalysisManifest(expectedSHA256, prepared)
+		if _, err := calibration.WriteManifest(analysisManifestPath, manifest); err != nil {
+			return fmt.Errorf("write analysis manifest: %w", err)
+		}
+		fmt.Printf("Analysis manifest: %s (%d puzzles)\n", analysisManifestPath, len(manifest.Puzzles))
+	}
+
+	processed := 0
+	for _, result := range prepared {
 		processed++
 		if result.err != nil {
 			report.invalid++
@@ -203,21 +230,24 @@ func runImport(cmd *cobra.Command) error {
 }
 
 type importRecord struct {
+	index      int
 	lineNumber int
 	line       string
 }
 
 type importResult struct {
+	index          int
 	lineNumber     int
 	puzzle         string
 	sourceRef      string
+	originalRating float64
 	classification solver.Classification
 	err            error
 }
 
 func prepareImportRecord(store solver.Store, record importRecord, inputFormat string) importResult {
-	result := importResult{lineNumber: record.lineNumber}
-	puzzleText, sourceRef, err := parseImportRecord(record.line, inputFormat)
+	result := importResult{index: record.index, lineNumber: record.lineNumber}
+	puzzleText, sourceRef, originalRating, err := parseImportRecord(record.line, inputFormat)
 	if err != nil {
 		result.err = err
 		return result
@@ -241,6 +271,7 @@ func prepareImportRecord(store solver.Store, record importRecord, inputFormat st
 	}
 	result.puzzle = normalizePuzzleForDB(store, board)
 	result.sourceRef = sourceRef
+	result.originalRating = originalRating
 	canonicalBoard := core.NewEmptyBoard()
 	canonicalBoard.FromString(result.puzzle)
 	result.classification = solver.ClassifyPuzzle(store, canonicalBoard)
@@ -268,23 +299,51 @@ func normalizePuzzleForDB(_ solver.Store, board core.Board) string {
 	return core.CanonicalPuzzle(board.ToString())
 }
 
-func parseImportRecord(line, inputFormat string) (puzzle, sourceRef string, err error) {
+func parseImportRecord(line, inputFormat string) (puzzle, sourceRef string, originalRating float64, err error) {
 	if inputFormat == "plain" {
-		return line, "", nil
+		return line, "", 0, nil
 	}
 	fields := strings.Fields(line)
 	if len(fields) != 3 || len(fields[0]) != 12 || len(fields[1]) != 81 {
-		return "", "", fmt.Errorf("invalid sudoku-exchange record")
+		return "", "", 0, fmt.Errorf("invalid sudoku-exchange record")
 	}
 	for _, character := range fields[0] {
 		if !strings.ContainsRune("0123456789abcdef", character) {
-			return "", "", fmt.Errorf("invalid sudoku-exchange source hash")
+			return "", "", 0, fmt.Errorf("invalid sudoku-exchange source hash")
 		}
 	}
-	if _, parseErr := strconv.ParseFloat(fields[2], 64); parseErr != nil {
-		return "", "", fmt.Errorf("invalid sudoku-exchange rating")
+	rating, parseErr := strconv.ParseFloat(fields[2], 64)
+	if parseErr != nil || math.IsNaN(rating) || math.IsInf(rating, 0) {
+		return "", "", 0, fmt.Errorf("invalid sudoku-exchange rating")
 	}
-	return fields[1], "sha1:" + fields[0], nil
+	return fields[1], "sha1:" + fields[0], rating, nil
+}
+
+func sudokuExchangeAnalysisManifest(fileSHA256 string, results []importResult) calibration.Manifest {
+	manifest := calibration.Manifest{
+		Version: calibration.Version,
+		Name:    "sudoku-exchange/sha256:" + fileSHA256,
+	}
+	for _, result := range results {
+		if result.err != nil {
+			continue
+		}
+		manifest.Puzzles = append(manifest.Puzzles, calibration.Puzzle{
+			ID:               result.sourceRef,
+			Puzzle:           result.puzzle,
+			SourceCategory:   "external",
+			SourceID:         "sudoku-exchange:sha256:" + fileSHA256 + "#" + result.sourceRef,
+			License:          "public-domain",
+			Redistribution:   "permitted",
+			CollectionMethod: "hash-pinned Sudoku Exchange import",
+			Split:            "exploratory",
+			OriginalRating: &calibration.OriginalRating{
+				System: "Sukaku Explainer",
+				Label:  strconv.FormatFloat(result.originalRating, 'f', -1, 64),
+			},
+		})
+	}
+	return manifest
 }
 
 func fileSHA256(path string) (string, error) {

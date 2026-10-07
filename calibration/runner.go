@@ -234,6 +234,12 @@ func PrepareManifest(inputPath, outputPath string) (Manifest, error) {
 	if err != nil {
 		return Manifest{}, err
 	}
+	return WriteManifest(outputPath, manifest)
+}
+
+// WriteManifest normalizes, validates, and atomically writes a new immutable
+// corpus manifest. Existing output is never replaced.
+func WriteManifest(outputPath string, manifest Manifest) (Manifest, error) {
 	for i := range manifest.Puzzles {
 		manifest.Puzzles[i].Puzzle = normalizePuzzle(manifest.Puzzles[i].Puzzle)
 		manifest.Puzzles[i].PuzzleHash = hash([]byte(manifest.Puzzles[i].Puzzle))

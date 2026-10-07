@@ -363,16 +363,32 @@ def main():
         pinned_file.write_text(pinned_record, encoding="utf-8")
         pinned_hash = hashlib.sha256(pinned_record.encode()).hexdigest()
         pinned_database = root / "pinned.db"
+        analysis_manifest = root / "sudoku-exchange-analysis.json"
         contains(
             run(binary, ["import", "--file", str(pinned_file), "--format", "sudoku-exchange", "--db", str(pinned_database)], root, expected=1),
             "require --sha256",
         )
         output = run(
             binary,
-            ["import", "--file", str(pinned_file), "--format", "sudoku-exchange", "--sha256", pinned_hash, "--source", "sudoku-exchange-diabolical@fixture", "--workers", "2", "--db", str(pinned_database)],
+            ["import", "--file", str(pinned_file), "--format", "sudoku-exchange", "--sha256", pinned_hash, "--analysis-manifest", str(analysis_manifest), "--source", "sudoku-exchange-diabolical@fixture", "--workers", "2", "--db", str(pinned_database)],
             root,
         )
-        contains(output, "Stored (new): 1", "Strategy-unsolved (skipped): 1")
+        contains(output, "Stored (new): 1", "Strategy-unsolved (skipped): 1", "Analysis manifest:", "(2 puzzles)")
+        manifest = json.loads(analysis_manifest.read_text(encoding="utf-8"))
+        if manifest["version"] != 2 or manifest["name"] != f"sudoku-exchange/sha256:{pinned_hash}":
+            raise AssertionError(f"unexpected analysis manifest header: {manifest}")
+        if [entry["id"] for entry in manifest["puzzles"]] != ["sha1:00015097c6c3", "sha1:0001d2888928"]:
+            raise AssertionError(f"analysis manifest did not preserve source order: {manifest['puzzles']}")
+        for entry, rating in zip(manifest["puzzles"], ["7.2", "7.1"]):
+            expected_source = f"sudoku-exchange:sha256:{pinned_hash}#{entry['id']}"
+            if entry["source_id"] != expected_source or entry["original_rating"] != {"system": "Sukaku Explainer", "label": rating}:
+                raise AssertionError(f"unexpected analysis provenance: {entry}")
+        contains(
+            run(binary, ["import", "--file", str(pinned_file), "--format", "sudoku-exchange", "--sha256", pinned_hash, "--analysis-manifest", str(analysis_manifest), "--db", str(root / "must-not-open.db")], root, expected=1),
+            "analysis manifest already exists",
+        )
+        if (root / "must-not-open.db").exists():
+            raise AssertionError("immutable manifest rejection opened the database")
         with sqlite3.connect(pinned_database) as connection:
             provenance = connection.execute("SELECT source, source_ref FROM puzzle_provenance").fetchone()
         if provenance != ("sudoku-exchange-diabolical@fixture", "sha1:00015097c6c3"):
