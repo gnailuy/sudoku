@@ -102,7 +102,9 @@ def main():
         output = run(binary, ["import", "--help"], root)
         contains(output, "--file", "--source", "--format", "--sha256", "--workers", "--db")
         output = run(binary, ["calibrate", "--help"], root)
-        contains(output, "--manifest", "--output", "append-only", "resumable")
+        contains(output, "--manifest", "--output", "append-only", "resumable", "audit")
+        output = run(binary, ["calibrate", "audit", "--help"], root)
+        contains(output, "--manifest", "--output", "--repository-commit", "--workers")
         output = run(binary, ["experiment", "generation", "--help"], root)
         contains(output, "--manifest", "--output", "equal budgets", "resumable")
         output = run(binary, ["replenish", "--help"], root)
@@ -128,6 +130,7 @@ def main():
                             "redistribution": "permitted",
                             "collection_method": "checked-in E2E fixture",
                             "split": "exploratory",
+                            "original_rating": {"system": "E2E reference", "label": "7.5"},
                         }
                     ],
                 },
@@ -172,6 +175,22 @@ def main():
         )
         if observations_path.read_text(encoding="utf-8").splitlines() != observations:
             raise AssertionError("changed manifest modified append-only observations")
+
+        # Full-catalog audit emits one immutable detailed row and deterministic
+        # aggregate reports bound to the exact manifest and source commit.
+        manifest_data["name"] = "e2e-pilot"
+        manifest.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
+        audit_run = root / "difficulty-audit"
+        output = run(binary, ["calibrate", "audit", "--manifest", str(manifest), "--output", str(audit_run), "--repository-commit", "e2e-fixture", "--workers", "2"], root)
+        contains(output, "Audited 1 puzzles.", "Manifest SHA-256")
+        audit_rows = (audit_run / "evidence.jsonl").read_text(encoding="utf-8").splitlines()
+        audit_report = json.loads((audit_run / "report.json").read_text(encoding="utf-8"))
+        if len(audit_rows) != 1 or audit_report.get("total") != 1 or audit_report.get("repository_commit") != "e2e-fixture" or audit_report.get("rating_correlations", {}).get("all_score", {}).get("count") != 1:
+            raise AssertionError("difficulty audit did not preserve immutable detailed evidence")
+        contains(
+            run(binary, ["calibrate", "audit", "--manifest", str(manifest), "--output", str(audit_run), "--repository-commit", "e2e-fixture"], root, expected=1),
+            "output directory already exists",
+        )
 
         # Exact-grade generation experiments run both arms with equal budgets,
         # persist raw outcomes, and resume without repeating completed jobs.

@@ -41,7 +41,8 @@ The project index provides reading chains for common starting points and a compl
 1. `.aidoc/designs/difficulty-model.md` — strategy-grade contract, tier invariants, and configuration boundary
 2. `.aidoc/designs/difficulty-calibration.md` — strategy measurement contract, evidence, reports, and decision gates
 3. `.aidoc/designs/exact-grade-generation-experiment.md` — maintained offline replenishment contract and experiment boundary
-4. `replenisher/replenisher.go` — resumable exact-grade batch construction and publication
+4. `difficultyaudit/audit.go` — immutable independent-rating and canonical-trace full-catalog evidence
+5. `replenisher/replenisher.go` — resumable exact-grade batch construction and publication
 5. `cmd/replenish.go` — explicit offline replenishment CLI
 6. `generationexperiment/runner.go` — immutable jobs, resumable observations, canonical duplicate accounting, and raw-count reports
 7. `generationexperiment/executors.go` — seeded baseline and bounded trace-guided mutation adapters
@@ -168,6 +169,8 @@ The project index provides reading chains for common starting points and a compl
 | `recovery/recovery.go` | Private XDG recovery records, discovery, validation, retention, and deletion |
 | `sessionfile/session_file.go` | Bounded reads and atomic mode-0600 session writes |
 | `calibration/runner.go` | Immutable corpus manifests, append-only observations, resumable checkpoints, and derived reports |
+| `difficultyaudit/audit.go` | Commit-bound full-catalog feature vectors, distributions, correlations, and cross-model agreement |
+| `cmd/difficulty_audit.go` | Immutable full-catalog audit CLI boundary |
 | `calibration/testdata/mixed-pilot-v2.json` | Immutable traceable mixed-corpus pilot manifest |
 | `calibration/baselines/mixed-pilot-v2/report.md` | Preserved initial pilot baseline and statistical limitations |
 | `calibration/testdata/mixed-external-expansion-v3.json` | Immutable source-order external-stratum expansion manifest |

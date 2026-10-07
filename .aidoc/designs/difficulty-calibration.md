@@ -3,6 +3,7 @@ domain: Designs
 status: Active
 entry_points:
   - calibration/runner.go
+  - difficultyaudit/audit.go
   - cmd/calibrate.go
   - solver/classify.go
   - generator/generator.go
@@ -75,6 +76,8 @@ The local `sudoku calibrate` boundary accepts an immutable, ordered version 2 JS
 
 The runner emits `observations.jsonl`, `checkpoint.json`, `report.json`, and `report.md`. Raw observations are append-only run artifacts; checkpoints and deterministic reports are derived state that can be rebuilt without changing observations. Reports stratify outcomes and Wilson intervals by source and split, summarize nearest-rank score/move/clue distributions by assigned tier, show neighboring score-range overlap, preserve each external rating system as a separate agreement matrix, and report generated target mismatches, hit rates, latency, and rounds.
 
+`difficultyaudit.Run` is the full-catalog comparison boundary for independently rated manifests. The immutable output directory binds the exact manifest bytes, repository commit, solver configuration digest, Go runtime, operating system, architecture, and schema version. Parallel workers classify every puzzle twice while preserving manifest order in `evidence.jsonl`; each row records the independent rating, strategy outcome and grade, score, maximum and counted techniques, Evil-move count, advanced-technique diversity and density, longest consecutive advanced run, clue count, move count, and trace digest. `report.json` derives complete per-grade distributions, Pearson and tied-rank Spearman correlations, and source-rating-quartile agreement; `report.md` is the concise review surface. Audit artifacts remain outside the product repository unless a separately approved publication decision names a destination.
+
 ## Current Evidence
 
 `calibration/testdata/mixed-generator-alignment-v6.json` is the current immutable 101-record corpus. It preserves the external, generated, imported, and pathological records from the v2–v5 manifests, then appends five sequential `GenerateBestEffort` calls per requested tier without outcome-based rejection or replacement. Its matching baseline directory contains append-only observations, deterministic reports, exact run metadata, and a focused alignment and coverage analysis.
@@ -86,6 +89,8 @@ Three newly generated high-tier puzzles become strategy-unsolved after reaching 
 The external expansion still confirms that score is not a cross-grade boundary: all four neighboring assigned grades have overlapping observed score ranges. The `easy50`, `top95`, and `hardest` groups remain separate because their labels do not define a shared rating scale. Fourteen of 15 imported fixtures solve; constrained integration-fixture labels are not automatically canonical classifier labels.
 
 The v6 evidence supports the adopted bounded generator policy without retuning grades, weights, clues, or strategies. Batch generation remains best-effort, classifies and stores only completed puzzles under their actual grade, and reports target matches separately. Wall-clock generation budgets are hard caller deadlines. Interactive play uses a matching generated or database puzzle when available and otherwise names the actual generated grade explicitly. Technique-inventory changes remain separate and require diagnosis and regression fixtures for representative stalls.
+
+The pinned Sudoku Exchange analysis manifest is the approved input for the next evidence slice. The full-catalog audit compares its Sukaku Explainer ratings with canonical strategy traces before any Evil-serving cohort is defined; the audit does not alter catalog admission or player-facing selection.
 
 ## Rating Contract
 
