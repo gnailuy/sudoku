@@ -148,6 +148,10 @@ Import puzzles from a text file (one per line, 81 chars):
 
 Every producer stores the same representative across digit relabelling and Sudoku-preserving row, column, band, stack, and transpose symmetries. The pinned helper verifies the complete source hash, preserves per-record provenance, reclassifies canonical content, and excludes strategy-unsolved records from the playable catalog.
 
+### Third-Party Puzzle Data
+
+The pinned import uses the [`grantm/sudoku-exchange-puzzle-bank`](https://github.com/grantm/sudoku-exchange-puzzle-bank) dataset. Its [`LICENSE.txt`](https://github.com/grantm/sudoku-exchange-puzzle-bank/blob/master/LICENSE.txt) dedicates the puzzle data to the public domain. The import helper pins the exact upstream commit and file hash so a catalog rebuild remains traceable and reproducible.
+
 ## Replenish the Expert/Evil Catalog
 
 ```bash
