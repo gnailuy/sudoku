@@ -28,7 +28,7 @@ Import accepts mixed external text and writes persistent records. Black-box cove
 
 ### 5.1 Import Help
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
-**Expected:** Shows flags: `-f`, `--source`, `--db`.
+**Expected:** Shows file, source, format, SHA-256 pin, immutable analysis-manifest, worker, and database flags.
 
 ### 5.2 Import Puzzles from File
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
@@ -54,9 +54,9 @@ Import accepts mixed external text and writes persistent records. Black-box cove
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
 **Expected:** Second import reports all as duplicates.
 
-### 5.8 Pinned Sudoku Exchange Record
-**Action:** Import a three-field Sudoku Exchange fixture with its exact complete-file SHA-256 and an explicit commit-bound source label, then retry without the hash pin.
-**Expected:** The pinned import stores the canonical puzzle with the published 12-byte hash as provenance; an unpinned Sudoku Exchange import fails before opening or mutating the database.
+### 5.8 Pinned Sudoku Exchange Record and Analysis Manifest
+**Action:** Import a three-field Sudoku Exchange fixture with its exact complete-file SHA-256, an explicit commit-bound source label, and a new analysis-manifest path; then retry without the hash pin and with the existing manifest path.
+**Expected:** The pinned import stores each playable canonical puzzle with the published 12-byte hash as provenance. The version 2 analysis manifest preserves every structurally valid canonical puzzle, source order, finite Sukaku Explainer rating, complete-file SHA-256, and published record hash, including records excluded from play as strategy-unsolved. An unpinned import and an attempted manifest overwrite both fail before opening or mutating the database.
 
 ### 5.9 Strategy-Unsolved Exclusion
 **Action:** Import a structurally valid pinned-source puzzle beyond the canonical strategy inventory.

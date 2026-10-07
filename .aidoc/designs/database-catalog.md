@@ -32,7 +32,7 @@ A published puzzle can appear with relabelled digits, transposed bands, reflecte
 
 `core.CanonicalPuzzle` selects one dot-notation representative across digit relabelling, band and stack permutations, row and column permutations within those groups, and transposition. Import, generation, automatic storage, and completion tracking all use that same canonical boundary before classification, deduplication, or history lookup; `db.InsertPuzzle` still rejects a caller-supplied ID that disagrees with the canonical content.
 
-The pinned external corpus is `grantm/sudoku-exchange-puzzle-bank`'s public-domain `diabolical.txt` at commit `d8c8ebaee0c08c412cfba96af1923dfa61c83317`. The import boundary verifies the complete file SHA-256 `08553d0c1145ea4d7c13008040f47ea8205d21fe1eaf8f4ab17a1a6981928b35`, preserves each published record hash as `source_ref`, reclassifies canonical content, and excludes `strategy-unsolved` records from the playable catalog.
+The pinned external corpus is `grantm/sudoku-exchange-puzzle-bank`'s public-domain `diabolical.txt` at commit `d8c8ebaee0c08c412cfba96af1923dfa61c83317`. The import boundary verifies the complete file SHA-256 `08553d0c1145ea4d7c13008040f47ea8205d21fe1eaf8f4ab17a1a6981928b35`, preserves each published record hash as `source_ref`, reclassifies canonical content, and excludes `strategy-unsolved` records from the playable catalog. An optional immutable calibration manifest preserves every structurally valid canonical record and its Sukaku Explainer rating for offline analysis without changing catalog admission.
 
 ## Catalog Contract
 
