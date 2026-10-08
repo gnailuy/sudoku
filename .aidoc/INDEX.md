@@ -40,63 +40,67 @@ The project index provides reading chains for common starting points and a compl
 ### Understanding Puzzle Generation
 1. `.aidoc/designs/difficulty-model.md` — strategy-grade contract, tier invariants, and configuration boundary
 2. `.aidoc/designs/difficulty-calibration.md` — strategy measurement contract, evidence, reports, and decision gates
-3. `.aidoc/designs/exact-grade-generation-experiment.md` — maintained offline replenishment contract and experiment boundary
-4. `difficultyaudit/audit.go` — immutable independent-rating and canonical-trace full-catalog evidence
-5. `replenisher/replenisher.go` — resumable exact-grade batch construction and publication
-5. `cmd/replenish.go` — explicit offline replenishment CLI
-6. `generationexperiment/runner.go` — immutable jobs, resumable observations, canonical duplicate accounting, and raw-count reports
-7. `generationexperiment/executors.go` — seeded baseline and bounded trace-guided mutation adapters
-8. `cmd/experiment.go` — explicit isolated experiment CLI
-9. `calibration/runner.go` — immutable manifests, reproducibility checks, observations, checkpoints, and reports
-10. `calibration/baselines/mixed-generator-alignment-v6/report.md` — current 101-record measurement report
-11. `calibration/baselines/mixed-generator-alignment-v6/analysis.md` — generator alignment, trace, budget, and coverage interpretation
-12. `calibration/baselines/mixed-imported-expansion-v5/report.md` — preserved imported-stratum expansion results
-13. `calibration/baselines/mixed-generated-expansion-v4/report.md` — preserved generated-stratum expansion results
-14. `calibration/baselines/mixed-external-expansion-v3/report.md` — preserved expanded external baseline
-15. `calibration/baselines/mixed-pilot-v2/report.md` — preserved initial pilot baseline
-16. `cmd/calibrate.go` — resumable local measurement command
-17. `generator/difficulty.go` — difficulty levels and `StrategySolverKeys`
-18. `generator/generator.go` — board generation, cell removal, best-effort generation with limits
-19. `generator/options.go` — `Options` and `BestEffortOptions` (time/round limits)
-20. `solver/classify.go` — puzzle classification (difficulty tier, score, max technique)
-21. `.aidoc/designs/database-catalog.md` — base-puzzle identity, provenance, play-run separation, and rebuild boundary
-22. `core/canonical.go` — shared digit and Sudoku-symmetry canonicalization boundary
-23. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and rebuild contract
-24. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
-25. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
-26. `db/db.go` — SQLite database open, schema, and rebuild boundary
-27. `db/catalog.go` — provenance and presentation-specific play-run contracts
-28. `db/puzzle.go` — catalog CRUD, acquisition, and statistics
-29. `cmd/play.go` — fallback flow and auto-store
-30. `cmd/generate.go` — batch generation CLI
-31. `cmd/import.go` — plain and hash-pinned external import boundary
-32. `scripts/import_sudoku_exchange_diabolical.sh` — exact public-domain source pin and import composition
+3. `.aidoc/designs/evil-cohort.md` — frozen exact-Evil serving rule, partition, and stability evidence
+4. `.aidoc/designs/exact-grade-generation-experiment.md` — maintained offline replenishment contract and experiment boundary
+5. `difficultyaudit/audit.go` — immutable independent-rating and canonical-trace full-catalog evidence
+6. `replenisher/replenisher.go` — resumable exact-grade batch construction and publication
+7. `cmd/replenish.go` — explicit offline replenishment CLI
+8. `generationexperiment/runner.go` — immutable jobs, resumable observations, canonical duplicate accounting, and raw-count reports
+9. `generationexperiment/executors.go` — seeded baseline and bounded trace-guided mutation adapters
+10. `cmd/experiment.go` — explicit isolated experiment CLI
+11. `calibration/runner.go` — immutable manifests, reproducibility checks, observations, checkpoints, and reports
+12. `calibration/baselines/mixed-generator-alignment-v6/report.md` — current 101-record measurement report
+13. `calibration/baselines/mixed-generator-alignment-v6/analysis.md` — generator alignment, trace, budget, and coverage interpretation
+14. `calibration/baselines/mixed-imported-expansion-v5/report.md` — preserved imported-stratum expansion results
+15. `calibration/baselines/mixed-generated-expansion-v4/report.md` — preserved generated-stratum expansion results
+16. `calibration/baselines/mixed-external-expansion-v3/report.md` — preserved expanded external baseline
+17. `calibration/baselines/mixed-pilot-v2/report.md` — preserved initial pilot baseline
+18. `cmd/calibrate.go` — resumable local measurement command
+19. `generator/difficulty.go` — difficulty levels and `StrategySolverKeys`
+20. `generator/generator.go` — board generation, cell removal, best-effort generation with limits
+21. `generator/options.go` — `Options` and `BestEffortOptions` (time/round limits)
+22. `solver/classify.go` — puzzle classification (difficulty tier, score, max technique)
+23. `.aidoc/designs/database-catalog.md` — base-puzzle identity, provenance, play-run separation, and rebuild boundary
+24. `core/canonical.go` — shared digit and Sudoku-symmetry canonicalization boundary
+25. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and rebuild contract
+26. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
+27. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
+28. `db/db.go` — SQLite database open, schema, and rebuild boundary
+29. `db/catalog.go` — provenance and presentation-specific play-run contracts
+30. `db/puzzle.go` — catalog CRUD, acquisition, and statistics
+31. `cmd/play.go` — fallback flow and auto-store
+32. `cmd/generate.go` — batch generation CLI
+33. `cmd/import.go` — plain and hash-pinned external import boundary
+34. `scripts/import_sudoku_exchange_diabolical.sh` — exact public-domain source pin and import composition
+
 ### Understanding the Roadmap
 1. `.aidoc/designs/roadmap.md` — maintained replenishment boundary and delivery gates
-2. `.aidoc/designs/exact-grade-generation-experiment.md` — offline replenishment, resume, validation, and publication contract
-3. `.aidoc/designs/difficulty-model.md` — calibration boundary and strategy-grade invariants
-4. `.aidoc/designs/difficulty-calibration.md` — strategy measurement methodology, report contract, and product decisions
-5. `.aidoc/designs/deployment-hardening.md` — maintained artifact, service, isolation, access-policy, and replacement contract
-6. `.aidoc/designs/e2e-test-scenarios.md` — compatibility and black-box acceptance scenarios
-7. `.aidoc/designs/database-catalog.md` — stable catalog identity, provenance, play-run state, and destructive rebuild
-8. `.aidoc/designs/database-puzzle-selection.md` — current database acquisition and rebuild boundary
-9. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and explicit reset behavior
-10. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
-11. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
-12. `.aidoc/designs/user-accounts.md` — approved guest, identity, ownership, claim, and account security contract
-13. `db/accounts.go` — provider-keyed identities, digest-only sessions, and owner-scoped durable games
-14. `oidcauth/oidcauth.go` — single-use state, nonce, PKCE, return-path, and verified-claim boundary
-15. `oidcauth/google.go` — Google discovery, code exchange, and ID-token signature verification
-16. `accountauth/accountauth.go` — application identity resolution, digest-only session rotation, authentication, and logout
-17. `guestdoc/guestdoc.go` — sealed stateless guest games, key rotation, expiry, and revisioned actions
-18. `guestclaim/guestclaim.go` — authenticated exactly-once transition from sealed guest state to an owned game
-19. `accountgame/accountgame.go` — owner-scoped reads, revisioned engine actions, and deletion
-20. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
-21. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
-22. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
-23. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
-24. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
-25. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+2. `.aidoc/designs/evil-cohort.md` — frozen Evil-serving rule and implementation gate
+3. `.aidoc/designs/exact-grade-generation-experiment.md` — offline replenishment, resume, validation, and publication contract
+4. `.aidoc/designs/difficulty-model.md` — calibration boundary and strategy-grade invariants
+5. `.aidoc/designs/difficulty-calibration.md` — strategy measurement methodology, report contract, and product decisions
+6. `.aidoc/designs/deployment-hardening.md` — maintained artifact, service, isolation, access-policy, and replacement contract
+7. `.aidoc/designs/e2e-test-scenarios.md` — compatibility and black-box acceptance scenarios
+8. `.aidoc/designs/database-catalog.md` — stable catalog identity, provenance, play-run state, and destructive rebuild
+9. `.aidoc/designs/database-puzzle-selection.md` — current database acquisition and rebuild boundary
+10. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and explicit reset behavior
+11. `.aidoc/designs/database-concurrency.md` — connection policy and mixed-workload reliability contract
+12. `.aidoc/designs/future-directions.md` — deferred evidence-gated database, product, hosting, and rating directions
+13. `.aidoc/designs/user-accounts.md` — approved guest, identity, ownership, claim, and account security contract
+14. `db/accounts.go` — provider-keyed identities, digest-only sessions, and owner-scoped durable games
+15. `oidcauth/oidcauth.go` — single-use state, nonce, PKCE, return-path, and verified-claim boundary
+16. `oidcauth/google.go` — Google discovery, code exchange, and ID-token signature verification
+17. `accountauth/accountauth.go` — application identity resolution, digest-only session rotation, authentication, and logout
+18. `guestdoc/guestdoc.go` — sealed stateless guest games, key rotation, expiry, and revisioned actions
+19. `guestclaim/guestclaim.go` — authenticated exactly-once transition from sealed guest state to an owned game
+20. `accountgame/accountgame.go` — owner-scoped reads, revisioned engine actions, and deletion
+21. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
+22. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
+23. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
+24. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
+25. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
+26. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
@@ -126,6 +130,7 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/architecture/guidelines.md` | Design constraints, layer boundaries, solver contract |
 | `.aidoc/designs/difficulty-model.md` | Strategy-grade contract, within-grade scoring, clue guidance, and calibration boundary |
 | `.aidoc/designs/difficulty-calibration.md` | Strategy calibration methodology, corpus contract, evidence, reports, and decision gates |
+| `.aidoc/designs/evil-cohort.md` | Frozen exact-Evil population, partition, independent gates, stability evidence, and serving constraints |
 | `.aidoc/designs/exact-grade-generation-experiment.md` | Trace-guided mutation comparison, reproducibility contract, and advancement gate |
 | `replenisher/replenisher.go` | Offline exact-grade seed mutation, durable resume, validation, and batch publication |
 | `cmd/replenish.go` | Expert/Evil offline replenishment CLI boundary |
