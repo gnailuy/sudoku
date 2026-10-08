@@ -21,6 +21,7 @@ Calibration tests whether the canonical strategy grades are reproducible, intern
 | Document | Relationship |
 |----------|--------------|
 | `.aidoc/designs/difficulty-model.md` | Strategy grades, weights, clue guidance, and configuration boundary |
+| `.aidoc/designs/evil-cohort.md` | Frozen use of independent rating and trace evidence for Evil serving |
 | `.aidoc/designs/exact-grade-generation-experiment.md` | Approved use of traces and held-out evidence for generator comparison |
 | `.aidoc/designs/roadmap.md` | Approved project priorities and maintained quality gates |
 | `.aidoc/designs/e2e-calibration-scenarios.md` | Current black-box calibration behavior catalog |
@@ -90,7 +91,7 @@ The external expansion still confirms that score is not a cross-grade boundary: 
 
 The v6 evidence supports the adopted bounded generator policy without retuning grades, weights, clues, or strategies. Batch generation remains best-effort, classifies and stores only completed puzzles under their actual grade, and reports target matches separately. Wall-clock generation budgets are hard caller deadlines. Interactive play uses a matching generated or database puzzle when available and otherwise names the actual generated grade explicitly. Technique-inventory changes remain separate and require diagnosis and regression fixtures for representative stalls.
 
-The pinned Sudoku Exchange analysis manifest is the approved input for the next evidence slice. The full-catalog audit compares its Sukaku Explainer ratings with canonical strategy traces before any Evil-serving cohort is defined; the audit does not alter catalog admission or player-facing selection.
+The pinned Sudoku Exchange full-catalog audit establishes the immutable evidence for `.aidoc/designs/evil-cohort.md`. The frozen cohort rule combines independent upper-tail rating and trace-density gates, while catalog admission and player-facing selection remain unchanged pending separate implementation approval.
 
 ## Rating Contract
 
