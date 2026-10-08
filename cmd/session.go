@@ -72,6 +72,9 @@ func createSession(request sessionRequest, output, errorOutput io.Writer) (game.
 			fmt.Fprintf(output, "Selecting an exact %s puzzle from the catalog...\n", capitalize(request.level))
 			problem, keys, err = acquireFromDB(solverStore, difficulty, request.level, dbPath)
 			if err != nil {
+				if request.level == "evil" {
+					return game.Game{}, "", fmt.Errorf("Evil cohort selection failed: %w", err)
+				}
 				fmt.Fprintf(output, "Exact-grade catalog unavailable (%v). Falling back to bounded generation.\n", err)
 				problem, keys, err = generateWithFallbackTo(output, solverStore, difficulty, request.level, dbPath)
 			}

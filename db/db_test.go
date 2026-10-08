@@ -514,3 +514,79 @@ func TestInsertPuzzleRejectsMismatchedStableID(t *testing.T) {
 		t.Fatalf("inserted=%v err=%v", inserted, err)
 	}
 }
+
+func TestEvilAcquisitionRequiresMaterializedCohort(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if _, err := database.InsertPuzzle(Puzzle{Puzzle: "evil-unselected", Difficulty: "evil", Score: 900, MaxTechnique: "x-cycles", Source: "test"}); err != nil {
+		t.Fatal(err)
+	}
+	if puzzle, err := database.AcquireForPlay("evil"); !errors.Is(err, ErrEvilCohortUnavailable) || puzzle != nil {
+		t.Fatalf("AcquireForPlay = %+v, %v", puzzle, err)
+	}
+}
+
+func TestMaterializedEvilCohortExcludesOtherExactEvilPuzzles(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	selected := Puzzle{Puzzle: "evil-selected", Difficulty: "evil", Score: 1000, MaxTechnique: "xy-chain", Source: "test"}
+	excluded := Puzzle{Puzzle: "evil-excluded", Difficulty: "evil", Score: 900, MaxTechnique: "x-cycles", Source: "test"}
+	for _, puzzle := range []Puzzle{selected, excluded} {
+		if _, err := database.InsertPuzzle(puzzle); err != nil {
+			t.Fatal(err)
+		}
+	}
+	definition := CohortDefinition{Name: "evil-v1", Difficulty: "evil", RuleVersion: 1, ManifestHash: "manifest", RepositoryCommit: "commit", SolverConfigDigest: "solver", EvidenceHash: "evidence", MemberCount: 1}
+	if err := database.MaterializeServingCohort(definition, []string{BasePuzzleID(selected.Puzzle)}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 2; i++ {
+		puzzle, err := database.AcquireForPlay("evil")
+		if err != nil || puzzle == nil || puzzle.Puzzle != selected.Puzzle || puzzle.PlayCount != i {
+			t.Fatalf("acquisition %d = %+v, %v", i, puzzle, err)
+		}
+	}
+	var selectedCount, excludedCount int
+	if err := database.conn.QueryRow(`SELECT play_count FROM base_puzzles WHERE canonical_puzzle = ?`, selected.Puzzle).Scan(&selectedCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.conn.QueryRow(`SELECT play_count FROM base_puzzles WHERE canonical_puzzle = ?`, excluded.Puzzle).Scan(&excludedCount); err != nil {
+		t.Fatal(err)
+	}
+	if selectedCount != 2 || excludedCount != 0 {
+		t.Fatalf("play counts = selected %d, excluded %d", selectedCount, excludedCount)
+	}
+}
+
+func TestServingCohortMaterializationIsAtomic(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	puzzle := Puzzle{Puzzle: "evil-present", Difficulty: "evil", Score: 1000, MaxTechnique: "xy-chain", Source: "test"}
+	if _, err := database.InsertPuzzle(puzzle); err != nil {
+		t.Fatal(err)
+	}
+	definition := CohortDefinition{Name: "evil-v1", Difficulty: "evil", RuleVersion: 1, ManifestHash: "manifest", RepositoryCommit: "commit", SolverConfigDigest: "solver", EvidenceHash: "evidence", MemberCount: 2}
+	err = database.MaterializeServingCohort(definition, []string{BasePuzzleID(puzzle.Puzzle), BasePuzzleID("missing")})
+	if err == nil {
+		t.Fatal("expected missing member failure")
+	}
+	var definitions, members int
+	if err := database.conn.QueryRow(`SELECT COUNT(*) FROM serving_cohorts`).Scan(&definitions); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.conn.QueryRow(`SELECT COUNT(*) FROM serving_cohort_members`).Scan(&members); err != nil {
+		t.Fatal(err)
+	}
+	if definitions != 0 || members != 0 {
+		t.Fatalf("partial materialization persisted: definitions=%d members=%d", definitions, members)
+	}
+}
