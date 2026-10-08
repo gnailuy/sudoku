@@ -1,8 +1,9 @@
 ---
 domain: Designs
-status: Draft
+status: Active
 entry_points:
-  - difficultyaudit/audit.go
+  - evilcohort/cohort.go
+  - cmd/database.go
   - db/puzzle.go
 dependencies:
   - .aidoc/designs/difficulty-calibration.md
@@ -13,7 +14,7 @@ dependencies:
 
 # Evil Serving Cohort
 
-The Evil serving cohort combines independent upper-tail evidence from Sukaku Explainer and the canonical strategy trace. The frozen rule is ready for review, but serving remains unchanged until a separate implementation is approved.
+The Evil serving cohort combines independent upper-tail evidence from Sukaku Explainer and the canonical strategy trace. Schema version 5 materializes the approved membership by canonical base-puzzle ID, and Evil acquisition now fails closed unless that bound cohort is available.
 
 ## Related Docs
 
@@ -65,12 +66,10 @@ The frozen rule's exploratory rate has a Wilson 95% interval of 4.45%–4.89%; t
 
 At the frozen percentile gates, lowering both evidence floors to one selects 2,183 records; requiring two Evil moves and two advanced techniques selects the same 2,023 records as the frozen rule; requiring three Evil moves selects 1,750. Nearby evidence floors therefore change size gradually rather than exposing a brittle single-value boundary.
 
-## Serving and Failure Contract
+## Materialization and Serving Contract
 
-A later implementation may materialize membership by canonical base puzzle ID and reuse `db.DB.AcquireForPlay` ordering inside the eligible set: never-played puzzles first, then lowest play count and oldest recency. Exact-Evil requests must not fall back to non-cohort Evil puzzles when the cohort is unavailable.
+`sudoku db materialize-evil-cohort` validates the immutable full-catalog report and evidence hashes, reproduces the frozen population and membership counts, derives each `base_puzzle_id` from the canonical puzzle hash, and atomically replaces `evil-v1`. Materialization fails without changing prior membership if any selected exact-Evil base puzzle is absent from the catalog.
 
-Cohort materialization must bind the manifest, repository commit, solver configuration, partition function, thresholds, and rule version. Any solver or evidence-version change invalidates membership and requires a new exploratory analysis plus held-out release review.
+`db.DB.AcquireForPlay` restricts Evil selection to `evil-v1`, then preserves never-played-first, lowest-play-count, and oldest-recency ordering inside that set. An absent, empty, invalid, or inaccessible cohort fails immediately; root play and `--from-db` never enter bounded generation or serve a weaker fallback for that request. Non-Evil acquisition remains unchanged.
 
-## Implementation Gate
-
-Implementation begins only after review accepts the frozen rule, target size, sensitivity evidence, and no-fallback behavior. The implementation must add deterministic membership tests, database acquisition coverage, and applicable built-binary E2E scenarios before changing player-facing serving.
+The stored definition binds the manifest, repository commit, solver configuration, evidence hash, rule version, and member count. Any solver or evidence-version change invalidates membership and requires a new exploratory analysis plus held-out release review.

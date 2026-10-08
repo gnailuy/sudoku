@@ -43,6 +43,9 @@ func (db *DB) RecordCompletion(puzzle string) (bool, error) {
 
 // AcquireForPlay atomically selects and marks an exact-difficulty puzzle.
 func (db *DB) AcquireForPlay(difficulty string) (*Puzzle, error) {
+	if difficulty == "evil" {
+		return db.acquireEvilForPlay()
+	}
 	row := db.conn.QueryRow(`
 		UPDATE base_puzzles SET play_count = play_count + 1, last_played_at = CURRENT_TIMESTAMP
 		WHERE canonical_puzzle = (SELECT canonical_puzzle FROM base_puzzles WHERE difficulty = ?
@@ -50,6 +53,89 @@ func (db *DB) AcquireForPlay(difficulty string) (*Puzzle, error) {
 		RETURNING base_puzzle_id, canonical_puzzle, difficulty, score, max_technique, COALESCE((SELECT source FROM puzzle_provenance WHERE base_puzzle_id = base_puzzles.base_puzzle_id ORDER BY provenance_id LIMIT 1), ''),
 			play_count, COALESCE(CAST(last_played_at AS TEXT), '')`, difficulty)
 	return scanPuzzle(row, "acquire puzzle")
+}
+
+func (db *DB) acquireEvilForPlay() (*Puzzle, error) {
+	var materialized int
+	if err := db.conn.QueryRow(`SELECT EXISTS(SELECT 1 FROM serving_cohorts WHERE cohort_name = 'evil-v1' AND difficulty = 'evil')`).Scan(&materialized); err != nil {
+		return nil, fmt.Errorf("inspect Evil serving cohort: %w", err)
+	}
+	if materialized == 0 {
+		return nil, ErrEvilCohortUnavailable
+	}
+	row := db.conn.QueryRow(`
+		UPDATE base_puzzles SET play_count = play_count + 1, last_played_at = CURRENT_TIMESTAMP
+		WHERE base_puzzle_id = (SELECT b.base_puzzle_id FROM base_puzzles b
+			JOIN serving_cohort_members m ON m.base_puzzle_id = b.base_puzzle_id
+			WHERE m.cohort_name = 'evil-v1' AND b.difficulty = 'evil'
+			ORDER BY b.play_count ASC, b.last_played_at ASC, RANDOM() LIMIT 1)
+		RETURNING base_puzzle_id, canonical_puzzle, difficulty, score, max_technique, COALESCE((SELECT source FROM puzzle_provenance WHERE base_puzzle_id = base_puzzles.base_puzzle_id ORDER BY provenance_id LIMIT 1), ''),
+			play_count, COALESCE(CAST(last_played_at AS TEXT), '')`)
+	puzzle, err := scanPuzzle(row, "acquire Evil cohort puzzle")
+	if err != nil {
+		return nil, err
+	}
+	if puzzle == nil {
+		return nil, ErrEvilCohortUnavailable
+	}
+	return puzzle, nil
+}
+
+// CohortDefinition binds a materialized serving cohort to its immutable evidence.
+type CohortDefinition struct {
+	Name, Difficulty, ManifestHash, RepositoryCommit, SolverConfigDigest, EvidenceHash string
+	RuleVersion, MemberCount                                                           int
+}
+
+// MaterializeServingCohort atomically replaces one cohort after proving every
+// member exists at the bound exact difficulty.
+func (db *DB) MaterializeServingCohort(definition CohortDefinition, basePuzzleIDs []string) error {
+	if definition.Name == "" || definition.Difficulty == "" || definition.RuleVersion < 1 || definition.ManifestHash == "" || definition.RepositoryCommit == "" || definition.SolverConfigDigest == "" || definition.EvidenceHash == "" {
+		return fmt.Errorf("serving cohort definition is incomplete")
+	}
+	if definition.MemberCount != len(basePuzzleIDs) || definition.MemberCount == 0 {
+		return fmt.Errorf("serving cohort member count is %d, want %d", len(basePuzzleIDs), definition.MemberCount)
+	}
+	seen := make(map[string]struct{}, len(basePuzzleIDs))
+	for _, id := range basePuzzleIDs {
+		if _, duplicate := seen[id]; duplicate {
+			return fmt.Errorf("serving cohort contains duplicate %s", id)
+		}
+		seen[id] = struct{}{}
+	}
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("begin serving cohort materialization: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec(`DELETE FROM serving_cohort_members WHERE cohort_name = ?`, definition.Name); err != nil {
+		return fmt.Errorf("clear serving cohort members: %w", err)
+	}
+	if _, err := tx.Exec(`INSERT INTO serving_cohorts (cohort_name, difficulty, rule_version, manifest_hash, repository_commit, solver_config_digest, evidence_hash, member_count)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(cohort_name) DO UPDATE SET difficulty=excluded.difficulty, rule_version=excluded.rule_version,
+		manifest_hash=excluded.manifest_hash, repository_commit=excluded.repository_commit,
+		solver_config_digest=excluded.solver_config_digest, evidence_hash=excluded.evidence_hash,
+		member_count=excluded.member_count, created_at=CURRENT_TIMESTAMP`, definition.Name, definition.Difficulty,
+		definition.RuleVersion, definition.ManifestHash, definition.RepositoryCommit, definition.SolverConfigDigest,
+		definition.EvidenceHash, definition.MemberCount); err != nil {
+		return fmt.Errorf("store serving cohort definition: %w", err)
+	}
+	for _, id := range basePuzzleIDs {
+		result, err := tx.Exec(`INSERT INTO serving_cohort_members (cohort_name, base_puzzle_id)
+			SELECT ?, base_puzzle_id FROM base_puzzles WHERE base_puzzle_id = ? AND difficulty = ?`, definition.Name, id, definition.Difficulty)
+		if err != nil {
+			return fmt.Errorf("store serving cohort member %s: %w", id, err)
+		}
+		rows, err := result.RowsAffected()
+		if err != nil || rows != 1 {
+			return fmt.Errorf("serving cohort member %s is absent or not exact %s", id, definition.Difficulty)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit serving cohort materialization: %w", err)
+	}
+	return nil
 }
 
 // MarkForPlay atomically records selection of a specific stored puzzle.

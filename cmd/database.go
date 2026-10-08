@@ -7,12 +7,13 @@ import (
 	"strings"
 
 	"github.com/gnailuy/sudoku/db"
+	"github.com/gnailuy/sudoku/evilcohort"
 	"github.com/spf13/cobra"
 )
 
 func newDatabaseCommand() *cobra.Command {
 	command := &cobra.Command{Use: "db", Short: "Inspect and manage puzzle history"}
-	command.AddCommand(newDatabaseStatsCommand(), newDatabaseResetCommand(), newDatabaseRebuildCommand())
+	command.AddCommand(newDatabaseStatsCommand(), newDatabaseResetCommand(), newDatabaseRebuildCommand(), newDatabaseMaterializeEvilCohortCommand())
 	return command
 }
 
@@ -180,5 +181,43 @@ func newDatabaseRebuildCommand() *cobra.Command {
 	}
 	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
 	command.Flags().BoolVar(&yes, "yes", false, "Confirm destructive rebuild without an interactive prompt")
+	return command
+}
+
+func newDatabaseMaterializeEvilCohortCommand() *cobra.Command {
+	var path, evidencePath, reportPath string
+	command := &cobra.Command{
+		Use:   "materialize-evil-cohort",
+		Short: "Materialize the frozen Evil serving cohort",
+		Args:  cobra.NoArgs,
+		RunE: func(command *cobra.Command, _ []string) error {
+			selection, err := evilcohort.Load(evidencePath, reportPath)
+			if err != nil {
+				return err
+			}
+			resolved := resolveDatabasePath(path)
+			puzzleDB, err := db.Open(resolved)
+			if err != nil {
+				return err
+			}
+			defer puzzleDB.Close()
+			definition := db.CohortDefinition{
+				Name: evilcohort.Name, Difficulty: "evil", RuleVersion: evilcohort.RuleVersion,
+				ManifestHash: evilcohort.ManifestHash, RepositoryCommit: evilcohort.RepositoryCommit,
+				SolverConfigDigest: evilcohort.SolverConfigDigest, EvidenceHash: evilcohort.EvidenceHash,
+				MemberCount: evilcohort.MemberCount,
+			}
+			if err := puzzleDB.MaterializeServingCohort(definition, selection.BasePuzzleIDs); err != nil {
+				return err
+			}
+			fmt.Fprintf(command.OutOrStdout(), "Materialized %s with %d exact-Evil puzzles (%d exploratory, %d held-out).\n", evilcohort.Name, len(selection.BasePuzzleIDs), selection.ExploratoryMembers, selection.HeldOutMembers)
+			return nil
+		},
+	}
+	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().StringVar(&evidencePath, "evidence", "", "Immutable full-catalog evidence JSONL")
+	command.Flags().StringVar(&reportPath, "report", "", "Bound full-catalog audit report JSON")
+	_ = command.MarkFlagRequired("evidence")
+	_ = command.MarkFlagRequired("report")
 	return command
 }

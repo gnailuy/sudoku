@@ -37,7 +37,7 @@ The base-puzzle catalog is a local puzzle pool, while presentation-specific iden
 
 ## What Selection Guarantees
 
-- Selection never crosses strategy grades. Only the requested `difficulty` is eligible.
+- Selection never crosses strategy grades. Only the requested `difficulty` is eligible; Evil additionally requires membership in the materialized `evil-v1` cohort.
 - Rows with `play_count = 0` are selected before any previously played row.
 - After every exact-grade row has been used, the lowest `play_count` wins; the oldest `last_played_at` breaks unequal recency, and randomness breaks remaining ties.
 - Selection and the increment of `play_count`/`last_played_at` happen in one atomic SQLite statement. A row is returned only after its played state is durable.
@@ -52,7 +52,7 @@ Default play chooses source order from verified catalog supply:
 
 1. Hard, Expert, and Evil atomically acquire an exact-grade catalog puzzle before attempting generation. These grades have maintained exact-grade supply, so default starts avoid an unnecessary bounded-generation delay and preserve requested/actual agreement.
 2. Easy and Medium attempt bounded generation first because the maintained catalog has no exact-grade supply for those grades.
-3. If catalog-first acquisition is empty or unavailable, play reports the failed catalog boundary and falls back to bounded generation.
+3. If Hard or Expert catalog-first acquisition is empty or unavailable, play reports the failed catalog boundary and falls back to bounded generation. Evil fails closed when its approved cohort cannot serve and never enters generation.
 4. If generation misses, play stores that candidate unplayed and atomically acquires an exact-grade database puzzle when one is available.
 5. If no exact-grade row exists or the database is unavailable, play may use the generated mismatch, marks it played when storage is available, and preserves the explicit actual-grade warning. If generation completes no puzzle, play reports an error.
 
@@ -71,7 +71,7 @@ The explicit database source is useful to players who want an offline stored puz
 
 ## Schema and Indexing
 
-`base_puzzles` stores the authoritative catalog row and acquisition aggregates. `puzzle_provenance` records independently traceable sources, while `play_runs` owns exact presentation-specific state. `.aidoc/designs/database-catalog.md` defines stable identity and the destructive schema-version boundary.
+`base_puzzles` stores the authoritative catalog row and acquisition aggregates. `serving_cohorts` binds a named rule to immutable evidence metadata, and `serving_cohort_members` links approved canonical IDs without duplicating puzzle content. `puzzle_provenance` records independently traceable sources, while `play_runs` owns exact presentation-specific state. `.aidoc/designs/database-catalog.md` defines stable identity and the destructive schema-version boundary.
 
 The acquisition index orders base-puzzle rows by difficulty, count, and timestamp. Legacy `puzzles` tables are never backfilled because their content lacks symmetry-canonical provenance; operators use the explicit confirmed rebuild command and build a replacement catalog from the commit- and hash-pinned external source through `scripts/import_sudoku_exchange_diabolical.sh`.
 
@@ -79,7 +79,7 @@ The acquisition index orders base-puzzle rows by difficulty, count, and timestam
 
 - The atomic write statement serializes concurrent acquisitions so two callers cannot both return the same previously unplayed row.
 - Configure a bounded SQLite busy timeout; do not wait indefinitely for a writer.
-- If acquisition or played-state persistence fails, default play follows its existing generated fallback. `--from-db` reports the database error because it has no permitted alternate source.
+- If Hard or Expert acquisition fails, default play follows its existing generated fallback. Evil cohort failure and every `--from-db` failure return directly because neither boundary permits an alternate source.
 - Statistics continue to report stored puzzle counts. `.aidoc/designs/database-play-statistics.md` defines the separately reviewed acquisition/completion statistics and reset increment.
 
 Puzzle-admission changes, including minimum-clue and uniqueness policy, require a separately approved product need. The current identity and history semantics remain the maintained database baseline.

@@ -49,6 +49,11 @@ Database behavior crosses generation, classification, persistence, and startup. 
 **Action:** Acquire three puzzles through `sudoku --from-db --level <grade> --db <path>`.
 **Expected:** Each row is selected before either repeats; later selections keep acquisition counts within one.
 
+### Evil Cohort Fail-Closed Selection
+**Setup:** Store exact-Evil rows before materializing `evil-v1`, then bind only one row to a cohort definition.
+**Action:** Request Evil through the built binary before and after membership exists.
+**Expected:** The unmaterialized request fails immediately without generation or mutation. Materialized requests select only the member and preserve balanced reuse inside the cohort; excluded exact-Evil rows remain untouched.
+
 ### Explicit Destructive Rebuild
 **Setup:** Create an obsolete `puzzles` table with one row.
 **Action:** Open it through `db stats`, attempt an unconfirmed non-interactive rebuild, then run `db rebuild --yes`.

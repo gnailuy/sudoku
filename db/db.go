@@ -17,13 +17,14 @@ import (
 type DB struct{ conn *sql.DB }
 
 const (
-	SchemaVersion            = 4
+	SchemaVersion            = 5
 	busyTimeoutMilliseconds  = 5000
 	sqliteBusyCode           = 5
 	journalModeRetryInterval = 10 * time.Millisecond
 )
 
 var ErrRebuildRequired = errors.New("database schema is obsolete; run `sudoku db rebuild --db <path> --yes`")
+var ErrEvilCohortUnavailable = errors.New("the approved Evil serving cohort is unavailable")
 
 func Open(path string) (*DB, error) {
 	conn, err := openConnection(path)
@@ -91,6 +92,12 @@ func (db *DB) migrate() (err error) {
 			}
 			version = 4
 		}
+		if version == 4 && current {
+			if err = migrateVersion4To5(conn); err != nil {
+				return err
+			}
+			version = 5
+		}
 		if version != SchemaVersion {
 			return ErrRebuildRequired
 		}
@@ -107,7 +114,7 @@ func (db *DB) migrate() (err error) {
 func createSchema(conn *sql.Conn) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS schema_metadata (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), version INTEGER NOT NULL)`,
-		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 4)`,
+		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 5)`,
 		`CREATE TABLE IF NOT EXISTS base_puzzles (
 			base_puzzle_id TEXT PRIMARY KEY,
 			canonical_puzzle TEXT NOT NULL UNIQUE,
@@ -127,6 +134,22 @@ func createSchema(conn *sql.Conn) error {
 			source_ref TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE (base_puzzle_id, source, source_ref)
+		)`,
+		`CREATE TABLE IF NOT EXISTS serving_cohorts (
+			cohort_name TEXT PRIMARY KEY,
+			difficulty TEXT NOT NULL,
+			rule_version INTEGER NOT NULL,
+			manifest_hash TEXT NOT NULL,
+			repository_commit TEXT NOT NULL,
+			solver_config_digest TEXT NOT NULL,
+			evidence_hash TEXT NOT NULL,
+			member_count INTEGER NOT NULL CHECK (member_count > 0),
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS serving_cohort_members (
+			cohort_name TEXT NOT NULL REFERENCES serving_cohorts(cohort_name) ON DELETE CASCADE,
+			base_puzzle_id TEXT NOT NULL REFERENCES base_puzzles(base_puzzle_id) ON DELETE CASCADE,
+			PRIMARY KEY (cohort_name, base_puzzle_id)
 		)`,
 		`CREATE TABLE IF NOT EXISTS play_runs (
 			play_run_id TEXT PRIMARY KEY,
@@ -185,6 +208,7 @@ func createSchema(conn *sql.Conn) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS base_puzzles_acquisition_idx ON base_puzzles (difficulty, play_count, last_played_at)`,
 		`CREATE INDEX IF NOT EXISTS puzzle_provenance_base_idx ON puzzle_provenance (base_puzzle_id)`,
+		`CREATE INDEX IF NOT EXISTS serving_cohort_members_base_idx ON serving_cohort_members (base_puzzle_id, cohort_name)`,
 		`CREATE INDEX IF NOT EXISTS play_runs_base_idx ON play_runs (base_puzzle_id, created_at)`,
 		`CREATE INDEX IF NOT EXISTS external_identities_user_idx ON external_identities (user_id)`,
 		`CREATE INDEX IF NOT EXISTS web_sessions_user_idx ON web_sessions (user_id, revoked_at)`,
@@ -194,6 +218,34 @@ func createSchema(conn *sql.Conn) error {
 	for _, statement := range statements {
 		if _, err := conn.ExecContext(context.Background(), statement); err != nil {
 			return fmt.Errorf("create catalog schema: %w", err)
+		}
+	}
+	return nil
+}
+
+func migrateVersion4To5(conn *sql.Conn) error {
+	for _, statement := range []string{
+		`CREATE TABLE serving_cohorts (
+			cohort_name TEXT PRIMARY KEY,
+			difficulty TEXT NOT NULL,
+			rule_version INTEGER NOT NULL,
+			manifest_hash TEXT NOT NULL,
+			repository_commit TEXT NOT NULL,
+			solver_config_digest TEXT NOT NULL,
+			evidence_hash TEXT NOT NULL,
+			member_count INTEGER NOT NULL CHECK (member_count > 0),
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE serving_cohort_members (
+			cohort_name TEXT NOT NULL REFERENCES serving_cohorts(cohort_name) ON DELETE CASCADE,
+			base_puzzle_id TEXT NOT NULL REFERENCES base_puzzles(base_puzzle_id) ON DELETE CASCADE,
+			PRIMARY KEY (cohort_name, base_puzzle_id)
+		)`,
+		`CREATE INDEX serving_cohort_members_base_idx ON serving_cohort_members (base_puzzle_id, cohort_name)`,
+		`UPDATE schema_metadata SET version = 5 WHERE singleton = 1 AND version = 4`,
+	} {
+		if _, err := conn.ExecContext(context.Background(), statement); err != nil {
+			return fmt.Errorf("upgrade catalog schema to version 5: %w", err)
 		}
 	}
 	return nil
@@ -279,7 +331,7 @@ func Rebuild(path string) (err error) {
 			_, _ = dedicated.ExecContext(context.Background(), `ROLLBACK`)
 		}
 	}()
-	for _, table := range []string{"guest_claims", "account_games", "web_sessions", "external_identities", "users", "play_runs", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
+	for _, table := range []string{"guest_claims", "account_games", "web_sessions", "external_identities", "users", "play_runs", "serving_cohort_members", "serving_cohorts", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
 		if _, err = dedicated.ExecContext(context.Background(), `DROP TABLE IF EXISTS `+table); err != nil {
 			return fmt.Errorf("drop %s: %w", table, err)
 		}

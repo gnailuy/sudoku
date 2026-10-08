@@ -109,6 +109,8 @@ def main():
         contains(output, "--manifest", "--output", "equal budgets", "resumable")
         output = run(binary, ["replenish", "--help"], root)
         contains(output, "--level", "--count", "--classifications", "--seed", "--state", "atomically")
+        output = run(binary, ["db", "materialize-evil-cohort", "--help"], root)
+        contains(output, "--evidence", "--report", "--db")
 
         # Difficulty measurement is deterministic and resumes without
         # duplicating append-only observations.
@@ -421,6 +423,21 @@ def main():
             ).fetchone()
         if catalog_level not in {"hard", "expert", "evil"}:
             raise AssertionError(f"catalog-first fixture has unexpected grade: {catalog_level}")
+        if catalog_level == "evil":
+            # The public play boundary must fail closed until the approved cohort
+            # has been materialized, even when weaker exact-Evil rows exist.
+            contains(
+                run(binary, ["--from-db", "--level", "evil", "--db", str(pinned_database)], root, expected=1),
+                "approved Evil serving cohort is unavailable",
+            )
+            with sqlite3.connect(pinned_database) as connection:
+                connection.execute(
+                    "INSERT INTO serving_cohorts (cohort_name, difficulty, rule_version, manifest_hash, repository_commit, solver_config_digest, evidence_hash, member_count) VALUES ('evil-v1', 'evil', 1, 'fixture-manifest', 'fixture-commit', 'fixture-solver', 'fixture-evidence', 1)"
+                )
+                connection.execute(
+                    "INSERT INTO serving_cohort_members (cohort_name, base_puzzle_id) VALUES ('evil-v1', ?)",
+                    (catalog_id,),
+                )
         started = time.monotonic()
         output = run(
             binary,
@@ -446,8 +463,8 @@ def main():
                 f"catalog-first linkage is incomplete: play_count={play_count}, active_runs={linked}"
             )
 
-        # An unavailable catalog is visible before bounded generation begins;
-        # generation may either produce a playable fallback or exhaust its budget.
+        # An unavailable Evil cohort fails closed before bounded generation;
+        # it never serves a weaker generated fallback.
         unavailable_database = root / "catalog-is-a-directory"
         unavailable_database.mkdir()
         started = time.monotonic()
@@ -460,17 +477,14 @@ def main():
             timeout=12,
         )
         unavailable_output = unavailable.stdout + unavailable.stderr
-        if unavailable.returncode not in {0, 1}:
+        if unavailable.returncode != 1:
             raise AssertionError(
-                f"unavailable catalog exited {unavailable.returncode}\n{unavailable_output[-4000:]}"
+                f"unavailable catalog exited {unavailable.returncode}, want 1\n{unavailable_output[-4000:]}"
             )
-        contains(
-            unavailable_output,
-            "Exact-grade catalog unavailable (",
-            "Falling back to bounded generation.",
-        )
-        if time.monotonic() - started > 10:
-            raise AssertionError("catalog-unavailable fallback exceeded its bounded generation window")
+        contains(unavailable_output, "Evil cohort selection failed:")
+        excludes(unavailable_output, "Falling back to bounded generation.", "Generating a random")
+        if time.monotonic() - started > 2:
+            raise AssertionError("catalog-unavailable Evil failure was not immediate")
 
         # Legacy rows require an explicit destructive rebuild; no identity or
         # provenance is guessed from the obsolete schema.
@@ -489,7 +503,7 @@ def main():
         contains(
             run(binary, ["db", "rebuild", "--db", str(legacy_database), "--yes"], root),
             "All catalog, play-run, account, identity, and web-session rows will be deleted.",
-            "Database rebuilt at schema version 4.",
+            "Database rebuilt at schema version 5.",
         )
         with sqlite3.connect(legacy_database) as connection:
             names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -502,8 +516,10 @@ def main():
             "external_identities",
             "web_sessions",
             "account_games",
+            "serving_cohorts",
+            "serving_cohort_members",
         }
-        if version != 4 or not required_tables.issubset(names) or "puzzles" in names:
+        if version != 5 or not required_tables.issubset(names) or "puzzles" in names:
             raise AssertionError(f"database rebuild produced unexpected schema: version={version}, tables={names}")
 
         # Public database acquisition exhausts never-played rows before reuse.
@@ -539,7 +555,7 @@ def main():
             raise AssertionError(f"database reuse is not balanced: {rows}")
         contains(
             run(binary, ["--from-db", "--level", "evil", "--db", str(acquisition_database)], root, expected=1),
-            "no evil puzzle is available in the database",
+            "approved Evil serving cohort is unavailable",
         )
         contains(
             run(binary, ["--from-db", "--input", PUZZLE_DOTS, "--db", str(acquisition_database)], root, expected=1),
