@@ -2,51 +2,52 @@
 domain: Designs
 status: Active
 entry_points:
-  - generator/generator.go
+  - difficultyaudit/audit.go
+  - cmd/difficulty_audit.go
   - solver/classify.go
-  - core/canonical.go
 dependencies:
-  - .aidoc/designs/exact-grade-generation-experiment.md
+  - .aidoc/designs/difficulty-calibration.md
   - .aidoc/designs/difficulty-model.md
-  - .aidoc/designs/deployment-hardening.md
-  - .aidoc/designs/e2e-test-scenarios.md
+  - .aidoc/designs/database-catalog.md
+  - .aidoc/designs/e2e-calibration-scenarios.md
 ---
 
 # Roadmap
 
-The next approved milestone adds optional Google accounts while preserving guest-first play. Delivery begins with the cross-repository ownership and security contract, then implements backend identity and game ownership before the browser adopts the explicit one-game claim flow.
+The next approved milestone uses reproducible full-catalog evidence to make Evil consistently demanding without adding a visible level or depending on human ratings. Delivery preserves the canonical five strategy grades and current serving behavior until an independent-rating and solver-trace audit supports a stable cohort rule.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|--------------|
-| `.aidoc/designs/user-accounts.md` | Approved guest, identity, claim, and account contract |
-| `.aidoc/designs/web-api.md` | Current client-neutral API and revision boundary |
-| `.aidoc/designs/database-catalog.md` | Shared catalog and presentation-specific play runs |
-| `.aidoc/designs/e2e-test-scenarios.md` | Maintained black-box verification baseline |
-| `.aidoc/designs/deployment-hardening.md` | Portable artifact and replacement contract |
+| `.aidoc/designs/difficulty-calibration.md` | Immutable corpus, measurement, and full-catalog audit contract |
+| `.aidoc/designs/difficulty-model.md` | Authoritative strategy grades and within-grade score |
+| `.aidoc/designs/database-catalog.md` | Pinned Sudoku Exchange provenance and playable-catalog boundary |
+| `.aidoc/designs/e2e-calibration-scenarios.md` | Built-binary evidence-artifact acceptance |
+| `.aidoc/designs/future-directions.md` | Deferred player-difficulty and solver-expansion directions |
 
-## Why Accounts Come Next
+## Why Evidence Comes First
 
-Guest-first play keeps Sudoku immediate while accounts add explicit cross-device continuity and a My games surface. One browser-held guest game avoids an anonymous game library and gives the claim boundary one understandable, auditable transition.
+The exact-Evil catalog is large enough for curation, but `db.DB.AcquireForPlay` balances exact-grade puzzles without considering their within-grade intensity. A puzzle can therefore qualify as Evil after one Evil-tier deduction while remaining mild through most of its trace.
 
-The account milestone replaces anonymous server recovery with sealed browser-held guest state, then adds Google identity, revocable web sessions, account-owned games, and one idempotent claim transaction. Schema version 3 provides provider-keyed identity, digest-only sessions, and owner-scoped account-game persistence. The `guestdoc` package provides the sealed stateless guest-game and revisioned action boundary, `oidcauth` provides single-use Google authorization-code, PKCE, state, nonce, return-path, and token-validation boundaries, `accountauth` atomically resolves provider identity while rotating the application session, `guestclaim` atomically adopts authenticated guest state exactly once, and `accountgame` authorizes owner-scoped create, list, read, revisioned action, and delete operations. The OpenAPI and runtime route slice exposes these boundaries behind optional private account configuration and preserves legacy startup when that configuration is absent. The coordinated frontend account implementation comes next. Existing catalog and game-engine boundaries remain authoritative.
+The pinned Sudoku Exchange bank carries a finite Sukaku Explainer rating for each published record. The independent source rating and the canonical solver trace provide two reproducible models that can identify robust upper-tail candidates without claiming universal human difficulty.
+
+A cohort formula chosen after inspecting final membership would overfit the catalog. The audit therefore publishes complete distributions and cross-model agreement before any exploratory/held-out split, percentile gate, diversity minimum, sensitivity range, or target cohort size becomes serving policy.
 
 ## Approved Delivery Sequence
 
-1. Keep the backend and frontend account design documents aligned on ownership states, sealed guest documents, OIDC and web sessions, claim, deletion, retention, and threat model.
-2. Extend the backend persistence foundation with Google OIDC, guest sealed-document actions, account-game HTTP authorization, idempotent claim, logout/revocation, and the OpenAPI contract.
-3. Implement the frontend's single-record IndexedDB repository, guest recovery, sign-in return, explicit claim, My games, and account controls.
-4. Prove desktop and phone acceptance, stage the coordinated pair, then remove the anonymous server-session path; development sessions may be discarded rather than migrated.
-
-Generator behavior, solver semantics, visible grades, catalog acquisition, and gameplay interactions remain unchanged. Google is the only version 1 identity provider; email links, shared games, collaboration, and broader social features remain separate decisions.
+1. Preserve every finite Sudoku Exchange rating in an immutable version 2 analysis manifest while keeping strategy-unsolved records outside the playable catalog.
+2. Produce a commit- and solver-configuration-bound full-catalog artifact with per-puzzle source rating, strategy outcome and grade, score, technique counts, Evil-move count, advanced-technique diversity and density, trace length, clue count, and trace digest. Publish deterministic distributions, correlations, missing-data counts, and cross-model agreement without changing acquisition.
+3. Predeclare an exploratory/held-out split, independent high-percentile gates, minimum Evil-move and diversity requirements, duplicate and symmetry policy, cohort-size target, and nearby-threshold sensitivity tests. Review the frozen rule and stability report before implementation.
+4. If the cohort is sufficiently large and stable, materialize deterministic membership and preserve never-played-first plus balanced reuse inside the eligible Evil cohort. An unavailable cohort must not silently fall back to weaker Evil puzzles.
 
 ## Delivery Gates
 
-- Unit and integration tests cover sealing failures, OIDC validation, session rotation and revocation, ownership, CSRF, rate limits, and transactional claim behavior.
-- Applicable built-binary E2E scenarios prove zero durable guest rows, exact one-game claim, cross-user denial, cross-browser account resume, deletion, and unchanged CLI/TUI behavior.
-- Pull-request CI keeps unit, race, vet, lint, API contract, API E2E, line-CLI E2E, and TUI PTY E2E independent and green.
-- Product documentation describes only current behavior and approved direction; generated HTML, credentials, and environment-specific topology remain outside the repository.
-- Repository files contain no private hostname, credential, operator path, live port assignment, release identifier, or neighboring-application topology.
+- Full-catalog inputs bind the exact bank SHA-256, source-record hashes, repository commit, solver configuration digest, output schema, and command boundary.
+- Repeated classification of every puzzle produces the same outcome, grade, score, maximum technique, and trace digest.
+- Per-puzzle evidence remains in source-manifest order even when classification uses parallel workers.
+- Reports distinguish solved and strategy-unsolved outcomes, preserve every independent rating without normalization, and expose complete metric distributions and correlation counts.
+- Unit and built-binary E2E coverage prove deterministic artifacts, immutable output paths, source-commit binding, and representative report fields.
+- Player-facing grade names, solver order, weights, catalog admission, acquisition, and API behavior remain unchanged until a later evidence review approves the cohort rule.
 
-No further generator work is scheduled. Strategy-aware construction, blind budget expansion, player-difficulty labels, shared games, collaboration, and production reliability ceremony remain outside maintained scope; each direction requires concrete product evidence and a separately approved design.
+Solver-inventory expansion remains a separate evidence-gated track because a new strategy can reclassify puzzles downward as well as explain current stalls. New puzzle sources are unnecessary unless they add compatible independent evidence or materially different solving patterns.

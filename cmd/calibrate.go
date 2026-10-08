@@ -31,6 +31,7 @@ Re-running with the same manifest and output directory resumes safely.`,
 	_ = command.MarkFlagRequired("manifest")
 	_ = command.MarkFlagRequired("output")
 	command.AddCommand(newPrepareCorpusCommand())
+	command.AddCommand(newDifficultyAuditCommand())
 	return command
 }
 

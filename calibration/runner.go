@@ -237,6 +237,12 @@ func PrepareManifest(inputPath, outputPath string) (Manifest, error) {
 	return WriteManifest(outputPath, manifest)
 }
 
+// LoadManifest reads and validates an immutable manifest and returns the
+// SHA-256 of its exact encoded bytes.
+func LoadManifest(path string) (Manifest, string, error) {
+	return loadManifest(path)
+}
+
 // WriteManifest normalizes, validates, and atomically writes a new immutable
 // corpus manifest. Existing output is never replaced.
 func WriteManifest(outputPath string, manifest Manifest) (Manifest, error) {

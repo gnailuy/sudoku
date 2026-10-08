@@ -4,6 +4,7 @@ status: Active
 entry_points:
   - cmd/calibrate.go
   - calibration/runner.go
+  - difficultyaudit/audit.go
 dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/difficulty-calibration.md
@@ -11,7 +12,7 @@ dependencies:
 
 # E2E Calibration Scenarios
 
-The calibration scenario catalog verifies immutable corpus preparation, resumable measurement, and manifest-bound output through the built calibration command.
+The calibration scenario catalog verifies immutable corpus preparation, resumable measurement, and commit-bound full-catalog audit output through the built calibration command.
 
 ## Related Docs
 
@@ -40,3 +41,8 @@ Use the prepared version 2 manifest. Run `sudoku calibrate --manifest <path> --o
 Complete a measurement run, then change the manifest name, puzzle order, IDs, or puzzle text and reuse the existing output directory.
 
 **Expected:** The command exits non-zero because existing observations are bound to the original exact manifest SHA-256. Existing observations remain unchanged.
+
+### 3.3 Create an Immutable Full-Catalog Audit
+Run `sudoku calibrate audit` with an independently rated version 2 manifest, a new output directory, the exact repository commit, and two workers. Retry with the same output directory.
+
+**Expected:** The first run writes one manifest-ordered `evidence.jsonl` row per puzzle plus deterministic JSON and Markdown reports. The report binds the manifest hash, repository commit, solver configuration, schema, and runtime; representative distributions and correlation counts are present. The retry fails before replacing any artifact because audit output is immutable.
