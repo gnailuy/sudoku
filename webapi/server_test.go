@@ -191,6 +191,49 @@ func TestSecurityCORSAndRequestValidation(t *testing.T) {
 	}
 }
 
+func TestHintPlanPreviewAndExactApplication(t *testing.T) {
+	handler, _, _ := testHandler(t, "", nil)
+	session := createTestSession(t, handler, nil)
+	path := "/api/v1/sessions/" + session.Id
+
+	previewResponse := request(t, handler, http.MethodGet, path+"/hint", "", "", nil)
+	if previewResponse.Code != http.StatusOK {
+		t.Fatalf("preview status=%d body=%s", previewResponse.Code, previewResponse.Body.String())
+	}
+	var preview HintPreview
+	if err := json.Unmarshal(previewResponse.Body.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.Revision != 0 || preview.Hint.ProtocolVersion != 1 || len(preview.Hint.PlanId) != 64 || len(preview.Hint.Steps) == 0 {
+		t.Fatalf("invalid hint plan: %+v", preview)
+	}
+	if preview.Hint.Conclusion.Placement == nil && len(preview.Hint.Conclusion.Eliminations) == 0 {
+		t.Fatalf("hint plan has no conclusion: %+v", preview.Hint)
+	}
+
+	missing := request(t, handler, http.MethodPost, path+"/actions", "application/json", `{"kind":"apply-hint","expected_revision":0}`, nil)
+	if missing.Code != http.StatusBadRequest {
+		t.Fatalf("missing plan_id status=%d body=%s", missing.Code, missing.Body.String())
+	}
+	wrong := request(t, handler, http.MethodPost, path+"/actions", "application/json", `{"kind":"apply-hint","expected_revision":0,"plan_id":"0000000000000000000000000000000000000000000000000000000000000000"}`, nil)
+	if wrong.Code != http.StatusUnprocessableEntity || !strings.Contains(wrong.Body.String(), "stale-hint") {
+		t.Fatalf("wrong plan status=%d body=%s", wrong.Code, wrong.Body.String())
+	}
+
+	body := fmt.Sprintf(`{"kind":"apply-hint","expected_revision":0,"plan_id":%q}`, preview.Hint.PlanId)
+	appliedResponse := request(t, handler, http.MethodPost, path+"/actions", "application/json", body, nil)
+	if appliedResponse.Code != http.StatusOK {
+		t.Fatalf("apply status=%d body=%s", appliedResponse.Code, appliedResponse.Body.String())
+	}
+	var applied ActionResponse
+	if err := json.Unmarshal(appliedResponse.Body.Bytes(), &applied); err != nil {
+		t.Fatal(err)
+	}
+	if applied.Revision != 1 || applied.Result.Hint == nil || applied.Result.Hint.PlanId != preview.Hint.PlanId {
+		t.Fatalf("invalid applied hint response: %+v", applied)
+	}
+}
+
 func TestSetNotesActionReplacesNotesInOneRevision(t *testing.T) {
 	handler, _, _ := testHandler(t, "", nil)
 	session := createTestSession(t, handler, nil)

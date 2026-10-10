@@ -14,7 +14,6 @@ import (
 	"github.com/gnailuy/sudoku/playrun"
 	"github.com/gnailuy/sudoku/recovery"
 	"github.com/gnailuy/sudoku/sessionfile"
-	"github.com/gnailuy/sudoku/solver"
 )
 
 const (
@@ -72,7 +71,7 @@ type Model struct {
 	modal          modalKind
 	theme          themeName
 	message        string
-	hint           *solver.Move
+	hint           *game.HintPlan
 	dirty          bool
 	autoCandidates bool
 	savePath       string
@@ -238,7 +237,7 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		if m.hint != nil {
-			command = m.apply(game.ApplyHint{})
+			command = m.apply(game.ApplyHint{PlanID: m.hint.PlanID})
 			m.hint = nil
 		} else {
 			m.message = "Press ? to preview a hint first."

@@ -98,7 +98,7 @@ The game-command scenarios verify the stable engine boundary through the real te
 
 ### 2.8 Hint (`hint` / `i`)
 **Input:** `hint` or `i`
-**Expected:** A correct value is filled into a cell. The technique and reason are displayed.
+**Expected:** The engine returns one deterministic teaching plan, the CLI accepts that exact plan as one action, a correct value is filled into a cell, and the plan summary is displayed.
 
 ### 2.9 Solve (`solve` / `s`)
 **Input:** `solve` or `s`

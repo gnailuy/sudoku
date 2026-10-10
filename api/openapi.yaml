@@ -1024,6 +1024,7 @@ components:
         - no-undo
         - no-redo
         - no-hint
+        - stale-hint
         - persistence-failed
         - internal-error
         - account-unavailable
@@ -1234,10 +1235,97 @@ components:
           pattern: ^[0-9.]{81}$
           description: An 81-cell puzzle; dot or zero represents an empty cell.
 
-    Hint:
+    HintPlan:
       type: object
       additionalProperties: false
-      required: [row, column, value, technique, reason]
+      required: [protocol_version, plan_id, strategy, summary, steps, conclusion]
+      properties:
+        protocol_version:
+          type: integer
+          const: 1
+        plan_id:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        strategy:
+          $ref: "#/components/schemas/HintStrategy"
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items:
+            $ref: "#/components/schemas/HintStep"
+        conclusion:
+          $ref: "#/components/schemas/HintEffect"
+
+    HintStrategy:
+      type: object
+      additionalProperties: false
+      required: [id, display_name, grade]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        grade:
+          type: string
+          maxLength: 20
+
+    HintStepKind:
+      type: string
+      enum: [observe, compare, eliminate, conclude]
+
+    HintRole:
+      type: string
+      enum: [focus, premise, eliminated, conclusion]
+
+    HintTargetKind:
+      type: string
+      enum: [cell, candidate, row, column, box]
+
+    HintTarget:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind:
+          $ref: "#/components/schemas/HintTargetKind"
+        row:
+          type: integer
+          minimum: 1
+          maximum: 9
+        column:
+          type: integer
+          minimum: 1
+          maximum: 9
+        value:
+          $ref: "#/components/schemas/Digit"
+        index:
+          type: integer
+          minimum: 1
+          maximum: 9
+
+    HintMark:
+      type: object
+      additionalProperties: false
+      required: [target, role]
+      properties:
+        target:
+          $ref: "#/components/schemas/HintTarget"
+        role:
+          $ref: "#/components/schemas/HintRole"
+
+    HintPlacement:
+      type: object
+      additionalProperties: false
+      required: [row, column, value]
       properties:
         row:
           type: integer
@@ -1249,14 +1337,58 @@ components:
           maximum: 9
         value:
           $ref: "#/components/schemas/Digit"
-        technique:
+
+    HintElimination:
+      type: object
+      additionalProperties: false
+      required: [row, column, value]
+      properties:
+        row:
+          type: integer
+          minimum: 1
+          maximum: 9
+        column:
+          type: integer
+          minimum: 1
+          maximum: 9
+        value:
+          $ref: "#/components/schemas/Digit"
+
+    HintEffect:
+      type: object
+      additionalProperties: false
+      required: [eliminations]
+      properties:
+        placement:
+          $ref: "#/components/schemas/HintPlacement"
+        eliminations:
+          type: array
+          maxItems: 729
+          items:
+            $ref: "#/components/schemas/HintElimination"
+
+    HintStep:
+      type: object
+      additionalProperties: false
+      required: [id, kind, message, marks]
+      properties:
+        id:
           type: string
           minLength: 1
           maxLength: 100
-        reason:
+        kind:
+          $ref: "#/components/schemas/HintStepKind"
+        message:
           type: string
           minLength: 1
           maxLength: 1000
+        marks:
+          type: array
+          maxItems: 729
+          items:
+            $ref: "#/components/schemas/HintMark"
+        effect:
+          $ref: "#/components/schemas/HintEffect"
 
     HintPreview:
       type: object
@@ -1266,7 +1398,7 @@ components:
         revision:
           $ref: "#/components/schemas/Revision"
         hint:
-          $ref: "#/components/schemas/Hint"
+          $ref: "#/components/schemas/HintPlan"
 
     ActionRequest:
       oneOf:
@@ -1383,7 +1515,18 @@ components:
     RedoAction:
       $ref: "#/components/schemas/NoArgumentRedoAction"
     ApplyHintAction:
-      $ref: "#/components/schemas/NoArgumentApplyHintAction"
+      type: object
+      additionalProperties: false
+      required: [expected_revision, kind, plan_id]
+      properties:
+        expected_revision:
+          $ref: "#/components/schemas/Revision"
+        kind:
+          type: string
+          const: apply-hint
+        plan_id:
+          type: string
+          pattern: ^[0-9a-f]{64}$
     RepairAction:
       $ref: "#/components/schemas/NoArgumentRepairAction"
     SolveAction:
@@ -1419,16 +1562,6 @@ components:
         kind:
           type: string
           const: redo
-    NoArgumentApplyHintAction:
-      type: object
-      additionalProperties: false
-      required: [expected_revision, kind]
-      properties:
-        expected_revision:
-          $ref: "#/components/schemas/Revision"
-        kind:
-          type: string
-          const: apply-hint
     NoArgumentRepairAction:
       type: object
       additionalProperties: false
@@ -1503,7 +1636,7 @@ components:
         can_redo:
           type: boolean
         hint:
-          $ref: "#/components/schemas/Hint"
+          $ref: "#/components/schemas/HintPlan"
 
     ActionResponse:
       type: object

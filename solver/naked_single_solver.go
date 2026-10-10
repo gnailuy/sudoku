@@ -35,6 +35,10 @@ func (s *NakedSingleSolver) Apply(board *core.Board) *Move {
 				Cell:      core.NewCell(pos, value),
 				Technique: s.Key,
 				Reason:    fmt.Sprintf("%s is the only candidate for %s", digitName(value), pos.ToString()),
+				Evidence: &Evidence{Premises: []CandidateGroup{{
+					Position: pos,
+					Values:   []int{value},
+				}}},
 			}
 		}
 	}

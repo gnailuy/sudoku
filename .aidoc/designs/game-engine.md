@@ -53,7 +53,7 @@ The stable contract is organized around four concepts:
 - `Action` is a typed player intent: set or clear a value, replace a cell’s complete note set, adopt the legal candidate grid as notes with one initiating toggle, reset, repair, solve, undo, redo, or apply a hint. An empty, one-digit, or multi-digit `SetNotes` value remains the direct mutation for one cell; `AdoptCandidatesAsNotes` is the whole-board transition from derived assistance to player-owned notes.
 - `Result` describes the accepted transition, changed cells, current status, undo/redo availability, and the recommendation used by an applied hint. Invalid actions return typed errors and leave state unchanged.
 
-The hint query evolves to return one complete renderer-neutral `HintPlan` without mutation. Step navigation remains client-local; accepting the preview submits `ApplyHint` with its deterministic `plan_id` through `Game.Apply`, so the engine verifies the taught conclusion and records its value or note transition as one history entry without creating a separate mutation boundary.
+The hint query returns one complete renderer-neutral `HintPlan` without mutation. Step navigation remains client-local; accepting the preview submits `ApplyHint` with its deterministic `plan_id` through `Game.Apply`, so the engine verifies the taught conclusion and records its value or note transition as one history entry without creating a separate mutation boundary.
 
 `cli.Controller` renders only `Game.Snapshot` values and performs game operations only through `Game.Apply`. Command-shaped mutation helpers are private engine implementation details; `Game.Apply` is the public mutation boundary. Public callers must not receive mutable references to the engine's internal boards or history.
 
@@ -104,6 +104,6 @@ Serialization failures, invalid actions, unavailable undo/redo, and attempts to 
 
 ## Verification
 
-Engine tests cover every action, typed error, atomic rollback, note cleanup, whole-board candidate adoption, mixed value/note undo-redo sequences, redo truncation, immutable snapshots, and serialization round trips. Restoration tests include malformed and unsupported versions.
+Engine tests cover every action, typed error, atomic rollback, note cleanup, whole-board candidate adoption, deterministic hint identity, Naked Single and Hidden Single placement plans, Naked Pair elimination plans, exact-plan rejection, atomic elimination undo, mixed value/note undo-redo sequences, redo truncation, immutable snapshots, and serialization round trips. Restoration tests include malformed and unsupported versions.
 
 The CLI boundary is verified against `.aidoc/designs/e2e-play-scenarios.md` by building the binary and exercising it as a black box. Package tests cover repair, solve, applied-hint metadata, typed errors, and snapshot isolation; package tests, `go vet`, golangci-lint, and CI must remain green.

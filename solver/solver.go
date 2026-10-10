@@ -27,6 +27,13 @@ type StrategySolver interface {
 	Apply(board *core.Board) *Move
 }
 
+// TeachingStrategy may expose the first meaningful deduction before solving
+// orchestration continues through its candidate eliminations.
+type TeachingStrategy interface {
+	StrategySolver
+	Hint(board *core.Board) *Move
+}
+
 // CompleteSolver can fully solve any valid Sudoku board.
 type CompleteSolver interface {
 	Solver
