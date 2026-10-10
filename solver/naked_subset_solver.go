@@ -239,3 +239,72 @@ func nakedSubsetValNames(vals []int) string {
 	}
 	return strings.Join(names, ", ")
 }
+
+// Hint returns the first naked-pair elimination as a teaching deduction without
+// requiring that the elimination immediately creates a placement.
+func (s *NakedPairSolver) Hint(board *core.Board) *Move {
+	for _, u := range allUnits() {
+		if move := findNakedPairElimination(board, u.positions, u.name, s.Key); move != nil {
+			return move
+		}
+	}
+	return nil
+}
+
+func findNakedPairElimination(board *core.Board, positions []core.Position, unitName, technique string) *Move {
+	var eligible []nakedSubsetCell
+	for _, position := range positions {
+		candidates := board.Candidates(position)
+		if candidates.Count() == 2 {
+			eligible = append(eligible, nakedSubsetCell{pos: position, candidates: candidates})
+		}
+	}
+	for left := 0; left < len(eligible); left++ {
+		for right := left + 1; right < len(eligible); right++ {
+			if eligible[left].candidates != eligible[right].candidates {
+				continue
+			}
+			pair := eligible[left].candidates.Values()
+			var eliminations []CandidateRef
+			for _, position := range positions {
+				if position == eligible[left].pos || position == eligible[right].pos || board.Get(position) != 0 {
+					continue
+				}
+				candidates := board.Candidates(position)
+				for _, value := range pair {
+					if candidates.Has(value) {
+						eliminations = append(eliminations, CandidateRef{Position: position, Value: value})
+					}
+				}
+			}
+			if len(eliminations) == 0 {
+				continue
+			}
+			return &Move{
+				Technique: technique,
+				Reason: fmt.Sprintf("Naked pair {%s} in %s at {%s, %s} eliminates candidates from the other cells",
+					nakedSubsetValNames(pair), unitName, eligible[left].pos.ToString(), eligible[right].pos.ToString()),
+				EliminationOnly: true,
+				Evidence: &Evidence{
+					Unit: parseNakedSubsetUnit(unitName),
+					Premises: []CandidateGroup{
+						{Position: eligible[left].pos, Values: pair},
+						{Position: eligible[right].pos, Values: pair},
+					},
+					Eliminations: eliminations,
+				},
+			}
+		}
+	}
+	return nil
+}
+
+func parseNakedSubsetUnit(name string) *UnitRef {
+	var kind string
+	var number int
+	if _, err := fmt.Sscanf(name, "%s %d", &kind, &number); err != nil || number < 1 || number > 9 {
+		return nil
+	}
+	unit := UnitRef{Kind: UnitKind(kind), Index: number - 1}
+	return &unit
+}

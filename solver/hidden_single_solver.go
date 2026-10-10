@@ -33,7 +33,7 @@ func (s *HiddenSingleSolver) Apply(board *core.Board) *Move {
 		for col := 0; col < 9; col++ {
 			positions = append(positions, core.NewPosition(row, col))
 		}
-		if move := s.findHiddenSingle(board, positions, fmt.Sprintf("row %d", row+1)); move != nil {
+		if move := s.findHiddenSingle(board, positions, UnitRef{Kind: UnitRow, Index: row}); move != nil {
 			return move
 		}
 	}
@@ -44,7 +44,7 @@ func (s *HiddenSingleSolver) Apply(board *core.Board) *Move {
 		for row := 0; row < 9; row++ {
 			positions = append(positions, core.NewPosition(row, col))
 		}
-		if move := s.findHiddenSingle(board, positions, fmt.Sprintf("column %d", col+1)); move != nil {
+		if move := s.findHiddenSingle(board, positions, UnitRef{Kind: UnitColumn, Index: col}); move != nil {
 			return move
 		}
 	}
@@ -59,7 +59,7 @@ func (s *HiddenSingleSolver) Apply(board *core.Board) *Move {
 					positions = append(positions, core.NewPosition(r, c))
 				}
 			}
-			if move := s.findHiddenSingle(board, positions, fmt.Sprintf("box %d", boxRow*3+boxCol+1)); move != nil {
+			if move := s.findHiddenSingle(board, positions, UnitRef{Kind: UnitBox, Index: boxRow*3 + boxCol}); move != nil {
 				return move
 			}
 		}
@@ -70,7 +70,7 @@ func (s *HiddenSingleSolver) Apply(board *core.Board) *Move {
 
 // findHiddenSingle checks a single unit (9 positions) for a candidate value
 // that appears in exactly one empty cell.
-func (s *HiddenSingleSolver) findHiddenSingle(board *core.Board, positions []core.Position, unitName string) *Move {
+func (s *HiddenSingleSolver) findHiddenSingle(board *core.Board, positions []core.Position, unit UnitRef) *Move {
 	// For each digit 1-9, track which empty cells in this unit can hold it.
 	for digit := 1; digit <= 9; digit++ {
 		var found core.Position
@@ -92,10 +92,22 @@ func (s *HiddenSingleSolver) findHiddenSingle(board *core.Board, positions []cor
 		}
 
 		if count == 1 {
+			unitName := fmt.Sprintf("%s %d", unit.Kind, unit.Index+1)
+			ruledOut := make([]CandidateRef, 0, 8)
+			for _, pos := range positions {
+				if pos != found && board.Get(pos) == 0 {
+					ruledOut = append(ruledOut, CandidateRef{Position: pos, Value: digit})
+				}
+			}
 			return &Move{
 				Cell:      core.NewCell(found, digit),
 				Technique: s.Key,
 				Reason:    fmt.Sprintf("%d can only go in %s within %s", digit, found.ToString(), unitName),
+				Evidence: &Evidence{
+					Unit:     &unit,
+					Premises: []CandidateGroup{{Position: found, Values: []int{digit}}},
+					RuledOut: ruledOut,
+				},
 			}
 		}
 	}

@@ -337,13 +337,18 @@ func (ctrl *Controller) RunCommand(command string) bool {
 		_, err := ctrl.apply(game.Repair{})
 		return err == nil
 	case "hint", "i":
-		result, err := ctrl.apply(game.ApplyHint{})
+		plan := ctrl.game.Hint()
+		if plan == nil {
+			printError("Failed to apply hint:", "no hint is available")
+			return false
+		}
+		result, err := ctrl.apply(game.ApplyHint{PlanID: plan.PlanID})
 		if err != nil {
 			printError("Failed to apply hint:", userFacingError(err))
 			return false
 		}
 		if result.Hint != nil {
-			fmt.Printf("Hint: %s\n", result.Hint.Reason)
+			fmt.Printf("Hint: %s\n", result.Hint.Summary)
 		}
 		return true
 	case "solve", "s":

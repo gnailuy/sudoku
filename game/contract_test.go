@@ -330,15 +330,22 @@ func TestApplyReturnsTypedErrorsWithoutMutation(t *testing.T) {
 func TestApplyHintAndReset(t *testing.T) {
 	game := newTestGame()
 
-	result, err := game.Apply(ApplyHint{})
+	plan := game.Hint()
+	if plan == nil {
+		t.Fatal("Hint returned nil")
+	}
+	result, err := game.Apply(ApplyHint{PlanID: plan.PlanID})
 	if err != nil {
 		t.Fatalf("Apply(ApplyHint) returned error: %v", err)
 	}
 	if result.Action != ActionApplyHint || len(result.Changes) != 1 || !result.CanUndo || result.Hint == nil {
 		t.Fatalf("unexpected hint result: %+v", result)
 	}
-	if result.Hint.Position != result.Changes[0].Position || result.Hint.Value != result.Changes[0].After || result.Hint.Reason == "" {
-		t.Fatalf("hint metadata does not describe the applied change: %+v", result)
+	if result.Hint.PlanID != plan.PlanID || result.Hint.Summary == "" || result.Hint.Conclusion.Placement == nil {
+		t.Fatalf("hint metadata does not describe the applied plan: %+v", result)
+	}
+	if result.Hint.Conclusion.Placement.Position != result.Changes[0].Position || result.Hint.Conclusion.Placement.Value != result.Changes[0].After {
+		t.Fatalf("hint conclusion does not match the applied change: %+v", result)
 	}
 
 	result, err = game.Apply(Reset{})
@@ -366,10 +373,17 @@ func TestMistakeCountTracksConfirmedInvalidValuesOutsideHistory(t *testing.T) {
 	if snapshot := game.Snapshot(); snapshot.Mistakes != 1 || !snapshot.Invalid[0][2] {
 		t.Fatalf("invalid value snapshot = %+v", snapshot)
 	}
-	for _, action := range []Action{Undo{}, Redo{}, ClearValue{Position: position}, SetNotes{Position: position, Values: []int{4}}, ApplyHint{}} {
+	for _, action := range []Action{Undo{}, Redo{}, ClearValue{Position: position}, SetNotes{Position: position, Values: []int{4}}} {
 		if _, err := game.Apply(action); err != nil {
 			t.Fatalf("Apply(%T) returned error: %v", action, err)
 		}
+	}
+	plan := game.Hint()
+	if plan == nil {
+		t.Fatal("Hint returned nil")
+	}
+	if _, err := game.Apply(ApplyHint{PlanID: plan.PlanID}); err != nil {
+		t.Fatalf("Apply(ApplyHint) returned error: %v", err)
 	}
 	if snapshot := game.Snapshot(); snapshot.Mistakes != 1 {
 		t.Fatalf("non-mistake actions changed count to %d", snapshot.Mistakes)

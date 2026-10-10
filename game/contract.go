@@ -28,6 +28,7 @@ const (
 	ErrorNoUndo         ErrorCode = "no-undo"
 	ErrorNoRedo         ErrorCode = "no-redo"
 	ErrorNoHint         ErrorCode = "no-hint"
+	ErrorStaleHint      ErrorCode = "stale-hint"
 )
 
 // EngineError is returned for invalid player actions. The game is unchanged
@@ -101,8 +102,8 @@ type Redo struct{}
 
 func (Redo) actionKind() ActionKind { return ActionRedo }
 
-// ApplyHint applies the current hint as a recorded value action.
-type ApplyHint struct{}
+// ApplyHint applies the exact previewed plan as one recorded transition.
+type ApplyHint struct{ PlanID string }
 
 func (ApplyHint) actionKind() ActionKind { return ActionApplyHint }
 
@@ -198,14 +199,6 @@ type CellChange struct {
 	NotesAfter    core.CandidateSet
 }
 
-// AppliedHint describes the recommendation used by an ApplyHint action.
-type AppliedHint struct {
-	Position  core.Position
-	Value     int
-	Technique string
-	Reason    string
-}
-
 // Result describes an accepted transition.
 type Result struct {
 	Action  ActionKind
@@ -213,7 +206,7 @@ type Result struct {
 	Status  Status
 	CanUndo bool
 	CanRedo bool
-	Hint    *AppliedHint
+	Hint    *HintPlan
 }
 
 // Snapshot returns a detached representation suitable for rendering.
@@ -252,7 +245,7 @@ func (game *Game) Apply(action Action) (Result, error) {
 
 	kind := action.actionKind()
 	var err error
-	var appliedHint *AppliedHint
+	var appliedHint *HintPlan
 	switch typed := action.(type) {
 	case SetValue:
 		if !typed.Position.IsValid() || typed.Value < 1 || typed.Value > 9 {
@@ -277,14 +270,11 @@ func (game *Game) Apply(action Action) (Result, error) {
 		hint := game.Hint()
 		if hint == nil {
 			err = &EngineError{Code: ErrorNoHint, Detail: "no hint is available"}
+		} else if typed.PlanID == "" || typed.PlanID != hint.PlanID {
+			err = &EngineError{Code: ErrorStaleHint, Detail: "hint plan is stale or does not match the current game state"}
 		} else {
-			err = game.addInputAndRecordHistory(hint.Cell)
-			appliedHint = &AppliedHint{
-				Position:  hint.Cell.Position,
-				Value:     hint.Cell.Value,
-				Technique: hint.Technique,
-				Reason:    hint.Reason,
-			}
+			err = game.applyHintPlan(hint)
+			appliedHint = hint
 		}
 	case SetNotes:
 		err = game.setNotes(typed.Position, typed.Values)
@@ -307,6 +297,41 @@ func (game *Game) Apply(action Action) (Result, error) {
 	result := resultFromSnapshots(kind, before, after)
 	result.Hint = appliedHint
 	return result, nil
+}
+
+func (game *Game) applyHintPlan(plan *HintPlan) error {
+	if plan.Conclusion.Placement != nil {
+		return game.addInputAndRecordHistory(*plan.Conclusion.Placement)
+	}
+	if len(plan.Conclusion.Eliminations) == 0 {
+		return &EngineError{Code: ErrorNoHint, Detail: "hint plan has no applicable conclusion"}
+	}
+
+	next := game.notes
+	changed := false
+	for _, elimination := range plan.Conclusion.Eliminations {
+		position := elimination.Position
+		if !position.IsValid() || elimination.Value < 1 || elimination.Value > 9 || game.Get(position) != 0 || game.problemBoard.Get(position) != 0 {
+			return &EngineError{Code: ErrorStaleHint, Position: &position, Detail: "hint elimination no longer applies"}
+		}
+		current := next[position.Row][position.Column]
+		if current.IsEmpty() {
+			current = game.playBoard.Candidates(position)
+		}
+		updated := current
+		updated.Remove(elimination.Value)
+		if updated != current {
+			next[position.Row][position.Column] = updated
+			changed = true
+		}
+	}
+	if !changed {
+		return &EngineError{Code: ErrorStaleHint, Detail: "hint conclusion is already consumed"}
+	}
+	before := game.captureState()
+	game.notes = next
+	game.recordTransition(before)
+	return nil
 }
 
 func (game *Game) status() Status {

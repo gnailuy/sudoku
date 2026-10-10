@@ -239,62 +239,85 @@ func (game *Game) solve() {
 	game.notes = [9][9]core.CandidateSet{}
 }
 
-// Hint returns the next recommended move.
-// It first checks for invalid inputs to clear, then tries strategy solvers,
-// and falls back to the complete solver.
-//
-// Strategy solvers may return elimination-only moves (no cell placement) when
-// they reduce candidates without creating a naked single. In that case, the
-// hint loop continues to try other solvers — the eliminations are applied to
-// the board's elimination layer and may enable other techniques.
-func (game *Game) Hint() *solver.Move {
-	// Solvers may record candidate eliminations while searching. Work on a
-	// detached board so a query never mutates engine state.
-	hintBoard := game.playBoard.Copy()
-
-	// If there is any invalid input, randomly remove one of them.
+// Hint returns one complete renderer-neutral teaching plan without mutation.
+// Interactive hint selection stops at the first meaningful deduction,
+// including elimination-only progress.
+func (game *Game) Hint() *HintPlan {
 	if !game.invalidInput.IsEmpty() {
-		positionPointer := game.invalidInput.GetRandomPositionWith(func(value int) bool {
-			return value != 0
-		})
-
-		if positionPointer == nil {
-			panic("Bug: Invalid input board is not empty but cannot find a valid position")
-		}
-
-		return &solver.Move{
-			Cell: core.Cell{
-				Position: *positionPointer,
-				Value:    0,
-			},
-			Technique: "clear-invalid",
-			Reason:    fmt.Sprintf("clear invalid input at %s", positionPointer.ToString()),
+		for row := 0; row < 9; row++ {
+			for column := 0; column < 9; column++ {
+				position := core.NewPosition(row, column)
+				if game.invalidInput.Get(position) == 0 {
+					continue
+				}
+				move := &solver.Move{
+					Cell:      core.NewCell(position, 0),
+					Technique: "clear-invalid",
+					Reason:    fmt.Sprintf("clear invalid input at %s", position.ToString()),
+				}
+				return composeHintPlan(game.Snapshot(), nil, move)
+			}
 		}
 	}
 
-	// Try strategy solvers. Elimination-only moves are progress (they reduce
-	// candidates), so restart the solver loop when one fires.
-	for {
-		progress := false
-		for _, s := range game.strategySolvers {
-			move := s.Apply(&hintBoard)
-			if move == nil {
-				continue
-			}
-			if move.IsPlacement() {
-				return move
-			}
-			// Elimination-only move — keep going.
-			progress = true
-			break
+	hintBoard := game.playBoard.Copy()
+	for _, strategy := range game.strategySolvers {
+		before := candidateGrid(&hintBoard)
+		var move *solver.Move
+		if teaching, ok := strategy.(solver.TeachingStrategy); ok {
+			move = teaching.Hint(&hintBoard)
+		} else {
+			move = strategy.Apply(&hintBoard)
 		}
-		if !progress {
-			break
+		if move == nil {
+			continue
 		}
+		if move.Evidence == nil {
+			move.Evidence = &solver.Evidence{}
+		}
+		if move.EliminationOnly && len(move.Evidence.Eliminations) == 0 {
+			move.Evidence.Eliminations = candidateEliminations(before, candidateGrid(&hintBoard))
+		}
+		return composeHintPlan(game.Snapshot(), strategy, move)
 	}
 
-	// Otherwise, get a hint from the complete solver.
-	return game.completeSolver.Hint(&hintBoard)
+	solved := hintBoard.Copy()
+	if !game.completeSolver.Solve(&solved) {
+		return nil
+	}
+	for _, position := range hintBoard.EmptyPositions() {
+		value := solved.Get(position)
+		move := &solver.Move{
+			Cell:      core.NewCell(position, value),
+			Technique: "backtracker",
+			Reason:    fmt.Sprintf("backtracking finds %d at %s", value, position.ToString()),
+		}
+		return composeHintPlan(game.Snapshot(), game.completeSolver, move)
+	}
+	return nil
+}
+
+func candidateGrid(board *core.Board) [9][9]core.CandidateSet {
+	var candidates [9][9]core.CandidateSet
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			candidates[row][column] = board.Candidates(core.NewPosition(row, column))
+		}
+	}
+	return candidates
+}
+
+func candidateEliminations(before, after [9][9]core.CandidateSet) []solver.CandidateRef {
+	var refs []solver.CandidateRef
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			removed := before[row][column] &^ after[row][column]
+			for _, value := range removed.Values() {
+				refs = append(refs, solver.CandidateRef{Position: core.NewPosition(row, column), Value: value})
+			}
+		}
+	}
+	return refs
 }
 
 // Function to check if the game is solved.

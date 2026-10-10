@@ -299,6 +299,16 @@ func (s *Server) ApplyAction(_ context.Context, request ApplyActionRequestObject
 		conflict.Error.Message = "expected_revision does not match current revision"
 		return ApplyAction409JSONResponse(conflict), nil
 	}
+	// The current v1 transport does not carry plan_id yet. Bind its staged
+	// apply-hint adapter to the exact plan returned by the engine; the next
+	// contract slice publishes plan_id on the wire.
+	if hintAction, ok := action.(game.ApplyHint); ok && hintAction.PlanID == "" {
+		plan := e.game.Hint()
+		if plan == nil {
+			return ApplyAction422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeNoHint, "no hint is available"))}, nil
+		}
+		action = game.ApplyHint{PlanID: plan.PlanID}
+	}
 	before, serializeErr := e.game.Serialize()
 	if serializeErr != nil {
 		return ApplyAction500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to snapshot session"))}, nil
@@ -346,7 +356,7 @@ func (s *Server) PreviewHint(_ context.Context, request PreviewHintRequestObject
 	if h == nil {
 		return PreviewHint422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeNoHint, "no hint is available"))}, nil
 	}
-	return PreviewHint200JSONResponse(HintPreview{Revision: e.revision, Hint: Hint{Row: h.Cell.Position.Row + 1, Column: h.Cell.Position.Column + 1, Value: h.Cell.Value, Technique: h.Technique, Reason: h.Reason}}), nil
+	return PreviewHint200JSONResponse(HintPreview{Revision: e.revision, Hint: legacyHint(h)}), nil
 }
 
 func (*Server) GetHealth(context.Context, GetHealthRequestObject) (GetHealthResponseObject, error) {
@@ -683,10 +693,26 @@ func apiResult(v game.Result) ActionResult {
 		o.Changes[i] = CellChange{Row: c.Position.Row + 1, Column: c.Position.Column + 1, Before: c.Before, After: c.After, InvalidBefore: c.InvalidBefore, InvalidAfter: c.InvalidAfter, NotesBefore: digits(c.NotesBefore), NotesAfter: digits(c.NotesAfter)}
 	}
 	if v.Hint != nil {
-		o.Hint = &Hint{Row: v.Hint.Position.Row + 1, Column: v.Hint.Position.Column + 1, Value: v.Hint.Value, Technique: v.Hint.Technique, Reason: v.Hint.Reason}
+		hint := legacyHint(v.Hint)
+		o.Hint = &hint
 	}
 	return o
 }
+func legacyHint(plan *game.HintPlan) Hint {
+	out := Hint{Technique: plan.Strategy.ID, Reason: plan.Summary}
+	if plan.Conclusion.Placement != nil {
+		out.Row = plan.Conclusion.Placement.Position.Row + 1
+		out.Column = plan.Conclusion.Placement.Position.Column + 1
+		out.Value = plan.Conclusion.Placement.Value
+	} else if len(plan.Conclusion.Eliminations) > 0 {
+		first := plan.Conclusion.Eliminations[0]
+		out.Row = first.Position.Row + 1
+		out.Column = first.Position.Column + 1
+		out.Value = first.Value
+	}
+	return out
+}
+
 func apiError(code ErrorCode, message string) Error {
 	return Error{Error: ErrorDetail{Code: code, Message: message}}
 }

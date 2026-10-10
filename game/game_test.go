@@ -168,15 +168,14 @@ func TestHint(t *testing.T) {
 		t.Fatal("Hint returned nil on unsolved game")
 	}
 
-	// Hint should have a valid cell and a technique.
-	if hint.Cell.Value == 0 {
-		t.Error("Hint should fill a value, not clear")
+	if hint.ProtocolVersion != HintProtocolVersion || hint.PlanID == "" {
+		t.Fatalf("hint has invalid protocol identity: %+v", hint)
 	}
-	if hint.Technique == "" {
-		t.Error("Hint should have a technique name")
+	if hint.Strategy.ID == "" || hint.Summary == "" || len(hint.Steps) == 0 {
+		t.Fatalf("hint plan is incomplete: %+v", hint)
 	}
-	if hint.Reason == "" {
-		t.Error("Hint should have a reason")
+	if hint.Conclusion.Placement == nil && len(hint.Conclusion.Eliminations) == 0 {
+		t.Fatalf("hint has no conclusion: %+v", hint)
 	}
 }
 

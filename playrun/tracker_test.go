@@ -49,7 +49,11 @@ func TestTrackerCountsHintAssistedCompletion(t *testing.T) {
 	current := nearlySolvedGame(t)
 	recorder := &fakeRecorder{found: true}
 	tracker := New("normalized", recorder)
-	result, err := tracker.Apply(&current, game.ApplyHint{})
+	plan := current.Hint()
+	if plan == nil {
+		t.Fatal("Hint returned nil")
+	}
+	result, err := tracker.Apply(&current, game.ApplyHint{PlanID: plan.PlanID})
 	if err != nil || result.Status != game.StatusSolved {
 		t.Fatalf("hint completion = %+v, %v", result, err)
 	}

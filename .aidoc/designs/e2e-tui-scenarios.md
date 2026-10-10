@@ -42,7 +42,7 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 
 ### 9.3 Help, Hint Preview, and Apply
 **Action:** Press `?`, inspect and close the keyboard-help overlay, press `i`, inspect the technique/reason, then press Enter.
-**Expected:** Help does not mutate the board. Hint preview does not mutate the board; Enter applies that hint through `game.ApplyHint` and marks the session dirty.
+**Expected:** Help does not mutate the board. Hint preview retains one complete deterministic plan without mutating the board; Enter submits that exact `plan_id` through `game.ApplyHint` and marks the session dirty.
 
 ### 9.4 Explicit Save and Safe Quit
 **Action:** Change a cell, press `q` and decline, press `S`, enter a path, then quit. Resume with `sudoku tui --resume <path>`.
