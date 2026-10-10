@@ -28,15 +28,16 @@ The project index provides reading chains for common starting points and a compl
 5. `solver/solver.go` — `Solver`, `StrategySolver`, `CompleteSolver` interfaces and `Base`
 6. `solver/move.go` — current solver recommendation shape
 7. `.aidoc/designs/hint-presentation-protocol.md` — renderer-neutral teaching plans and typed strategy evidence
-8. `solver/store.go` — solver registry with typed access
-9. `game/game.go` — private session state and compatibility adapters
-10. `game/contract.go` — typed actions, detached snapshots, results, and engine errors
-11. `game/serialization.go` — versioned complete-session persistence and atomic restoration
-12. `cli/controller.go` — line-oriented CLI controller (terminal I/O, commands, display)
-13. `sessionfile/session_file.go` — presentation-neutral bounded and atomic session transport
-14. `tui/model.go` — Bubble Tea event model and action translation
-15. `tui/render.go` — deterministic full-screen renderer
-16. `recovery/recovery.go` — private XDG recovery records, validation, retention, and atomic transport
+8. `.aidoc/designs/hint-reference-plans.md` — canonical placement and elimination teaching examples
+9. `solver/store.go` — solver registry with typed access
+10. `game/game.go` — private session state and compatibility adapters
+11. `game/contract.go` — typed actions, detached snapshots, results, and engine errors
+12. `game/serialization.go` — versioned complete-session persistence and atomic restoration
+13. `cli/controller.go` — line-oriented CLI controller (terminal I/O, commands, display)
+14. `sessionfile/session_file.go` — presentation-neutral bounded and atomic session transport
+15. `tui/model.go` — Bubble Tea event model and action translation
+16. `tui/render.go` — deterministic full-screen renderer
+17. `recovery/recovery.go` — private XDG recovery records, validation, retention, and atomic transport
 
 ### Understanding Puzzle Generation
 1. `.aidoc/designs/difficulty-model.md` — strategy-grade contract, tier invariants, and configuration boundary
@@ -152,6 +153,7 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/user-accounts.md` | Approved guest, identity, ownership, claim, and account security contract |
 | `.aidoc/designs/web-api.md` | Contract-first OpenAPI workflow, resources, revisions, recovery, client access, and network security boundary |
 | `.aidoc/designs/hint-presentation-protocol.md` | Renderer-neutral teaching plans, semantic scenes, deterministic application, and degradation rules |
+| `.aidoc/designs/hint-reference-plans.md` | Canonical placement and elimination teaching-plan examples |
 | `.aidoc/designs/background-autosave.md` | Background autosave lifecycle, privacy, retention, and conflict design |
 | `.aidoc/designs/automatic-candidates.md` | Automatic-candidate engine contract, TUI interaction, and rendering constraints |
 | `.aidoc/designs/tui-frontend.md` | TUI interaction model, persistence policy, rendering, and dependency boundaries |

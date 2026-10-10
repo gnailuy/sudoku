@@ -9,6 +9,7 @@ dependencies:
   - .aidoc/architecture/guidelines.md
   - .aidoc/designs/game-engine.md
   - .aidoc/designs/web-api.md
+  - .aidoc/designs/hint-reference-plans.md
 ---
 
 # Hint Presentation Protocol
@@ -22,6 +23,7 @@ The hint presentation protocol turns one solver recommendation into a portable t
 | `.aidoc/architecture/guidelines.md` | Solver and package dependency boundaries |
 | `.aidoc/designs/game-engine.md` | Authoritative hint query and action semantics |
 | `.aidoc/designs/web-api.md` | Revisioned transport and client-neutral contract |
+| `.aidoc/designs/hint-reference-plans.md` | Concrete placement and elimination teaching plans |
 | `solver/move.go` | Current recommendation boundary to be replaced by typed evidence |
 | `game/contract.go` | Engine hint preview and application boundary |
 
@@ -83,15 +85,19 @@ Full solving and difficulty classification may continue chaining eliminations on
 
 Direct note hygiene is not a strategy conclusion. Removing a note that a placed value already makes illegal is deterministic validation owned by normal value and note handling; a teaching hint is reserved for a logical deduction that is not visible from row, column, or box legality alone.
 
-## Determinism and Application
+## Query, Navigation, and Application
 
-`plan_id` is derived from a canonical source-state digest, strategy ID, ordered evidence, and conclusion. Repeating a hint query against unchanged game state returns the same plan and IDs.
+One read-only hint query returns the complete `HintPlan`. The client fetches that plan once; Next and Back navigate its ordered steps locally without another request or any puzzle, dirty-state, revision, or history change.
 
-Applying a hint submits the previewed `plan_id`. The engine rejects a plan when the game state or recomputed conclusion no longer matches, preventing a client from teaching one deduction and applying another. The HTTP revision remains the transport concurrency guard; `plan_id` is the engine-level identity used by local and network clients alike.
+Applying the conclusion is a separate player intent because the player may inspect and decline a hint, the state may change after preview, and one accepted conclusion must become one atomic undoable transition. Application reuses the existing engine action boundary and HTTP `POST /sessions/{id}/actions`; `apply-hint` is an action kind, not a dedicated endpoint or second mutation system. Value placement and note replacement remain the underlying state changes.
+
+`plan_id` is derived from a canonical source-state digest, strategy ID, ordered evidence, and conclusion. Repeating a hint query against unchanged game state returns the same plan and IDs. An `apply-hint` action carries the previewed `plan_id`, allowing the engine to reject a changed source state or recomputed conclusion instead of applying a deduction different from the one taught. The HTTP revision remains the transport concurrency guard; `plan_id` is the engine identity shared by local and network clients.
+
+A client does not translate a preview into unrelated ordinary actions because that would discard exact-plan verification and could split a multi-cell elimination across history entries. The `apply-hint` kind exists for provenance, validation, and atomicity while remaining part of the ordinary action union.
 
 A placement conclusion records one value transition. An elimination conclusion records one atomic manual-note transition across every affected cell: existing notes are filtered without adding candidates, while an affected cell with no notes uses its current legal candidates as the local baseline before the proven digits are removed. This bounded materialization makes the deduction visible without replacing unrelated player notes or changing `core.Board.Candidates`.
 
-Elimination application never places a value, even when the remaining notes form a single. The complete note delta is one undoable history entry, and a conclusion already absent from every affected note set is stale or consumed rather than an accepted no-op. Teaching-step navigation remains presentation state and never mutates the puzzle, dirty state, revision, or undo stack.
+Elimination application never places a value, even when the remaining notes form a single. The complete note delta is one undoable history entry, and a conclusion already absent from every affected note set is stale or consumed rather than an accepted no-op.
 
 ## Graceful Degradation and Accessibility
 
@@ -103,35 +109,12 @@ Unsupported semantic data is ignored visibly rather than guessed. A renderer may
 
 ## Reference Teaching Plans
 
-The Naked Single reference uses cell `r4c2`, whose candidate set is exactly `{7}`, and concludes with placement `r4c2=7`:
-
-| Step | Kind | Complete scene | Effect | Fallback message |
-|------|------|----------------|--------|------------------|
-| `inspect-r4c2` | `observe` | focus cell `r4c2`; premise candidate `r4c2:7` | none | “Cell r4c2 has only one candidate: 7.” |
-| `place-r4c2-7` | `conclude` | focus cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Therefore r4c2 must be 7.” |
-
-The Hidden Single reference examines digit `7` in row 4, records that row constraints exclude every location except `r4c2`, and concludes with the same placement:
-
-| Step | Kind | Complete scene | Effect | Fallback message |
-|------|------|----------------|--------|------------------|
-| `scan-row4-for-7` | `observe` | focus row 4; premise candidate `r4c2:7` | none | “In row 4, consider where 7 can appear.” |
-| `compare-row4-7` | `compare` | focus row 4; eliminated candidate targets for every ruled-out empty cell; premise candidate `r4c2:7` | none | “Every other empty cell in row 4 is ruled out for 7.” |
-| `place-row4-7` | `conclude` | focus row 4 and cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Therefore r4c2 must be 7.” |
-
-The Naked Pair reference examines row 4, where `r4c2` and `r4c7` each contain exactly `{2,7}`, and concludes only that candidate `2` must be removed from `r4c9`:
-
-| Step | Kind | Complete scene | Effect | Fallback message |
-|------|------|----------------|--------|------------------|
-| `find-row4-pair` | `observe` | focus row 4; premise candidates `r4c2:{2,7}` and `r4c7:{2,7}` | none | “In row 4, r4c2 and r4c7 contain the same two candidates: 2 and 7.” |
-| `reserve-row4-2-7` | `compare` | focus row 4; premise pair cells; focus candidate `r4c9:2` | none | “Those two digits must occupy the pair cells, so neither can appear elsewhere in row 4.” |
-| `remove-r4c9-2` | `eliminate` | premise pair cells; conclusion candidate `r4c9:2` | eliminate candidate `2` from `r4c9` | “Remove candidate 2 from r4c9; this deduction does not place a value.” |
-
-Each reference plan includes `protocol_version=1`, a deterministic `plan_id`, registered strategy metadata, a complete summary, the listed ordered steps, and a typed placement or elimination conclusion. Every renderer applies the same machine-readable conclusion while choosing its own presentation.
+`.aidoc/designs/hint-reference-plans.md` defines the canonical Naked Single, Hidden Single, and Naked Pair examples. The examples prove that the same plan contract expresses placement and elimination conclusions without renderer-owned reasoning.
 
 ## Delivery Boundary
 
 The first implementation slice defines typed strategy evidence, the shared composer, deterministic IDs, Naked Single, Hidden Single, and Naked Pair plans, and engine contract tests. The slice proves both placement and elimination application, including atomic note deltas and undo, while replacing the old engine hint shape rather than maintaining parallel contracts.
 
-The next backend slice replaces the OpenAPI hint schema and generated adapters, binds `apply-hint` to `plan_id`, and extends built-binary API acceptance. CLI and TUI then render the same plans before remaining strategies migrate; the separate web project consumes the published contract and proves the same plans at desktop and phone widths.
+The next backend slice replaces the OpenAPI hint schema and generated adapters, returns one complete plan from the existing hint query, binds `apply-hint` with `plan_id` inside the existing actions endpoint, and extends built-binary API acceptance. CLI and TUI then render the same plans before remaining strategies migrate; the separate web project consumes the published contract and proves the same plans at desktop and phone widths.
 
 A strategy joins the protocol only with evidence tests, plan contract tests, and at least one renderer-neutral reference assertion. The migration is complete when no renderer parses `Reason`, switches on a technique name to reconstruct logic, or owns Sudoku-specific teaching order.
