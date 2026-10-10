@@ -138,7 +138,32 @@ def main():
 
             path = f"/api/v1/sessions/{session_id}"
             expect(request(base, "GET", path)[0], 200, "get")
-            expect(request(base, "GET", path + "/hint")[0], 200, "hint")
+            status, hint_preview, _ = request(base, "GET", path + "/hint")
+            expect(status, 200, "hint")
+            expect(hint_preview["revision"], 0, "read-only hint revision")
+            expect(hint_preview["hint"]["protocol_version"], 1, "hint protocol version")
+            if len(hint_preview["hint"]["plan_id"]) != 64 or not hint_preview["hint"]["steps"]:
+                raise AssertionError("hint response does not contain a complete deterministic plan")
+
+            status, hint_session, _ = request(base, "POST", "/api/v1/sessions", {"source": {"kind": "puzzle", "puzzle": PUZZLE}})
+            expect(status, 201, "create exact-hint session")
+            hint_path = f"/api/v1/sessions/{hint_session['id']}"
+            status, exact_hint, _ = request(base, "GET", hint_path + "/hint")
+            expect(status, 200, "preview exact hint")
+            expect(request(base, "POST", hint_path + "/actions", {
+                "kind": "apply-hint",
+                "expected_revision": 0,
+                "plan_id": "0" * 64,
+            })[0], 422, "reject wrong hint plan")
+            status, applied_hint, _ = request(base, "POST", hint_path + "/actions", {
+                "kind": "apply-hint",
+                "expected_revision": 0,
+                "plan_id": exact_hint["hint"]["plan_id"],
+            })
+            expect(status, 200, "apply exact hint")
+            expect(applied_hint["revision"], 1, "single hint revision")
+            expect(applied_hint["result"]["hint"]["plan_id"], exact_hint["hint"]["plan_id"], "applied exact plan")
+
             action = {"kind": "set-notes", "expected_revision": 0, "row": 1, "column": 1, "values": [1, 3, 9]}
             status, changed, _ = request(base, "POST", path + "/actions", action)
             expect(status, 200, "batch note action")

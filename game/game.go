@@ -243,23 +243,6 @@ func (game *Game) solve() {
 // Interactive hint selection stops at the first meaningful deduction,
 // including elimination-only progress.
 func (game *Game) Hint() *HintPlan {
-	if !game.invalidInput.IsEmpty() {
-		for row := 0; row < 9; row++ {
-			for column := 0; column < 9; column++ {
-				position := core.NewPosition(row, column)
-				if game.invalidInput.Get(position) == 0 {
-					continue
-				}
-				move := &solver.Move{
-					Cell:      core.NewCell(position, 0),
-					Technique: "clear-invalid",
-					Reason:    fmt.Sprintf("clear invalid input at %s", position.ToString()),
-				}
-				return composeHintPlan(game.Snapshot(), nil, move)
-			}
-		}
-	}
-
 	hintBoard := game.playBoard.Copy()
 	for _, strategy := range game.strategySolvers {
 		before := candidateGrid(&hintBoard)

@@ -18,6 +18,7 @@ import (
 	"github.com/gnailuy/sudoku/game"
 	"github.com/gnailuy/sudoku/playrun"
 	"github.com/gnailuy/sudoku/recovery"
+	"github.com/gnailuy/sudoku/solver"
 )
 
 const (
@@ -299,16 +300,6 @@ func (s *Server) ApplyAction(_ context.Context, request ApplyActionRequestObject
 		conflict.Error.Message = "expected_revision does not match current revision"
 		return ApplyAction409JSONResponse(conflict), nil
 	}
-	// The current v1 transport does not carry plan_id yet. Bind its staged
-	// apply-hint adapter to the exact plan returned by the engine; the next
-	// contract slice publishes plan_id on the wire.
-	if hintAction, ok := action.(game.ApplyHint); ok && hintAction.PlanID == "" {
-		plan := e.game.Hint()
-		if plan == nil {
-			return ApplyAction422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeNoHint, "no hint is available"))}, nil
-		}
-		action = game.ApplyHint{PlanID: plan.PlanID}
-	}
 	before, serializeErr := e.game.Serialize()
 	if serializeErr != nil {
 		return ApplyAction500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to snapshot session"))}, nil
@@ -356,7 +347,7 @@ func (s *Server) PreviewHint(_ context.Context, request PreviewHintRequestObject
 	if h == nil {
 		return PreviewHint422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeNoHint, "no hint is available"))}, nil
 	}
-	return PreviewHint200JSONResponse(HintPreview{Revision: e.revision, Hint: legacyHint(h)}), nil
+	return PreviewHint200JSONResponse(HintPreview{Revision: e.revision, Hint: apiHintPlan(h)}), nil
 }
 
 func (*Server) GetHealth(context.Context, GetHealthRequestObject) (GetHealthResponseObject, error) {
@@ -640,7 +631,7 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 		if e = validRevision(v.ExpectedRevision); e != nil {
 			return nil, 0, e
 		}
-		return game.ApplyHint{}, v.ExpectedRevision, nil
+		return game.ApplyHint{PlanID: v.PlanId}, v.ExpectedRevision, nil
 	case "repair":
 		v, e := body.AsRepairAction()
 		if e != nil {
@@ -693,22 +684,63 @@ func apiResult(v game.Result) ActionResult {
 		o.Changes[i] = CellChange{Row: c.Position.Row + 1, Column: c.Position.Column + 1, Before: c.Before, After: c.After, InvalidBefore: c.InvalidBefore, InvalidAfter: c.InvalidAfter, NotesBefore: digits(c.NotesBefore), NotesAfter: digits(c.NotesAfter)}
 	}
 	if v.Hint != nil {
-		hint := legacyHint(v.Hint)
+		hint := apiHintPlan(v.Hint)
 		o.Hint = &hint
 	}
 	return o
 }
-func legacyHint(plan *game.HintPlan) Hint {
-	out := Hint{Technique: plan.Strategy.ID, Reason: plan.Summary}
-	if plan.Conclusion.Placement != nil {
-		out.Row = plan.Conclusion.Placement.Position.Row + 1
-		out.Column = plan.Conclusion.Placement.Position.Column + 1
-		out.Value = plan.Conclusion.Placement.Value
-	} else if len(plan.Conclusion.Eliminations) > 0 {
-		first := plan.Conclusion.Eliminations[0]
-		out.Row = first.Position.Row + 1
-		out.Column = first.Position.Column + 1
-		out.Value = first.Value
+
+func apiHintPlan(plan *game.HintPlan) HintPlan {
+	steps := make([]HintStep, len(plan.Steps))
+	for i, step := range plan.Steps {
+		marks := make([]HintMark, len(step.Marks))
+		for j, mark := range step.Marks {
+			marks[j] = HintMark{Target: apiHintTarget(mark.Target), Role: HintRole(mark.Role)}
+		}
+		steps[i] = HintStep{Id: step.ID, Kind: HintStepKind(step.Kind), Message: step.Message, Marks: marks}
+		if step.Effect != nil {
+			effect := apiHintEffect(step.Effect.Placement, step.Effect.Eliminations)
+			steps[i].Effect = &effect
+		}
+	}
+	return HintPlan{
+		ProtocolVersion: plan.ProtocolVersion,
+		PlanId:          plan.PlanID,
+		Strategy: HintStrategy{
+			Id:          plan.Strategy.ID,
+			DisplayName: plan.Strategy.DisplayName,
+			Grade:       plan.Strategy.Grade,
+		},
+		Summary:    plan.Summary,
+		Steps:      steps,
+		Conclusion: apiHintEffect(plan.Conclusion.Placement, plan.Conclusion.Eliminations),
+	}
+}
+
+func apiHintTarget(target game.HintTarget) HintTarget {
+	out := HintTarget{Kind: HintTargetKind(target.Kind)}
+	if target.Position != nil {
+		row, column := target.Position.Row+1, target.Position.Column+1
+		out.Row, out.Column = &row, &column
+	}
+	if target.Value != 0 {
+		value := Digit(target.Value)
+		out.Value = &value
+	}
+	if target.Kind == game.HintTargetRow || target.Kind == game.HintTargetColumn || target.Kind == game.HintTargetBox {
+		index := target.Index + 1
+		out.Index = &index
+	}
+	return out
+}
+
+func apiHintEffect(placement *core.Cell, eliminations []solver.CandidateRef) HintEffect {
+	out := HintEffect{Eliminations: make([]HintElimination, len(eliminations))}
+	if placement != nil {
+		out.Placement = &HintPlacement{Row: placement.Position.Row + 1, Column: placement.Position.Column + 1, Value: placement.Value}
+	}
+	for i, elimination := range eliminations {
+		out.Eliminations[i] = HintElimination{Row: elimination.Position.Row + 1, Column: elimination.Position.Column + 1, Value: elimination.Value}
 	}
 	return out
 }
@@ -800,7 +832,9 @@ func validateActionObject(object map[string]json.RawMessage) error {
 		keys = append(keys, "row", "column", "values")
 	case "clear-value":
 		keys = append(keys, "row", "column")
-	case "reset", "undo", "redo", "apply-hint", "repair", "solve":
+	case "apply-hint":
+		keys = append(keys, "plan_id")
+	case "reset", "undo", "redo", "repair", "solve":
 	default:
 		return errors.New("unknown action kind")
 	}
