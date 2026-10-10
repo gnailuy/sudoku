@@ -26,16 +26,17 @@ The project index provides reading chains for common starting points and a compl
 3. `core/candidates.go` — `CandidateSet` bitfield type
 4. `core/board.go` — `Board` struct with compute-on-fly `Candidates()` method
 5. `solver/solver.go` — `Solver`, `StrategySolver`, `CompleteSolver` interfaces and `Base`
-6. `solver/move.go` — `Move` struct (cell + technique + reason)
-16. `solver/store.go` — solver registry with typed access
-8. `game/game.go` — private session state and compatibility adapters
-9. `game/contract.go` — typed actions, detached snapshots, results, and engine errors
-10. `game/serialization.go` — versioned complete-session persistence and atomic restoration
-11. `cli/controller.go` — line-oriented CLI controller (terminal I/O, commands, display)
-12. `sessionfile/session_file.go` — presentation-neutral bounded and atomic session transport
-13. `tui/model.go` — Bubble Tea event model and action translation
-14. `tui/render.go` — deterministic full-screen renderer
-15. `recovery/recovery.go` — private XDG recovery records, validation, retention, and atomic transport
+6. `solver/move.go` — current solver recommendation shape
+7. `.aidoc/designs/hint-presentation-protocol.md` — renderer-neutral teaching plans and typed strategy evidence
+8. `solver/store.go` — solver registry with typed access
+9. `game/game.go` — private session state and compatibility adapters
+10. `game/contract.go` — typed actions, detached snapshots, results, and engine errors
+11. `game/serialization.go` — versioned complete-session persistence and atomic restoration
+12. `cli/controller.go` — line-oriented CLI controller (terminal I/O, commands, display)
+13. `sessionfile/session_file.go` — presentation-neutral bounded and atomic session transport
+14. `tui/model.go` — Bubble Tea event model and action translation
+15. `tui/render.go` — deterministic full-screen renderer
+16. `recovery/recovery.go` — private XDG recovery records, validation, retention, and atomic transport
 
 ### Understanding Puzzle Generation
 1. `.aidoc/designs/difficulty-model.md` — strategy-grade contract, tier invariants, and configuration boundary
@@ -99,9 +100,10 @@ The project index provides reading chains for common starting points and a compl
 21. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
 22. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
 23. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
-24. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
-25. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
-26. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
+24. `.aidoc/designs/hint-presentation-protocol.md` — approved portable teaching contract and delivery boundary
+25. `.aidoc/designs/background-autosave.md` — recovery lifecycle, privacy, storage, retention, and conflict policy
+26. `.aidoc/designs/tui-frontend.md` — current full-screen interaction and rendering semantics
+27. `.aidoc/architecture/guidelines.md` — current architecture and solver contract
 
 
 ### Running Black-Box E2E Scenarios
@@ -149,6 +151,7 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/future-directions.md` | Non-priority product and production directions with decision gates |
 | `.aidoc/designs/user-accounts.md` | Approved guest, identity, ownership, claim, and account security contract |
 | `.aidoc/designs/web-api.md` | Contract-first OpenAPI workflow, resources, revisions, recovery, client access, and network security boundary |
+| `.aidoc/designs/hint-presentation-protocol.md` | Renderer-neutral teaching plans, semantic scenes, deterministic application, and degradation rules |
 | `.aidoc/designs/background-autosave.md` | Background autosave lifecycle, privacy, retention, and conflict design |
 | `.aidoc/designs/automatic-candidates.md` | Automatic-candidate engine contract, TUI interaction, and rendering constraints |
 | `.aidoc/designs/tui-frontend.md` | TUI interaction model, persistence policy, rendering, and dependency boundaries |
