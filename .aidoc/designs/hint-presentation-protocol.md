@@ -35,7 +35,7 @@ The project is still in development, so the protocol replaces the current hint s
 
 ## Ownership Boundaries
 
-A strategy produces typed evidence for one deduction: examined units, candidate constraints, eliminations, placements, and the technique identity. Strategy evidence contains no colors, animation timing, widget commands, prose parsing requirements, or transport models.
+A strategy produces typed evidence for one deduction: examined units, candidate constraints, eliminations, placements, and the technique identity. Placement and candidate elimination are equally valid conclusions; elimination strategies are not duplicated as hint-only variants. Strategy evidence contains no colors, animation timing, widget commands, prose parsing requirements, or transport models.
 
 A shared engine composer converts typed evidence into one `HintPlan`. The composer owns default teaching order and wording so 23 strategies do not duplicate client choreography. A strategy-specific composer is justified only when the technique requires a genuinely different teaching sequence, and it still emits the same protocol.
 
@@ -75,13 +75,23 @@ Semantic roles carry no palette or animation requirement. Color cannot be the so
 
 Logical effects are separate from marks. A mark explains presentation emphasis; an effect declares the verifiable placement or candidate eliminations produced by the step. The plan conclusion equals the combined final effect and must be valid against the source game state.
 
+## Deduction Selection
+
+Interactive hint orchestration returns the first meaningful deduction from the configured strategy order, whether the deduction places a value or only eliminates candidates. The hint path never consumes elimination-only progress on a detached board merely to search for a later placement; doing so would hide the technique the player needs to learn.
+
+Full solving and difficulty classification may continue chaining eliminations on their private solving state until a placement or completed solve. The shared strategy implementation and evidence therefore serve teaching, solving, and classification even though those callers stop at different boundaries.
+
+Direct note hygiene is not a strategy conclusion. Removing a note that a placed value already makes illegal is deterministic validation owned by normal value and note handling; a teaching hint is reserved for a logical deduction that is not visible from row, column, or box legality alone.
+
 ## Determinism and Application
 
 `plan_id` is derived from a canonical source-state digest, strategy ID, ordered evidence, and conclusion. Repeating a hint query against unchanged game state returns the same plan and IDs.
 
 Applying a hint submits the previewed `plan_id`. The engine rejects a plan when the game state or recomputed conclusion no longer matches, preventing a client from teaching one deduction and applying another. The HTTP revision remains the transport concurrency guard; `plan_id` is the engine-level identity used by local and network clients alike.
 
-Hint application records only the logical conclusion in game history. Teaching-step navigation is presentation state and never mutates the puzzle, dirty state, revision, or undo stack.
+A placement conclusion records one value transition. An elimination conclusion records one atomic manual-note transition across every affected cell: existing notes are filtered without adding candidates, while an affected cell with no notes uses its current legal candidates as the local baseline before the proven digits are removed. This bounded materialization makes the deduction visible without replacing unrelated player notes or changing `core.Board.Candidates`.
+
+Elimination application never places a value, even when the remaining notes form a single. The complete note delta is one undoable history entry, and a conclusion already absent from every affected note set is stale or consumed rather than an accepted no-op. Teaching-step navigation remains presentation state and never mutates the puzzle, dirty state, revision, or undo stack.
 
 ## Graceful Degradation and Accessibility
 
@@ -108,11 +118,19 @@ The Hidden Single reference examines digit `7` in row 4, records that row constr
 | `compare-row4-7` | `compare` | focus row 4; eliminated candidate targets for every ruled-out empty cell; premise candidate `r4c2:7` | none | “Every other empty cell in row 4 is ruled out for 7.” |
 | `place-row4-7` | `conclude` | focus row 4 and cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Therefore r4c2 must be 7.” |
 
-Each reference plan includes `protocol_version=1`, a deterministic `plan_id`, the registered strategy metadata, a complete summary, the listed ordered steps, and the placement conclusion. Every renderer applies the same machine-readable placement while choosing its own presentation.
+The Naked Pair reference examines row 4, where `r4c2` and `r4c7` each contain exactly `{2,7}`, and concludes only that candidate `2` must be removed from `r4c9`:
+
+| Step | Kind | Complete scene | Effect | Fallback message |
+|------|------|----------------|--------|------------------|
+| `find-row4-pair` | `observe` | focus row 4; premise candidates `r4c2:{2,7}` and `r4c7:{2,7}` | none | “In row 4, r4c2 and r4c7 contain the same two candidates: 2 and 7.” |
+| `reserve-row4-2-7` | `compare` | focus row 4; premise pair cells; focus candidate `r4c9:2` | none | “Those two digits must occupy the pair cells, so neither can appear elsewhere in row 4.” |
+| `remove-r4c9-2` | `eliminate` | premise pair cells; conclusion candidate `r4c9:2` | eliminate candidate `2` from `r4c9` | “Remove candidate 2 from r4c9; this deduction does not place a value.” |
+
+Each reference plan includes `protocol_version=1`, a deterministic `plan_id`, registered strategy metadata, a complete summary, the listed ordered steps, and a typed placement or elimination conclusion. Every renderer applies the same machine-readable conclusion while choosing its own presentation.
 
 ## Delivery Boundary
 
-The first implementation slice defines typed strategy evidence, the shared composer, deterministic IDs, Naked Single and Hidden Single plans, and engine contract tests. The slice replaces the old engine hint shape rather than maintaining parallel contracts.
+The first implementation slice defines typed strategy evidence, the shared composer, deterministic IDs, Naked Single, Hidden Single, and Naked Pair plans, and engine contract tests. The slice proves both placement and elimination application, including atomic note deltas and undo, while replacing the old engine hint shape rather than maintaining parallel contracts.
 
 The next backend slice replaces the OpenAPI hint schema and generated adapters, binds `apply-hint` to `plan_id`, and extends built-binary API acceptance. CLI and TUI then render the same plans before remaining strategies migrate; the separate web project consumes the published contract and proves the same plans at desktop and phone widths.
 
