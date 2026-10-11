@@ -363,6 +363,32 @@ paths:
         "500": { $ref: "#/components/responses/InternalError" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /api/v1/guest/games/hint:
+    post:
+      tags: [Guest]
+      operationId: previewGuestHint
+      summary: Preview a hint for a sealed guest game without mutation
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestHintRequest"
+      responses:
+        "200":
+          description: A complete hint plan for the document's current revision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HintPreview"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /api/v1/auth/google/start:
     get:
       tags: [Authentication]
@@ -689,6 +715,27 @@ paths:
         "500": { $ref: "#/components/responses/InternalError" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /api/v1/account/games/{accountGameId}/hint:
+    parameters: [{ $ref: "#/components/parameters/AccountGameId" }]
+    get:
+      tags: [Account Games]
+      operationId: previewAccountGameHint
+      summary: Preview a hint for an owner-scoped game without mutation
+      security: [{ cookieAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/SessionCookie" }]
+      responses:
+        "200":
+          description: A complete hint plan for the game's current revision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HintPreview"
+        "401": { $ref: "#/components/responses/AccountUnauthorized" }
+        "404": { $ref: "#/components/responses/AccountGameNotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -878,6 +925,13 @@ components:
       properties:
         document: { $ref: "#/components/schemas/SealedGuestDocument" }
         action: { $ref: "#/components/schemas/ActionRequest" }
+
+    GuestHintRequest:
+      type: object
+      additionalProperties: false
+      required: [document]
+      properties:
+        document: { $ref: "#/components/schemas/SealedGuestDocument" }
 
     GuestActionResponse:
       type: object
