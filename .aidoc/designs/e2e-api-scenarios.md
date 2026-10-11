@@ -2,90 +2,65 @@
 domain: Designs
 status: Active
 entry_points:
-  - cmd/api.go
-  - webapi/server.go
-  - api/openapi.yaml
+  - scripts/e2e_api.py
+  - webapi/server_test.go
+  - webapi/account_routes_test.go
 dependencies:
-  - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/web-api.md
+  - .aidoc/designs/user-accounts.md
 ---
 
-# E2E API Scenarios
+# HTTP API E2E Scenarios
 
-The API scenario catalog verifies HTTP startup safety, lifecycle operations, recovery, concurrency, origin policy, authentication, and OpenAPI conformance against the running built server.
+The API acceptance catalog protects the composed guest/account boundary against the running binary and the configured handler. Anonymous server sessions and API recovery are intentionally absent.
 
 ## Related Docs
 
 | Document | Relationship |
-|----------|-------------|
-| `.aidoc/designs/e2e-test-scenarios.md` | E2E discovery map, isolation rules, and automation entry points |
-| `AGENT.md` | Required black-box verification discipline |
+|----------|--------------|
+| `.aidoc/designs/web-api.md` | Canonical resource, revision, and security boundary |
+| `.aidoc/designs/user-accounts.md` | Guest, login, ownership, and claim invariants |
+| `.aidoc/designs/e2e-test-scenarios.md` | Repository-wide black-box discovery map |
+| `api/openapi.yaml` | Exact wire contract |
 
-## Why This Boundary
+## Why These Scenarios Exist
 
-The API is an external security and compatibility boundary. Black-box requests must prove that runtime behavior, durable sessions, and the published contract agree without importing Go handlers.
+OpenAPI validation cannot prove listener safety, generated routing, middleware order, process shutdown, sealed-document behavior, or database ownership. The built-binary lane proves deployment-visible behavior; handler and package integration provide deterministic configured account coverage without external identity traffic.
 
-## 11. HTTP API Backend
+## Built-Binary Clean Boundary
 
-Run the automated black-box lifecycle against the built backend with isolated state roots:
+**Action:** Start `sudoku api` on an isolated loopback port and database, probe health, then call `/api/v1/sessions`, a child session path, and the former import path.
 
-**Action:** Execute the matching case in `scripts/e2e_api.py`, which owns the canonical command sequence and fixture.
+**Expected:** Health returns 200 and every removed anonymous-session path returns 404. No recovery directory, anonymous gameplay row, or compatibility redirect is created.
 
-The harness calls the running `sudoku api` process rather than importing Go handlers. It covers startup safety, process-lock exclusion, health, strict input, exact-origin CORS configuration, exact bearer authentication, lifecycle operations, revision conflict, export/import, restart recovery, and discard. Handler and command tests complement the black-box lane with malformed-input envelopes, preflight method/header rejection, concurrent session isolation, allowed-origin validation, lock ownership, and the configured guest/account transport. The scenarios below define the broader acceptance contract; frontend behavior remains in the separate client project.
+**Action:** Start without private account configuration and call guest create plus the current-account probe.
 
-### 11.1 Startup, Binding, and Health
-**Action:** Start `sudoku api` with isolated XDG roots using the default listener and an explicit network listener, call `/healthz`, and request an unknown `/api/` path.
-**Expected:** The default listener is loopback, the explicit listener requires authentication configuration, startup prints the listening address, health reports healthy, the unknown route returns a stable JSON `404`, and no frontend assets or SPA fallback are served.
+**Expected:** Both routes fail closed with the bounded `account-unavailable` response. Startup remains healthy so operators can distinguish missing private configuration from process failure.
 
-### 11.2 Session Creation and Strict Input
-**Action:** Create sessions by difficulty and puzzle string, then send conflicting sources, unknown fields, malformed JSON, wrong content types, and oversized bodies.
-**Expected:** Valid requests return opaque IDs, revision zero, authoritative snapshots, nullable requested difficulty, and the puzzle classifier's required actual difficulty. Each tracked session stores its exact presented givens in one play run linked to the SHA-256 identity of the canonical base puzzle. Refresh and restart recovery preserve difficulty metadata and the same play-run ID without creating a duplicate. Invalid requests return bounded stable errors without creating sessions or leaking host details.
+**Action:** Send one request from the configured exact origin and one preflight from another origin.
 
-### 11.3 OpenAPI Contract and Runtime Conformance
-**Action:** Validate and lint `api/openapi.yaml` with the pinned Redocly CLI, regenerate the strict Go boundary and confirm a clean diff, compare the contract with the target branch using `oasdiff`, then execute every declared operation and representative examples against the built server.
-**Expected:** The OpenAPI 3.1.1 contract is valid and lint-clean, generation is reproducible, no unapproved breaking change is reported, documented examples match runtime responses, and no implemented route is absent from the contract.
+**Expected:** The configured origin receives its exact CORS response; the unconfigured origin receives 403. Wildcard and path-bearing origins remain invalid startup configuration.
 
-### 11.4 Actions, Hints, and Revision Conflicts
-**Action:** Enter valid and invalid values, atomically replace a cell's complete note set, adopt the full legal-candidate grid with an initiating digit toggle, preview/apply a hint, undo/redo, and submit two actions with the same expected revision.
-**Expected:** Accepted mutations increment revisions once and match engine semantics. Empty, one-digit, and multi-digit note replacements use the same direct action. Candidate adoption materializes every editable visibly empty cell, applies the selected toggle, and creates one revision and one undo record; one Undo restores the complete prior note map and Redo restores the adopted map. A visible invalid value clears notes in its occupied cell but does not change solver-safe candidates or prune peer notes; only an accepted value performs peer-note cleanup. Every confirmed invalid `set-value` increments the cumulative mistake count, while notes, hints, erase, Undo, and Redo neither increment nor decrement it; restart recovery preserves the count. Legacy toggle and clear note kinds are rejected as unknown actions. Legacy-session, sealed-guest, and owner-scoped account-game hint previews each return one complete protocol-versioned plan without changing revision or durable state; guest preview accepts the current sealed document without returning a replacement, while account preview enforces owner authentication. `apply-hint` requires that exact `plan_id`, rejects a wrong or consumed plan as `stale-hint`, and applies the placement or elimination in one revision and one undo record. Engine integration drives complete valid games from the maintained calibration corpus and catalog audit until each of the 23 registered strategies produces typed premises, deterministic identity, ordered steps, and an exact placement or elimination effect. The delayed mutation returns `409` with current state and never overwrites the accepted action.
+**Action:** Attempt a non-loopback listener, then terminate a healthy loopback process with `SIGTERM`.
 
-### 11.5 Restart, Forced-Termination Recovery, and Discard
-**Action:** Mutate two API sessions, stop and restart the server, reconnect to both, discard one, terminate the process without graceful shutdown, then start it again.
-**Expected:** Both sessions restore from separate private records with complete values, notes, history, cumulative mistakes, and play-run identity. A player-driven completion atomically closes its run and increments the linked base puzzle once. Discard removes only the selected recovery record. Graceful restart and forced termination both preserve the remaining session because accepted mutations are durable before their responses complete.
+**Expected:** Non-loopback startup fails before listening. The healthy process completes bounded graceful shutdown with exit status zero.
 
-### 11.6 Concurrent Sessions and Process Lock
-**Action:** Mutate separate sessions concurrently, submit concurrent actions to one session, and start a second `sudoku api` process against the same state root.
-**Expected:** Different sessions proceed independently, one session remains revision-ordered, and the second process fails clearly without modifying recovery records.
+## Configured Guest and Account Integration
 
-### 11.7 Portable Service Contract
-**Action:** Validate the portable user-service example and inspect its application, storage, shutdown, restart, and startup boundaries.
-**Expected:** The example executes a backend from a generic home-relative release location, binds the API to loopback, keeps data and recovery outside application files, sends `SIGTERM` with the API's ten-second shutdown budget, uses bounded restart backoff, creates private files, and joins the user manager's default startup target. Operators may substitute their own release path and private listener. Repository artifacts contain no live host path, hostname, credential, external URL, or bearer token.
+**Action:** Create a sealed guest game, preview a hint, apply revisioned note/value/hint actions, and replace the document after each accepted mutation.
 
-**Automation:** `scripts/check_deployment.py` validates `deploy/sudoku-api.service.example`; `scripts/e2e_api.py` proves graceful and forced-termination recovery against the built binary. Target-host startup remains operator verification because CI does not own a host service manager.
+**Expected:** Guest state creates no user, application-session, account-game, claim, or recovery row. Revisions advance once, stale or wrong hint plans fail, and every replacement document opens to the authoritative snapshot.
 
-### 11.8 Origin Policy
-**Action:** Send browser-style preflight and mutation requests with no configured origin, exact allowed local and remote HTTP/HTTPS origins, a different port, `null`, a wildcard, and a path-bearing origin.
-**Expected:** Cross-origin browser access is denied by default. Only exact configured origins succeed; responses never enable wildcard CORS, and authenticated preflight permits only the required authorization header.
+**Action:** Complete deterministic local OIDC login, use the application-session cookie and request proof, create an account game, claim a guest game twice, mutate/list/delete owned games, revoke sessions, and delete the account.
 
-### 11.9 Authentication and Remote Access
-**Action:** Bind to a non-loopback address with no token, then with a configured token; call API resources with a missing, incorrect, and correct bearer credential.
-**Expected:** Unsafe startup is rejected. Missing and incorrect credentials receive bounded unauthorized responses, the correct credential succeeds, and logs never contain the token.
+**Expected:** Login rotates digest-only application sessions. Cookie mutations reject missing request proof. Same-owner claim retries return one game; cross-owner attempts reveal no owner. Owner predicates hide foreign IDs, and account deletion preserves catalog/cohort evidence.
 
-### 11.10 Existing Frontend Compatibility
-**Action:** Run all applicable root CLI, TUI, serialization, candidate, and recovery scenarios after API tests.
-**Expected:** Existing output, actions, session bytes, recovery behavior, and terminal rendering remain compatible.
+**Action:** Exercise hint plans, complete note replacement, candidate adoption, invalid-value mistake counting, Undo/Redo, elapsed-time synchronization, and revision conflict in guest and account modes.
 
+**Expected:** Both ownership modes expose identical game-engine semantics. Read-only hints do not mutate state; accepted actions advance once; stale writes never overwrite authoritative state.
 
-### 11.11 Trusted Release Artifact
-**Action:** Build the Linux executable, create a release with `scripts/package_release.py`, verify it against the expected commit, then exercise missing-file, unsafe-path, wrong-identity, and checksum-mismatch cases.
+## Database Cutover
 
-**Expected:** The valid artifact contains one executable and a schema-versioned manifest bound to `gnailuy/sudoku`, the trusted workflow run, and the full commit. Every malformed or mismatched artifact is rejected before deployment.
+**Action:** Run `sudoku db rebuild-web --db <path> --yes` against schema version 5, then open the database with schema-6 code.
 
-**Automation:** `python3 -m unittest scripts/test_package_release.py`; the `trusted-release` job publishes only after every maintained `main` CI job passes.
-
-### 11.12 Guest and Account Transport
-**Action:** Run the deterministic HTTP integration with a local identity fixture and private test keys; create and mutate one sealed guest game, complete login, read the CSRF request proof, create a Medium owned game, claim the guest twice, mutate/list/read only owned games, synchronize elapsed time, verify authoritative status/time summaries, delete one game and then all remaining games, revoke sessions, and delete the account.
-
-**Expected:** Guest responses atomically replace one authenticated encrypted document and create no guest identity or recovery row. The current-account probe returns the bounded unavailable response before private configuration and unauthorized when configured without a session cookie, so signed-out browser startup reaches the account handler instead of failing generated parameter binding. The callback rotates a digest-only application session and emits a path-scoped secure HttpOnly cookie. Cookie mutations reject missing or incorrect HMAC request proof. Logout and revoke-all-sessions accept their contract-defined body-free `POST` requests without requiring a JSON content type, while routes with JSON bodies retain strict media-type and schema validation. Claim returns `201` once and the same game with `200` on a same-owner retry; cross-owner identifiers remain indistinguishable from absent games. Direct creation always persists the canonical puzzle before its linked play run, so Medium and every other requested grade either return a complete durable account game or a specific creation error rather than a generic missing-run failure. Elapsed time is monotonic outside gameplay revisions, solved status comes from the persisted engine transition, and bulk deletion affects only the authenticated owner's games. Account deletion preserves shared catalog puzzles.
-
-**Automation:** `go test -count=1 ./webapi ./accountgame ./guestclaim ./guestdoc ./accountauth ./oidcauth ./db` exercises the provider fixture and real SQLite boundary. Built-binary browser acceptance remains coordinated with the frontend account slice and private deployment configuration.
+**Expected:** Users, external identities, application sessions, account games, and claims are empty and use the new schema. Base puzzles, provenance, serving cohorts, cohort membership, and historical play runs are unchanged. The operation is transactional and refuses any source schema other than version 5.

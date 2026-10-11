@@ -14,7 +14,7 @@ dependencies:
 
 # Evil Serving Cohort
 
-The Evil serving cohort combines independent upper-tail evidence from Sukaku Explainer and the canonical strategy trace. Schema version 5 materializes the approved membership by canonical base-puzzle ID, and Evil acquisition now fails closed unless that bound cohort is available.
+The Evil serving cohort combines independent upper-tail evidence from Sukaku Explainer and the canonical strategy trace. Schema version 6 retains the approved membership by canonical base-puzzle ID, and Evil acquisition now fails closed unless that bound cohort is available.
 
 ## Related Docs
 

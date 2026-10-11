@@ -523,8 +523,8 @@ def main():
         )
         contains(
             run(binary, ["db", "rebuild", "--db", str(legacy_database), "--yes"], root),
-            "All catalog, play-run, account, identity, and web-session rows will be deleted.",
-            "Database rebuilt at schema version 5.",
+            "All catalog, play-run, account, identity, and application-session rows will be deleted.",
+            "Database rebuilt at schema version 6.",
         )
         with sqlite3.connect(legacy_database) as connection:
             names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -535,13 +535,33 @@ def main():
             "play_runs",
             "users",
             "external_identities",
-            "web_sessions",
+            "application_sessions",
             "account_games",
             "serving_cohorts",
             "serving_cohort_members",
         }
-        if version != 5 or not required_tables.issubset(names) or "puzzles" in names:
+        if version != 6 or not required_tables.issubset(names) or "puzzles" in names:
             raise AssertionError(f"database rebuild produced unexpected schema: version={version}, tables={names}")
+
+        # The explicit web cutover replaces browser-private state but leaves the catalog schema in place.
+        with sqlite3.connect(legacy_database) as connection:
+            connection.execute("ALTER TABLE application_sessions RENAME TO web_sessions")
+            connection.execute("UPDATE schema_metadata SET version = 5 WHERE singleton = 1")
+            connection.execute("INSERT INTO users (user_id) VALUES ('cutover-user')")
+        contains(
+            run(binary, ["db", "rebuild-web", "--db", str(legacy_database)], root, expected=1),
+            "requires --yes",
+        )
+        contains(
+            run(binary, ["db", "rebuild-web", "--db", str(legacy_database), "--yes"], root),
+            "Web state rebuilt at schema version 6.",
+        )
+        with sqlite3.connect(legacy_database) as connection:
+            version = connection.execute("SELECT version FROM schema_metadata WHERE singleton=1").fetchone()[0]
+            users = connection.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            app_table = connection.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='application_sessions'").fetchone()[0]
+        if version != 6 or users != 0 or app_table != 1:
+            raise AssertionError(f"web rebuild failed: version={version}, users={users}, application_sessions={app_table}")
 
         # Public database acquisition exhausts never-played rows before reuse.
         acquisition_database = root / "acquisition.db"

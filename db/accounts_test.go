@@ -167,7 +167,7 @@ func TestDeleteUserCascadesPrivateStateAndPreservesCatalog(t *testing.T) {
 	if deleted, err := database.DeleteUser("user-a"); err != nil || !deleted {
 		t.Fatalf("delete user = %v, %v", deleted, err)
 	}
-	for _, table := range []string{"external_identities", "web_sessions", "account_games"} {
+	for _, table := range []string{"external_identities", "application_sessions", "account_games"} {
 		var count int
 		if err := database.conn.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&count); err != nil || count != 0 {
 			t.Fatalf("%s count = %d, %v", table, count, err)

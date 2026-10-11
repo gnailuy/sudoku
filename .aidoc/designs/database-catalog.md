@@ -44,13 +44,13 @@ Offline replenishment stages candidates outside SQLite. `db.PublishPuzzleBatch` 
 
 `serving_cohorts` and `serving_cohort_members` bind an immutable evidence definition to selected canonical base-puzzle IDs. Membership is selection policy rather than puzzle identity or provenance, so replacing a cohort never rewrites catalog content or history.
 
-`play_runs` stores caller-owned run identity, the linked base-puzzle ID, the exact presented puzzle string, and `active`, `completed`, or `abandoned` status. Every tracked CLI, TUI, and HTTP session starts a run after presentation transformation; API recovery preserves the run ID instead of creating a second record. Presentation state never changes canonical catalog content.
+`play_runs` stores caller-owned run identity, the linked base-puzzle ID, the exact presented puzzle string, and `active`, `completed`, or `abandoned` status. Tracked CLI/TUI sessions and owner-scoped account games attach presentation-specific runs without changing canonical content. Presentation state never changes canonical catalog content.
 
 A player-driven completion atomically changes the active run to `completed` and increments the linked base puzzle's completion count. Repeated completion observation cannot increment either record twice, while automatic solve remains excluded by the shared `playrun.Tracker` policy.
 
 ## Account Ownership
 
-Schema version 5 adds serving-cohort definition and membership tables through an additive version 4 upgrade. Schema version 3 added `users`, provider-keyed `external_identities`, digest-only `web_sessions`, and owner-scoped `account_games`. Account games reference the shared base puzzle and one presentation-specific play run while storing complete durable engine state and an optimistic revision. Deleting a user cascades identities, sessions, and owned games but preserves the catalog and play-run history.
+Schema version 6 names digest-only `application_sessions` and requires one explicit browser-private-state rebuild from version 5. Schema version 5 added serving-cohort definition and membership tables through an additive version 4 upgrade. Schema version 3 added `users`, provider-keyed `external_identities`, digest-only `application_sessions`, and owner-scoped `account_games`. Account games reference the shared base puzzle and one presentation-specific play run while storing complete durable engine state and an optimistic revision. Deleting a user cascades identities, sessions, and owned games but preserves the catalog and play-run history.
 
 The persistence boundary resolves account games with both owner and game identifiers, so another user's game is indistinguishable from an absent game. External identity uses the provider issuer and subject pair; profile email remains mutable metadata and never links accounts.
 
@@ -58,7 +58,7 @@ The persistence boundary resolves account games with both owner and game identif
 
 Schema version 3 intentionally does not migrate earlier development schemas. Legacy rows lack enough identity, provenance, or ownership evidence to backfill the current boundaries without guessing. `db.Open` returns `db.ErrRebuildRequired` and names the supported command instead of silently rewriting data.
 
-`sudoku db rebuild --db <path> --yes` atomically drops account games, web sessions, external identities, users, catalog, provenance, play-run, and legacy tables, then creates schema version 5. Interactive use requires the exact word `rebuild`; non-interactive use requires `--yes`. The database file remains in place, and any failed transaction leaves the prior schema intact.
+`sudoku db rebuild --db <path> --yes` atomically drops account games, application sessions, external identities, users, catalog, provenance, play-run, and legacy tables, then creates schema version 6. Interactive use requires the exact word `rebuild`; non-interactive use requires `--yes`. The database file remains in place, and any failed transaction leaves the prior schema intact.
 
 ## Failure and Integrity Boundaries
 
@@ -66,10 +66,11 @@ Schema version 3 intentionally does not migrate earlier development schemas. Leg
 - A canonical puzzle and its base-puzzle ID are independently unique.
 - A play-run ID is caller-supplied and globally unique within one database.
 - New play runs begin as `active`; status updates reject unknown states.
-- Rebuild is the only supported transition from a legacy development schema.
+- Full rebuild is the only supported transition from a pre-catalog development schema.
+- `sudoku db rebuild-web --db <path> --yes` is the only version-5 to version-6 transition; it replaces users, identities, application sessions, account games, and claims while preserving catalog, provenance, cohorts, membership, and historical play runs.
 - Catalog import never infers provenance from a filename, grade, or puzzle content; the pinned helper supplies an explicit commit-bound source label and each parsed record supplies its published source hash.
 - Foreign keys cascade private identity state on account deletion without deleting shared catalog rows or play-run history.
 
 ## Verification
 
-Package tests prove full symmetry collapse, deterministic base-puzzle IDs, additive provenance on duplicate catalog content, independent transformed presentation storage, atomic run completion, provider-keyed identity, session expiry and revocation, owner-scoped optimistic game updates, account-deletion cascades, explicit legacy rejection, atomic rebuild, and existing acquisition/statistics behavior. Built-binary scenarios prove hash-pinned import and rebuild behavior plus exact presented-board linkage, stable base identity, completion status, and run-ID preservation across API restart recovery.
+Package tests prove full symmetry collapse, deterministic base-puzzle IDs, additive provenance on duplicate catalog content, independent transformed presentation storage, atomic run completion, provider-keyed identity, session expiry and revocation, owner-scoped optimistic game updates, account-deletion cascades, explicit legacy rejection, atomic rebuild, and existing acquisition/statistics behavior. Built-binary scenarios prove hash-pinned import and rebuild behavior plus exact presented-board linkage, stable base identity, completion status, and owner-scoped account-game persistence.

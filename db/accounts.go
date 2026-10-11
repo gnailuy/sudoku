@@ -154,8 +154,8 @@ func (db *DB) CreateWebSession(session WebSession) error {
 	if session.RotatedFromID != "" {
 		rotatedFrom = session.RotatedFromID
 	}
-	_, err := db.conn.Exec(`INSERT INTO web_sessions
-		(web_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id)
+	_, err := db.conn.Exec(`INSERT INTO application_sessions
+		(application_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id)
 		VALUES (?, ?, ?, ?, ?, ?)`, session.ID, session.UserID, session.VerifierDigest, session.IdleExpiresAt.UTC(), session.AbsoluteExpiresAt.UTC(), rotatedFrom)
 	if err != nil {
 		return fmt.Errorf("create web session: %w", err)
@@ -167,8 +167,8 @@ func (db *DB) CreateWebSession(session WebSession) error {
 func (db *DB) ActiveWebSession(verifierDigest []byte, now time.Time) (*WebSession, error) {
 	var session WebSession
 	var rotatedFrom sql.NullString
-	err := db.conn.QueryRow(`SELECT web_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id
-		FROM web_sessions WHERE verifier_digest = ? AND revoked_at IS NULL
+	err := db.conn.QueryRow(`SELECT application_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id
+		FROM application_sessions WHERE verifier_digest = ? AND revoked_at IS NULL
 		AND idle_expires_at > ? AND absolute_expires_at > ?`, verifierDigest, now.UTC(), now.UTC()).Scan(
 		&session.ID, &session.UserID, &session.VerifierDigest, &session.IdleExpiresAt, &session.AbsoluteExpiresAt, &rotatedFrom,
 	)
@@ -198,8 +198,8 @@ func (db *DB) RefreshActiveWebSession(verifierDigest []byte, now time.Time, idle
 	defer func() { _ = tx.Rollback() }()
 	var session WebSession
 	var rotatedFrom sql.NullString
-	err = tx.QueryRow(`SELECT web_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id
-		FROM web_sessions WHERE verifier_digest = ? AND revoked_at IS NULL
+	err = tx.QueryRow(`SELECT application_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id
+		FROM application_sessions WHERE verifier_digest = ? AND revoked_at IS NULL
 		AND idle_expires_at > ? AND absolute_expires_at > ?`, verifierDigest, now.UTC(), now.UTC()).Scan(
 		&session.ID, &session.UserID, &session.VerifierDigest, &session.IdleExpiresAt, &session.AbsoluteExpiresAt, &rotatedFrom,
 	)
@@ -217,7 +217,7 @@ func (db *DB) RefreshActiveWebSession(verifierDigest []byte, now time.Time, idle
 	if session.IdleExpiresAt.After(session.AbsoluteExpiresAt) {
 		session.IdleExpiresAt = session.AbsoluteExpiresAt
 	}
-	if _, err = tx.Exec(`UPDATE web_sessions SET last_seen_at = ?, idle_expires_at = ? WHERE web_session_id = ? AND revoked_at IS NULL`, now.UTC(), session.IdleExpiresAt, session.ID); err != nil {
+	if _, err = tx.Exec(`UPDATE application_sessions SET last_seen_at = ?, idle_expires_at = ? WHERE application_session_id = ? AND revoked_at IS NULL`, now.UTC(), session.IdleExpiresAt, session.ID); err != nil {
 		return nil, fmt.Errorf("refresh active web session: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -273,12 +273,12 @@ func (db *DB) RotateWebSessionForIdentity(rotation WebSessionRotation) (User, We
 
 	var previousSessionID string
 	if len(rotation.PreviousVerifierDigest) > 0 {
-		err = tx.QueryRow(`SELECT web_session_id FROM web_sessions WHERE verifier_digest = ? AND revoked_at IS NULL`, rotation.PreviousVerifierDigest).Scan(&previousSessionID)
+		err = tx.QueryRow(`SELECT application_session_id FROM application_sessions WHERE verifier_digest = ? AND revoked_at IS NULL`, rotation.PreviousVerifierDigest).Scan(&previousSessionID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return User{}, WebSession{}, fmt.Errorf("resolve previous web session: %w", err)
 		}
 		if err == nil {
-			if _, err = tx.Exec(`UPDATE web_sessions SET revoked_at = ? WHERE web_session_id = ? AND revoked_at IS NULL`, rotation.Now.UTC(), previousSessionID); err != nil {
+			if _, err = tx.Exec(`UPDATE application_sessions SET revoked_at = ? WHERE application_session_id = ? AND revoked_at IS NULL`, rotation.Now.UTC(), previousSessionID); err != nil {
 				return User{}, WebSession{}, fmt.Errorf("revoke previous web session: %w", err)
 			}
 		}
@@ -290,8 +290,8 @@ func (db *DB) RotateWebSessionForIdentity(rotation WebSessionRotation) (User, We
 	if previousSessionID != "" {
 		rotatedFrom = previousSessionID
 	}
-	if _, err = tx.Exec(`INSERT INTO web_sessions
-		(web_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id)
+	if _, err = tx.Exec(`INSERT INTO application_sessions
+		(application_session_id, user_id, verifier_digest, idle_expires_at, absolute_expires_at, rotated_from_id)
 		VALUES (?, ?, ?, ?, ?, ?)`, rotation.Session.ID, rotation.Session.UserID, rotation.Session.VerifierDigest,
 		rotation.Session.IdleExpiresAt.UTC(), rotation.Session.AbsoluteExpiresAt.UTC(), rotatedFrom); err != nil {
 		return User{}, WebSession{}, fmt.Errorf("create rotated web session: %w", err)
@@ -303,8 +303,8 @@ func (db *DB) RotateWebSessionForIdentity(rotation WebSessionRotation) (User, We
 }
 
 func (db *DB) RevokeWebSession(userID, sessionID string) (bool, error) {
-	result, err := db.conn.Exec(`UPDATE web_sessions SET revoked_at = CURRENT_TIMESTAMP
-		WHERE web_session_id = ? AND user_id = ? AND revoked_at IS NULL`, sessionID, userID)
+	result, err := db.conn.Exec(`UPDATE application_sessions SET revoked_at = CURRENT_TIMESTAMP
+		WHERE application_session_id = ? AND user_id = ? AND revoked_at IS NULL`, sessionID, userID)
 	if err != nil {
 		return false, fmt.Errorf("revoke web session: %w", err)
 	}
@@ -313,9 +313,9 @@ func (db *DB) RevokeWebSession(userID, sessionID string) (bool, error) {
 }
 
 func (db *DB) RevokeAllWebSessions(userID string) (int64, error) {
-	result, err := db.conn.Exec(`UPDATE web_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL`, userID)
+	result, err := db.conn.Exec(`UPDATE application_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL`, userID)
 	if err != nil {
-		return 0, fmt.Errorf("revoke all web sessions: %w", err)
+		return 0, fmt.Errorf("revoke all application sessions: %w", err)
 	}
 	return result.RowsAffected()
 }

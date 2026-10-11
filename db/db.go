@@ -17,13 +17,14 @@ import (
 type DB struct{ conn *sql.DB }
 
 const (
-	SchemaVersion            = 5
+	SchemaVersion            = 6
 	busyTimeoutMilliseconds  = 5000
 	sqliteBusyCode           = 5
 	journalModeRetryInterval = 10 * time.Millisecond
 )
 
 var ErrRebuildRequired = errors.New("database schema is obsolete; run `sudoku db rebuild --db <path> --yes`")
+var ErrWebRebuildRequired = errors.New("database web state is obsolete; run `sudoku db rebuild-web --db <path> --yes`")
 var ErrEvilCohortUnavailable = errors.New("the approved Evil serving cohort is unavailable")
 
 func Open(path string) (*DB, error) {
@@ -98,6 +99,9 @@ func (db *DB) migrate() (err error) {
 			}
 			version = 5
 		}
+		if version == 5 && current {
+			return ErrWebRebuildRequired
+		}
 		if version != SchemaVersion {
 			return ErrRebuildRequired
 		}
@@ -114,7 +118,7 @@ func (db *DB) migrate() (err error) {
 func createSchema(conn *sql.Conn) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS schema_metadata (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), version INTEGER NOT NULL)`,
-		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 5)`,
+		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 6)`,
 		`CREATE TABLE IF NOT EXISTS base_puzzles (
 			base_puzzle_id TEXT PRIMARY KEY,
 			canonical_puzzle TEXT NOT NULL UNIQUE,
@@ -176,15 +180,15 @@ func createSchema(conn *sql.Conn) error {
 			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (issuer, subject)
 		)`,
-		`CREATE TABLE IF NOT EXISTS web_sessions (
-			web_session_id TEXT PRIMARY KEY,
+		`CREATE TABLE IF NOT EXISTS application_sessions (
+			application_session_id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
 			verifier_digest BLOB NOT NULL UNIQUE,
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			idle_expires_at TIMESTAMP NOT NULL,
 			absolute_expires_at TIMESTAMP NOT NULL,
-			rotated_from_id TEXT REFERENCES web_sessions(web_session_id),
+			rotated_from_id TEXT REFERENCES application_sessions(application_session_id),
 			revoked_at TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS account_games (
@@ -211,7 +215,7 @@ func createSchema(conn *sql.Conn) error {
 		`CREATE INDEX IF NOT EXISTS serving_cohort_members_base_idx ON serving_cohort_members (base_puzzle_id, cohort_name)`,
 		`CREATE INDEX IF NOT EXISTS play_runs_base_idx ON play_runs (base_puzzle_id, created_at)`,
 		`CREATE INDEX IF NOT EXISTS external_identities_user_idx ON external_identities (user_id)`,
-		`CREATE INDEX IF NOT EXISTS web_sessions_user_idx ON web_sessions (user_id, revoked_at)`,
+		`CREATE INDEX IF NOT EXISTS application_sessions_user_idx ON application_sessions (user_id, revoked_at)`,
 		`CREATE INDEX IF NOT EXISTS account_games_user_idx ON account_games (user_id, updated_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS guest_claims_user_idx ON guest_claims (user_id, created_at)`,
 	}
@@ -331,7 +335,7 @@ func Rebuild(path string) (err error) {
 			_, _ = dedicated.ExecContext(context.Background(), `ROLLBACK`)
 		}
 	}()
-	for _, table := range []string{"guest_claims", "account_games", "web_sessions", "external_identities", "users", "play_runs", "serving_cohort_members", "serving_cohorts", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
+	for _, table := range []string{"guest_claims", "account_games", "web_sessions", "application_sessions", "external_identities", "users", "play_runs", "serving_cohort_members", "serving_cohorts", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
 		if _, err = dedicated.ExecContext(context.Background(), `DROP TABLE IF EXISTS `+table); err != nil {
 			return fmt.Errorf("drop %s: %w", table, err)
 		}
@@ -341,6 +345,52 @@ func Rebuild(path string) (err error) {
 	}
 	if _, err = dedicated.ExecContext(context.Background(), `COMMIT`); err != nil {
 		return fmt.Errorf("commit rebuild: %w", err)
+	}
+	return nil
+}
+
+// RebuildWebState atomically replaces only disposable browser identity and
+// gameplay tables while preserving the puzzle catalog, cohort evidence, and
+// historical play runs. It is the explicit schema-5 to schema-6 cutover.
+func RebuildWebState(path string) (err error) {
+	conn, err := openConnection(path)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	dedicated, err := conn.Conn(context.Background())
+	if err != nil {
+		return err
+	}
+	defer dedicated.Close()
+	if _, err = dedicated.ExecContext(context.Background(), `BEGIN IMMEDIATE`); err != nil {
+		return fmt.Errorf("begin web-state rebuild: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_, _ = dedicated.ExecContext(context.Background(), `ROLLBACK`)
+		}
+	}()
+	var version int
+	if err = dedicated.QueryRowContext(context.Background(), `SELECT version FROM schema_metadata WHERE singleton = 1`).Scan(&version); err != nil {
+		return fmt.Errorf("read schema version: %w", err)
+	}
+	if version != 5 {
+		return fmt.Errorf("web-state rebuild requires schema version 5, found %d", version)
+	}
+	for _, table := range []string{"guest_claims", "account_games", "web_sessions", "application_sessions", "external_identities", "users"} {
+		if _, err = dedicated.ExecContext(context.Background(), `DROP TABLE IF EXISTS `+table); err != nil {
+			return fmt.Errorf("drop %s: %w", table, err)
+		}
+	}
+	if _, err = dedicated.ExecContext(context.Background(), `UPDATE schema_metadata SET version = 6 WHERE singleton = 1`); err != nil {
+		return fmt.Errorf("advance schema version: %w", err)
+	}
+	if err = createSchema(dedicated); err != nil {
+		return err
+	}
+	if _, err = dedicated.ExecContext(context.Background(), `COMMIT`); err != nil {
+		return fmt.Errorf("commit web-state rebuild: %w", err)
 	}
 	return nil
 }

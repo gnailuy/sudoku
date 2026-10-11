@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -23,38 +22,6 @@ func TestValidateAllowedOrigins(t *testing.T) {
 	}
 }
 
-func TestAcquireAPILockRejectsSecondOwner(t *testing.T) {
-	directory := filepath.Join(t.TempDir(), "api")
-	first, err := acquireAPILock(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer first.Close()
-	second, err := acquireAPILock(directory)
-	if second != nil {
-		second.Close()
-	}
-	if err == nil || !strings.Contains(err.Error(), "another sudoku api process") {
-		t.Fatalf("second owner was not rejected clearly: %v", err)
-	}
-}
-
-func TestAcquireAPILockCanBeReacquiredAfterClose(t *testing.T) {
-	directory := filepath.Join(t.TempDir(), "api")
-	first, err := acquireAPILock(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := first.Close(); err != nil {
-		t.Fatal(err)
-	}
-	second, err := acquireAPILock(directory)
-	if err != nil {
-		t.Fatalf("reacquire lock: %v", err)
-	}
-	second.Close()
-}
-
 func TestRunAPIRejectsUnsafeConfigurationBeforeStartup(t *testing.T) {
 	command := &cobra.Command{}
 	command.SetContext(context.Background())
@@ -71,8 +38,7 @@ func TestRunAPIRejectsUnsafeConfigurationBeforeStartup(t *testing.T) {
 		want   string
 	}{
 		{name: "invalid listen", mutate: func(c *apiConfig) { c.listen = "not-an-address" }, want: "invalid --listen address"},
-		{name: "remote without token", mutate: func(c *apiConfig) { c.listen = "0.0.0.0:8080" }, want: "--auth-token is required"},
-		{name: "token newline", mutate: func(c *apiConfig) { c.token = "bad\ntoken" }, want: "--auth-token contains invalid characters"},
+		{name: "remote listener", mutate: func(c *apiConfig) { c.listen = "0.0.0.0:8080" }, want: "--listen must use a loopback address"},
 		{name: "invalid origin", mutate: func(c *apiConfig) { c.origins = []string{"https://client.example/path"} }, want: "invalid --allowed-origin"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
