@@ -110,6 +110,14 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 	if err := json.Unmarshal(created.Body.Bytes(), &guest); err != nil || guest.Document == "" || guest.Revision != 0 {
 		t.Fatalf("guest create = %+v, %v", guest, err)
 	}
+	guestPreview := request(t, handler, http.MethodPost, "/api/v1/guest/games/hint", "application/json", `{"document":"`+guest.Document+`"}`, nil)
+	if guestPreview.Code != http.StatusOK {
+		t.Fatalf("guest hint status=%d body=%s", guestPreview.Code, guestPreview.Body.String())
+	}
+	var guestHint HintPreview
+	if err := json.Unmarshal(guestPreview.Body.Bytes(), &guestHint); err != nil || guestHint.Revision != 0 || guestHint.Hint.PlanId == "" || len(guestHint.Hint.Steps) == 0 {
+		t.Fatalf("guest hint = %+v, %v", guestHint, err)
+	}
 	action := request(t, handler, http.MethodPost, "/api/v1/guest/games/actions", "application/json", `{"document":"`+guest.Document+`","action":{"kind":"set-value","expected_revision":0,"row":1,"column":1,"value":4}}`, nil)
 	if action.Code != http.StatusOK {
 		t.Fatalf("guest action status=%d body=%s", action.Code, action.Body.String())
@@ -155,6 +163,18 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 	owned := request(t, handler, http.MethodPost, "/api/v1/account/games", "application/json", `{"source":{"kind":"puzzle","puzzle":"`+knownPuzzle+`"}}`, headers)
 	if owned.Code != http.StatusCreated {
 		t.Fatalf("account create status=%d body=%s", owned.Code, owned.Body.String())
+	}
+	var ownedGame AccountGame
+	if err := json.Unmarshal(owned.Body.Bytes(), &ownedGame); err != nil {
+		t.Fatal(err)
+	}
+	accountPreview := request(t, handler, http.MethodGet, "/api/v1/account/games/"+ownedGame.Id+"/hint", "", "", map[string]string{"Cookie": cookie})
+	if accountPreview.Code != http.StatusOK {
+		t.Fatalf("account hint status=%d body=%s", accountPreview.Code, accountPreview.Body.String())
+	}
+	var accountHint HintPreview
+	if err := json.Unmarshal(accountPreview.Body.Bytes(), &accountHint); err != nil || accountHint.Revision != 0 || accountHint.Hint.PlanId == "" || len(accountHint.Hint.Steps) == 0 {
+		t.Fatalf("account hint = %+v, %v", accountHint, err)
 	}
 	claimBody := `{"document":"` + guestAction.Document + `"}`
 	claimed := request(t, handler, http.MethodPost, "/api/v1/account/games/claim", "application/json", claimBody, headers)

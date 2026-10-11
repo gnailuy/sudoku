@@ -504,3 +504,54 @@ func (runtime *AccountRuntime) String() string {
 	}
 	return fmt.Sprintf("accounts cookie path %s", runtime.CookiePath)
 }
+
+func (s *Server) PreviewGuestHint(_ context.Context, request PreviewGuestHintRequestObject) (PreviewGuestHintResponseObject, error) {
+	if !s.accounts.valid() {
+		return PreviewGuestHint503JSONResponse{UnavailableJSONResponse(unavailable())}, nil
+	}
+	if request.Body == nil {
+		return PreviewGuestHint400JSONResponse{BadRequestJSONResponse(apiError(ErrorCodeInvalidRequest, "request body is required"))}, nil
+	}
+	document, err := s.accounts.Documents.Open(request.Body.Document)
+	if err != nil {
+		return PreviewGuestHint422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidSession, "guest document is invalid or expired"))}, nil
+	}
+	current, err := game.Restore(document.EngineState, s.accounts.Options)
+	if err != nil {
+		return PreviewGuestHint422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidSession, "guest document state is invalid"))}, nil
+	}
+	hint := current.Hint()
+	if hint == nil {
+		return PreviewGuestHint422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeNoHint, "no hint is available"))}, nil
+	}
+	return PreviewGuestHint200JSONResponse(HintPreview{Revision: document.Revision, Hint: apiHintPlan(hint)}), nil
+}
+
+func (s *Server) PreviewAccountGameHint(_ context.Context, request PreviewAccountGameHintRequestObject) (PreviewAccountGameHintResponseObject, error) {
+	if !s.accounts.valid() {
+		return PreviewAccountGameHint503JSONResponse{UnavailableJSONResponse(unavailable())}, nil
+	}
+	session, err := s.accounts.authenticate(string(request.Params.SudokuSession))
+	if err != nil {
+		return PreviewAccountGameHint500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to authenticate session"))}, nil
+	}
+	if session == nil {
+		return PreviewAccountGameHint401JSONResponse{AccountUnauthorizedJSONResponse(accountUnauthorized())}, nil
+	}
+	state, err := s.accounts.Games.Get(session.UserID, request.AccountGameId)
+	if errors.Is(err, accountgame.ErrNotFound) {
+		return PreviewAccountGameHint404JSONResponse{AccountGameNotFoundJSONResponse(accountNotFound())}, nil
+	}
+	if err != nil {
+		return PreviewAccountGameHint500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to load account game"))}, nil
+	}
+	current, err := game.Restore(state.Game.EngineState, s.accounts.Options)
+	if err != nil {
+		return PreviewAccountGameHint500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to restore account game"))}, nil
+	}
+	hint := current.Hint()
+	if hint == nil {
+		return PreviewAccountGameHint422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeNoHint, "no hint is available"))}, nil
+	}
+	return PreviewAccountGameHint200JSONResponse(HintPreview{Revision: state.Game.Revision, Hint: apiHintPlan(hint)}), nil
+}
