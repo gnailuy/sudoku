@@ -13,7 +13,7 @@ import (
 
 func newDatabaseCommand() *cobra.Command {
 	command := &cobra.Command{Use: "db", Short: "Inspect and manage puzzle history"}
-	command.AddCommand(newDatabaseStatsCommand(), newDatabaseResetCommand(), newDatabaseRebuildCommand(), newDatabaseMaterializeEvilCohortCommand())
+	command.AddCommand(newDatabaseStatsCommand(), newDatabaseResetCommand(), newDatabaseRebuildCommand(), newDatabaseRebuildWebCommand(), newDatabaseMaterializeEvilCohortCommand())
 	return command
 }
 
@@ -152,7 +152,7 @@ func newDatabaseRebuildCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			resolved := resolveDatabasePath(path)
-			fmt.Fprintf(command.OutOrStdout(), "Database: %s\nAll catalog, play-run, account, identity, and web-session rows will be deleted.\n", resolved)
+			fmt.Fprintf(command.OutOrStdout(), "Database: %s\nAll catalog, play-run, account, identity, and application-session rows will be deleted.\n", resolved)
 			if !yes {
 				inputFile, interactive := command.InOrStdin().(*os.File)
 				if !interactive {
@@ -181,6 +181,29 @@ func newDatabaseRebuildCommand() *cobra.Command {
 	}
 	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
 	command.Flags().BoolVar(&yes, "yes", false, "Confirm destructive rebuild without an interactive prompt")
+	return command
+}
+
+func newDatabaseRebuildWebCommand() *cobra.Command {
+	var path string
+	var yes bool
+	command := &cobra.Command{
+		Use: "rebuild-web", Short: "Replace disposable browser identity and game state", Args: cobra.NoArgs,
+		RunE: func(command *cobra.Command, _ []string) error {
+			resolved := resolveDatabasePath(path)
+			fmt.Fprintf(command.OutOrStdout(), "Database: %s\nUsers, identities, application sessions, account games, and claims will be deleted. Puzzle catalog, cohort evidence, and play-run history will be preserved.\n", resolved)
+			if !yes {
+				return fmt.Errorf("web-state rebuild requires --yes")
+			}
+			if err := db.RebuildWebState(resolved); err != nil {
+				return err
+			}
+			fmt.Fprintf(command.OutOrStdout(), "Web state rebuilt at schema version %d.\n", db.SchemaVersion)
+			return nil
+		},
+	}
+	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().BoolVar(&yes, "yes", false, "Confirm the web-state rebuild")
 	return command
 }
 

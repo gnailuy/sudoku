@@ -73,18 +73,18 @@ Start the backend-only API on its safe loopback default:
 ./sudoku api --listen 127.0.0.1:9090
 ```
 
-For non-loopback addresses, configure a bearer token. Browser origins remain denied unless each exact origin is explicitly allowed:
+The API listener is loopback-only. Publish it through a trusted reverse proxy or equivalent deployment boundary, and allow each browser origin explicitly.
 
 ```bash
-./sudoku api --listen 0.0.0.0:8080 --auth-token "$SUDOKU_API_TOKEN" \
+./sudoku api --listen 127.0.0.1:8080 \
   --allowed-origin https://sudoku.example.com
 ```
 
-The OpenAPI 3.1 contract is [`api/openapi.yaml`](api/openapi.yaml). All game operations are under `/api/v1`; `GET /healthz` is payload-free. API sessions use opaque identifiers and monotonic revisions, persist accepted mutations to the private recovery store, and reject stale writes with `409 Conflict`.
+The OpenAPI 3.1 contract is [`api/openapi.yaml`](api/openapi.yaml). All game operations are under `/api/v1`; `GET /healthz` is payload-free. Guest games use sealed client-held documents, while account games use owner-scoped durable records and optimistic revisions.
 
 ## Portable Deployment
 
-The API binds to loopback by default and can run behind any reverse proxy that owns the public route. The portable service example in [`deploy/sudoku-api.service.example`](deploy/sudoku-api.service.example) keeps application files separate from private XDG data and recovery state; operators choose their own release directories, listener, browser origins, and host policy.
+The API binds to loopback by default and can run behind any reverse proxy that owns the public route. The portable service example in [`deploy/sudoku-api.service.example`](deploy/sudoku-api.service.example) keeps application files separate from private XDG data; operators choose their own release directories, listener, browser origins, and host policy.
 
 Trusted branch workflows can provide the backend binary, Git commit, and checksum to a serialized host-side deployment flow. Pairing with the static client, destination hostnames, ports, credentials, and active release selection remain outside this repository. See [the portable deployment contract](.aidoc/designs/deployment-hardening.md).
 

@@ -94,13 +94,9 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 			return newGame(), baseID, runID, Easy, nil
 		},
 	}
-	registry, err := NewRegistry(recovery.NewStore(filepath.Join(t.TempDir(), "recovery")), options)
-	if err != nil {
-		t.Fatal(err)
-	}
-	server := NewServer(registry, func(_, _ string) (game.Game, error) { return newGame(), nil })
+	server := NewServer()
 	server.SetAccountRuntime(runtime)
-	handler := NewHandler(server, "", nil)
+	handler := NewHandler(server, nil)
 
 	created := request(t, handler, http.MethodPost, "/api/v1/guest/games", "application/json", `{"source":{"kind":"puzzle","puzzle":"`+knownPuzzle+`"}}`, nil)
 	if created.Code != http.StatusCreated {
@@ -225,7 +221,7 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 }
 
 func TestAccountRoutesRemainUnavailableWithoutPrivateConfiguration(t *testing.T) {
-	handler, _, _ := testHandler(t, "", nil)
+	handler := NewHandler(NewServer(), nil)
 	for _, test := range []struct {
 		method      string
 		path        string

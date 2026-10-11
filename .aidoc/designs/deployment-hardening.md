@@ -20,7 +20,7 @@ The deployment contract packages the Go API for simple, verifiable installation 
 | Document | Relationship |
 |----------|-------------|
 | `.aidoc/designs/roadmap.md` | Approved delivery order and scope |
-| `.aidoc/designs/web-api.md` | Current API, recovery, and network boundary |
+| `.aidoc/designs/web-api.md` | Current guest/account API and network boundary |
 | `.aidoc/designs/e2e-api-scenarios.md` | Built-binary and service-example verification |
 | [Sudoku UI deployment design](https://github.com/gnailuy/sudoku-ui/blob/master/.aidoc/designs/deployment-hardening.md) | Static artifact, mount, and browser contract |
 
@@ -34,7 +34,7 @@ Sudoku may share a machine and reverse proxy with unrelated applications. Sudoku
 
 The API binds to loopback by default. A reverse proxy may expose the static client and API at an origin root or normalized path prefix, forwarding only the selected API namespace and removing the mount prefix when required.
 
-Authentication is an optional host policy until the application has accounts and user authorization. Operators may add a reverse-proxy access gate, VPN, allowlist, or no gate according to the installation's exposure; credentials and policy remain outside repositories and browser assets. Direct non-loopback API binding retains the bearer-token requirement defined by `.aidoc/designs/web-api.md`.
+Authentication is an optional host policy until the application has accounts and user authorization. Operators may add a reverse-proxy access gate, VPN, allowlist, or no gate according to the installation's exposure; credentials and policy remain outside repositories and browser assets. The backend remains loopback-only; a trusted reverse proxy or equivalent host boundary owns public routing.
 
 Repository examples use generic values only. Public files contain no operator hostname, external URL, private address assignment, live port, absolute host layout, credential, or neighboring-site route.
 
@@ -50,7 +50,7 @@ Pull-request artifacts are verification inputs only. Automatic deployment, when 
 
 ## Service and State Contract
 
-One unprivileged service runs the selected backend binary from an operator-chosen release directory. Configuration, puzzle data, API recovery records, and logs remain outside that directory so replacing application files does not replace state or expose host configuration.
+One unprivileged service runs the selected backend binary from an operator-chosen release directory. Configuration, puzzle and account data, and logs remain outside that directory so replacing application files does not replace state or expose host configuration.
 
 `deploy/sudoku-api.service.example` demonstrates a home-relative installation, private XDG roots, a loopback listener, bounded restart backoff, and the API's ten-second graceful shutdown budget. Operators may adapt the release and state paths while preserving those boundaries.
 
@@ -58,7 +58,7 @@ The service starts after the user's service manager starts and can be enabled fo
 
 ## Replacement and Failure Handling
 
-A serialized host-side flow downloads or receives the selected artifacts, verifies their checksums, stages the pair away from the active files, and starts the backend on its private listener. The flow verifies backend health and a representative API session before selecting the new pair.
+A serialized host-side flow downloads or receives the selected artifacts, verifies their checksums, stages the pair away from the active files, and starts the backend on its private listener. The flow verifies backend health and representative guest and account health before selecting the new pair.
 
 The companion browser verification checks the shell, referenced assets, health route, session creation, and one desktop/mobile gameplay journey with no unexpected request, page, or console errors. A shared host additionally checks that representative neighboring routes remain unchanged before and after Sudoku replacement.
 

@@ -51,7 +51,7 @@ func (runtime *AccountRuntime) valid() bool {
 
 func (s *Server) SetAccountRuntime(runtime *AccountRuntime) { s.accounts = runtime }
 
-func sourceValue(source CreateSessionRequest_Source) (string, string, error) {
+func sourceValue(source CreateGameRequest_Source) (string, string, error) {
 	kind, err := source.Discriminator()
 	if err != nil {
 		return "", "", err

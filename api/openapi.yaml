@@ -5,15 +5,15 @@ info:
   license:
     name: MIT
     identifier: MIT
-  summary: Authoritative Sudoku game sessions over HTTP
+  summary: Authoritative guest and account Sudoku games over HTTP
   description: |
-    The Sudoku HTTP API exposes the existing game engine to local tools and
-    separately deployed clients. The server is authoritative for state,
-    revisions, validation, and recovery.
+    The Sudoku HTTP API exposes the existing game engine through sealed guest
+    documents and owner-scoped account games. The server is authoritative for
+    state, revisions, validation, and authenticated persistence.
 
-    The server listens on loopback by default. Operators that configure a
-    non-loopback listener must also configure bearer authentication. Clients
-    should send a bearer credential whenever their deployment requires one.
+    The server listens on loopback by default behind a trusted deployment
+    boundary. Guest documents and application sessions provide the gameplay
+    ownership boundaries.
 servers:
   - url: http://127.0.0.1:8080
     description: Default loopback deployment
@@ -21,10 +21,6 @@ servers:
 tags:
   - name: Health
     description: Payload-free process health
-  - name: Sessions
-    description: Durable authoritative game sessions
-  - name: Gameplay
-    description: Session reads and game-engine actions
   - name: Guest
     description: Stateless sealed guest games
   - name: Authentication
@@ -55,261 +51,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/v1/sessions:
-    get:
-      tags: [Sessions]
-      operationId: listSessions
-      summary: List active and recovered sessions
-      description: Returns bounded summaries and never returns session payloads.
-      responses:
-        "200":
-          description: Session summaries ordered by most recently updated first.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SessionList"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      tags: [Sessions]
-      operationId: createSession
-      summary: Create a session from a difficulty or puzzle
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateSessionRequest"
-            examples:
-              byDifficulty:
-                summary: Generate or load an easy puzzle
-                value:
-                  source:
-                    kind: difficulty
-                    difficulty: easy
-              byPuzzle:
-                summary: Start from a supplied puzzle
-                value:
-                  source:
-                    kind: puzzle
-                    puzzle: "..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8..2.3..9..5.1.3.."
-      responses:
-        "201":
-          description: The session was created at revision zero.
-          headers:
-            Location:
-              description: Relative URL of the new session.
-              schema:
-                type: string
-                pattern: ^/api/v1/sessions/[A-Za-z0-9_-]+$
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Session"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "413":
-          $ref: "#/components/responses/PayloadTooLarge"
-        "415":
-          $ref: "#/components/responses/UnsupportedMediaType"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/v1/sessions/import:
-    post:
-      tags: [Sessions]
-      operationId: importSession
-      summary: Import a serialized game session
-      description: |
-        Restores a bounded versioned session document. The request body is the
-        session document itself; the API never accepts a host filesystem path.
-      requestBody:
-        required: true
-        content:
-          application/vnd.sudoku.session+json:
-            schema:
-              type: string
-              format: binary
-              contentMediaType: application/json
-              maxLength: 1048576
-      responses:
-        "201":
-          description: The imported session was validated and made durable.
-          headers:
-            Location:
-              description: Relative URL of the imported session.
-              schema:
-                type: string
-                pattern: ^/api/v1/sessions/[A-Za-z0-9_-]+$
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Session"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "413":
-          $ref: "#/components/responses/PayloadTooLarge"
-        "415":
-          $ref: "#/components/responses/UnsupportedMediaType"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/v1/sessions/{sessionId}:
-    parameters:
-      - $ref: "#/components/parameters/SessionId"
-    get:
-      tags: [Gameplay]
-      operationId: getSession
-      summary: Read the authoritative session state
-      responses:
-        "200":
-          description: The current session revision and detached snapshot.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Session"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    delete:
-      tags: [Sessions]
-      operationId: deleteSession
-      summary: Discard a session and its recovery record
-      responses:
-        "204":
-          description: The session and only its recovery record were deleted.
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/v1/sessions/{sessionId}/hint:
-    parameters:
-      - $ref: "#/components/parameters/SessionId"
-    get:
-      tags: [Gameplay]
-      operationId: previewHint
-      summary: Preview a hint without mutating the session
-      responses:
-        "200":
-          description: A hint for the current revision. The revision is unchanged.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HintPreview"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/v1/sessions/{sessionId}/export:
-    parameters:
-      - $ref: "#/components/parameters/SessionId"
-    get:
-      tags: [Sessions]
-      operationId: exportSession
-      summary: Export the versioned serialized session
-      description: Returns the persistence document as bounded bytes, not a host path.
-      responses:
-        "200":
-          description: The versioned session document.
-          headers:
-            Content-Disposition:
-              description: Suggested download filename.
-              schema:
-                type: string
-                example: attachment; filename="sudoku-session.json"
-          content:
-            application/vnd.sudoku.session+json:
-              schema:
-                type: string
-                format: binary
-                contentMediaType: application/json
-                maxLength: 1048576
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/v1/sessions/{sessionId}/actions:
-    parameters:
-      - $ref: "#/components/parameters/SessionId"
-    post:
-      tags: [Gameplay]
-      operationId: applyAction
-      summary: Apply one typed game action
-      description: |
-        The expected revision provides optimistic concurrency control. Every
-        accepted mutation increments the revision exactly once. Rejected and
-        stale actions leave state and revision unchanged.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ActionRequest"
-            examples:
-              setValue:
-                value:
-                  expected_revision: 0
-                  kind: set-value
-                  row: 1
-                  column: 1
-                  value: 4
-              undo:
-                value:
-                  expected_revision: 3
-                  kind: undo
-      responses:
-        "200":
-          description: The action was accepted and durably persisted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ActionResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          description: The expected revision is stale.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RevisionConflict"
-        "413":
-          $ref: "#/components/responses/PayloadTooLarge"
-        "415":
-          $ref: "#/components/responses/UnsupportedMediaType"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-
   /api/v1/guest/games:
     post:
       tags: [Guest]
@@ -321,7 +62,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateSessionRequest"
+              $ref: "#/components/schemas/CreateGameRequest"
       responses:
         "201":
           description: A replacement-ready sealed guest document and authoritative state.
@@ -564,7 +305,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/CreateSessionRequest" }
+            schema: { $ref: "#/components/schemas/CreateGameRequest" }
       responses:
         "201":
           description: Durable owner-scoped game.
@@ -738,11 +479,6 @@ paths:
 
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: opaque-token
-      description: Required whenever the server is configured for authenticated access.
     cookieAuth:
       type: apiKey
       in: cookie
@@ -771,14 +507,6 @@ components:
       in: path
       required: true
       schema: { type: string, pattern: '^ag_[a-f0-9]{32}$' }
-    SessionId:
-      name: sessionId
-      in: path
-      required: true
-      description: Opaque random session identifier. It is not a credential.
-      schema:
-        $ref: "#/components/schemas/SessionId"
-
   responses:
     AccountUnauthorized:
       description: The application session cookie is missing, invalid, revoked, or expired.
@@ -826,31 +554,6 @@ components:
               code: invalid-request
               message: source must select exactly one supported kind
               field: source
-    Unauthorized:
-      description: A required bearer credential is missing or invalid.
-      headers:
-        WWW-Authenticate:
-          schema:
-            type: string
-            const: Bearer
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          example:
-            error:
-              code: unauthorized
-              message: bearer authentication is required
-    NotFound:
-      description: The requested session does not exist.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          example:
-            error:
-              code: session-not-found
-              message: session was not found
     PayloadTooLarge:
       description: The request exceeds the configured body limit.
       content:
@@ -1025,13 +728,6 @@ components:
           type: string
           const: healthy
 
-    SessionId:
-      type: string
-      minLength: 22
-      maxLength: 64
-      pattern: ^[A-Za-z0-9_-]+$
-      examples: [mS44bM7xN9pQc2VtL6wD8A]
-
     Revision:
       type: integer
       format: int64
@@ -1198,57 +894,7 @@ components:
         can_redo:
           type: boolean
 
-    Session:
-      type: object
-      additionalProperties: false
-      required: [id, revision, actual_difficulty, snapshot]
-      properties:
-        id:
-          $ref: "#/components/schemas/SessionId"
-        revision:
-          $ref: "#/components/schemas/Revision"
-        requested_difficulty:
-          $ref: "#/components/schemas/Difficulty"
-          nullable: true
-          description: Difficulty requested by the caller, or null for direct puzzle sessions.
-        actual_difficulty:
-          $ref: "#/components/schemas/Difficulty"
-          description: Authoritative strategy grade of the puzzle in this session.
-        snapshot:
-          $ref: "#/components/schemas/Snapshot"
-
-    SessionSummary:
-      type: object
-      additionalProperties: false
-      required: [id, revision, actual_difficulty, status, updated_at, recovered]
-      properties:
-        id:
-          $ref: "#/components/schemas/SessionId"
-        revision:
-          $ref: "#/components/schemas/Revision"
-        actual_difficulty:
-          $ref: "#/components/schemas/Difficulty"
-        status:
-          $ref: "#/components/schemas/GameStatus"
-        updated_at:
-          type: string
-          format: date-time
-        recovered:
-          type: boolean
-          description: True when the summary was discovered from durable recovery at startup.
-
-    SessionList:
-      type: object
-      additionalProperties: false
-      required: [sessions]
-      properties:
-        sessions:
-          type: array
-          maxItems: 1000
-          items:
-            $ref: "#/components/schemas/SessionSummary"
-
-    CreateSessionRequest:
+    CreateGameRequest:
       type: object
       additionalProperties: false
       required: [source]
@@ -1692,23 +1338,6 @@ components:
         hint:
           $ref: "#/components/schemas/HintPlan"
 
-    ActionResponse:
-      type: object
-      additionalProperties: false
-      required: [revision, snapshot, result]
-      properties:
-        revision:
-          $ref: "#/components/schemas/Revision"
-        snapshot:
-          $ref: "#/components/schemas/Snapshot"
-        result:
-          $ref: "#/components/schemas/ActionResult"
-        warnings:
-          type: array
-          items:
-            type: string
-          description: Non-fatal diagnostics produced after the game action was accepted.
-
     ErrorDetail:
       type: object
       additionalProperties: false
@@ -1735,24 +1364,4 @@ components:
         error:
           $ref: "#/components/schemas/ErrorDetail"
 
-    RevisionConflict:
-      type: object
-      additionalProperties: false
-      required: [error, current_revision, snapshot]
-      properties:
-        error:
-          allOf:
-            - $ref: "#/components/schemas/ErrorDetail"
-            - type: object
-              properties:
-                code:
-                  type: string
-                  const: revision-conflict
-        current_revision:
-          $ref: "#/components/schemas/Revision"
-        snapshot:
-          $ref: "#/components/schemas/Snapshot"
-
-security:
-  - {}
-  - bearerAuth: []
+security: []

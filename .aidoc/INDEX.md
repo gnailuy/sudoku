@@ -98,7 +98,7 @@ The project index provides reading chains for common starting points and a compl
 18. `guestdoc/guestdoc.go` — sealed stateless guest games, key rotation, expiry, and revisioned actions
 19. `guestclaim/guestclaim.go` — authenticated exactly-once transition from sealed guest state to an owned game
 20. `accountgame/accountgame.go` — owner-scoped reads, revisioned engine actions, and deletion
-21. `.aidoc/designs/web-api.md` — client-neutral HTTP resources, revisions, recovery, client access, and security boundary
+21. `.aidoc/designs/web-api.md` — client-neutral guest/account resources, revisions, ownership, and security boundary
 22. `api/openapi.yaml` — canonical OpenAPI 3.1.1 wire contract, schemas, errors, and examples
 23. `.aidoc/designs/game-engine.md` — stable engine API, notes, history, and serialization design
 24. `.aidoc/designs/hint-presentation-protocol.md` — approved portable teaching contract and delivery boundary
@@ -175,7 +175,7 @@ The project index provides reading chains for common starting points and a compl
 | `cmd/session.go` | Shared CLI/TUI session startup and restore validation |
 | `cmd/tui.go` | Opt-in full-screen TUI command and terminal lifecycle |
 | `cmd/api.go` | API flags, dependency wiring, and signal-aware server shutdown |
-| `webapi/server.go` | HTTP security boundary, session registry, recovery, and engine translation |
+| `webapi/server.go` | HTTP security boundary, strict middleware, and engine translation |
 | `webapi/generated.go` | Generated OpenAPI models and strict server interface |
 | `tui/model.go` | TUI event model, focus, modes, confirmations, and persistence |
 | `tui/render.go` | Deterministic color-independent board rendering |

@@ -3,409 +3,31 @@ package webapi
 import (
 	"bytes"
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
-	"github.com/gnailuy/sudoku/playrun"
-	"github.com/gnailuy/sudoku/recovery"
 	"github.com/gnailuy/sudoku/solver"
 )
 
-const (
-	MaxRequestBytes  = 1 << 20
-	SessionMediaType = "application/vnd.sudoku.session+json"
-)
-
-type CreateGame func(kind, value string) (game.Game, error)
-type SessionDifficulty struct {
-	Requested *Difficulty
-	Actual    Difficulty
-}
-type CreateTrackedGame func(kind, value string) (game.Game, *playrun.Tracker, SessionDifficulty, error)
-type ClassifyGame func(game.Game) (Difficulty, error)
-
-type persistentSession struct {
-	Version             int             `json:"version"`
-	Revision            int64           `json:"revision"`
-	RequestedDifficulty *Difficulty     `json:"requested_difficulty"`
-	ActualDifficulty    Difficulty      `json:"actual_difficulty"`
-	PlayRunID           string          `json:"play_run_id,omitempty"`
-	Game                json.RawMessage `json:"game"`
-}
-
-type entry struct {
-	mu         sync.Mutex
-	game       game.Game
-	revision   int64
-	updatedAt  time.Time
-	recovered  bool
-	tracker    *playrun.Tracker
-	playRunID  string
-	difficulty SessionDifficulty
-}
-
-type Registry struct {
-	mu             sync.RWMutex
-	entries        map[string]*entry
-	store          recovery.Store
-	options        game.Options
-	trackerFactory func(game.Game, string) *playrun.Tracker
-}
-
-func NewRegistry(store recovery.Store, options game.Options) (*Registry, error) {
-	r := &Registry{entries: make(map[string]*entry), store: store, options: options}
-	records, err := store.Discover(func(data []byte) error {
-		_, _, _, _, err := decodePersistent(data, options)
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, record := range records {
-		g, revision, difficulty, playRunID, err := decodePersistent(record.Session, options)
-		if err != nil {
-			continue
-		}
-		r.entries[record.ID] = &entry{game: g, revision: revision, updatedAt: record.UpdatedAt, recovered: true, difficulty: difficulty, playRunID: playRunID}
-	}
-	return r, nil
-}
-
-func decodePersistent(data []byte, options game.Options) (game.Game, int64, SessionDifficulty, string, error) {
-	var doc persistentSession
-	if err := decodeStrict(data, &doc); err != nil {
-		return game.Game{}, 0, SessionDifficulty{}, "", err
-	}
-	if doc.Version != 3 || doc.Revision < 0 || len(doc.Game) == 0 || doc.ActualDifficulty == "" {
-		return game.Game{}, 0, SessionDifficulty{}, "", errors.New("invalid API session record")
-	}
-	g, err := game.Restore(doc.Game, options)
-	return g, doc.Revision, SessionDifficulty{Requested: doc.RequestedDifficulty, Actual: doc.ActualDifficulty}, doc.PlayRunID, err
-}
-
-// SetTrackerFactory attaches one tracker to each recovered or newly imported play run.
-func (r *Registry) SetTrackerFactory(factory func(game.Game, string) *playrun.Tracker) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.trackerFactory = factory
-	for _, entry := range r.entries {
-		entry.mu.Lock()
-		if factory == nil {
-			entry.tracker = nil
-		} else {
-			entry.tracker = factory(entry.game, entry.playRunID)
-			entry.playRunID = entry.tracker.RunID()
-		}
-		entry.mu.Unlock()
-	}
-}
-
-func (r *Registry) persist(id string, e *entry) error {
-	data, err := e.game.Serialize()
-	if err != nil {
-		return err
-	}
-	doc, err := json.Marshal(persistentSession{Version: 3, Revision: e.revision, RequestedDifficulty: e.difficulty.Requested, ActualDifficulty: e.difficulty.Actual, PlayRunID: e.playRunID, Game: data})
-	if err != nil {
-		return err
-	}
-	if err := r.store.Write(id, "api", doc); err != nil {
-		return err
-	}
-	e.updatedAt = time.Now().UTC()
-	return nil
-}
-
-func (r *Registry) add(g game.Game, difficulty SessionDifficulty, tracker *playrun.Tracker) (string, *entry, error) {
-	id, err := recovery.NewID()
-	if err != nil {
-		return "", nil, err
-	}
-	r.mu.Lock()
-	if tracker == nil && r.trackerFactory != nil {
-		tracker = r.trackerFactory(g, "")
-	}
-	r.mu.Unlock()
-	e := &entry{game: g, updatedAt: time.Now().UTC(), difficulty: difficulty, tracker: tracker}
-	if tracker != nil {
-		e.playRunID = tracker.RunID()
-	}
-	if err := r.persist(id, e); err != nil {
-		return "", nil, err
-	}
-	r.mu.Lock()
-	r.entries[id] = e
-	r.mu.Unlock()
-	return id, e, nil
-}
-
-func (r *Registry) get(id string) (*entry, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	e, ok := r.entries[id]
-	return e, ok
-}
-
-func (r *Registry) delete(id string) (bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	e, ok := r.entries[id]
-	if !ok {
-		return false, nil
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if err := r.store.Delete(id); err != nil {
-		return true, err
-	}
-	delete(r.entries, id)
-	return true, nil
-}
+const MaxRequestBytes = 1 << 20
 
 type Server struct {
-	registry          *Registry
-	createGame        CreateGame
-	createTrackedGame CreateTrackedGame
-	classifyGame      ClassifyGame
-	accounts          *AccountRuntime
+	accounts *AccountRuntime
 }
 
-func NewServer(registry *Registry, createGame CreateGame) *Server {
-	return &Server{registry: registry, createGame: createGame}
-}
-
-func NewTrackedServer(registry *Registry, createGame CreateTrackedGame, classifyGame ClassifyGame) *Server {
-	return &Server{registry: registry, createTrackedGame: createGame, classifyGame: classifyGame}
-}
-
-func (s *Server) ListSessions(context.Context, ListSessionsRequestObject) (ListSessionsResponseObject, error) {
-	s.registry.mu.RLock()
-	items := make([]SessionSummary, 0, len(s.registry.entries))
-	for id, e := range s.registry.entries {
-		e.mu.Lock()
-		items = append(items, SessionSummary{Id: id, Revision: e.revision, ActualDifficulty: e.difficulty.Actual, Status: apiStatus(e.game.Snapshot().Status), UpdatedAt: e.updatedAt, Recovered: e.recovered})
-		e.mu.Unlock()
-	}
-	s.registry.mu.RUnlock()
-	sort.Slice(items, func(i, j int) bool { return items[i].UpdatedAt.After(items[j].UpdatedAt) })
-	return ListSessions200JSONResponse{Sessions: items}, nil
-}
-
-func (s *Server) CreateSession(_ context.Context, request CreateSessionRequestObject) (CreateSessionResponseObject, error) {
-	if request.Body == nil {
-		return CreateSession400JSONResponse{BadRequestJSONResponse(apiError(ErrorCodeInvalidRequest, "request body is required"))}, nil
-	}
-	kind, err := request.Body.Source.Discriminator()
-	if err != nil {
-		return CreateSession400JSONResponse{BadRequestJSONResponse(apiError(ErrorCodeInvalidJson, "invalid source"))}, nil
-	}
-	var value string
-	switch kind {
-	case "difficulty":
-		v, parseErr := request.Body.Source.AsDifficultySource()
-		if parseErr != nil {
-			err = parseErr
-		} else {
-			value = string(v.Difficulty)
-		}
-	case "puzzle":
-		v, parseErr := request.Body.Source.AsPuzzleSource()
-		if parseErr != nil {
-			err = parseErr
-		} else {
-			value = v.Puzzle
-		}
-	default:
-		err = errors.New("unknown source kind")
-	}
-	if err != nil {
-		return CreateSession422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidRequest, "invalid session source"))}, nil
-	}
-	var g game.Game
-	var tracker *playrun.Tracker
-	var difficulty SessionDifficulty
-	if s.createTrackedGame != nil {
-		g, tracker, difficulty, err = s.createTrackedGame(kind, value)
-	} else {
-		g, err = s.createGame(kind, value)
-		difficulty.Actual = Easy
-		if kind == "difficulty" {
-			requested := Difficulty(value)
-			difficulty.Requested = &requested
-			difficulty.Actual = requested
-		}
-	}
-	if err != nil {
-		return CreateSession422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidSession, err.Error()))}, nil
-	}
-	id, e, err := s.registry.add(g, difficulty, tracker)
-	if err != nil {
-		return CreateSession500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodePersistenceFailed, "unable to persist session"))}, nil
-	}
-	return CreateSession201JSONResponse{Body: apiSession(id, e), Headers: CreateSession201ResponseHeaders{Location: "/api/v1/sessions/" + id}}, nil
-}
-
-func (s *Server) ImportSession(context.Context, ImportSessionRequestObject) (ImportSessionResponseObject, error) {
-	return ImportSession400JSONResponse{BadRequestJSONResponse(apiError(ErrorCodeInvalidRequest, "import is handled by the raw session adapter"))}, nil
-}
-
-func (s *Server) DeleteSession(_ context.Context, request DeleteSessionRequestObject) (DeleteSessionResponseObject, error) {
-	found, err := s.registry.delete(request.SessionId)
-	if !found {
-		return DeleteSession404JSONResponse{NotFoundJSONResponse(apiError(ErrorCodeSessionNotFound, "session not found"))}, nil
-	}
-	if err != nil {
-		return DeleteSession500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodePersistenceFailed, "unable to delete session"))}, nil
-	}
-	return DeleteSession204Response{}, nil
-}
-
-func (s *Server) GetSession(_ context.Context, request GetSessionRequestObject) (GetSessionResponseObject, error) {
-	e, ok := s.registry.get(request.SessionId)
-	if !ok {
-		return GetSession404JSONResponse{NotFoundJSONResponse(apiError(ErrorCodeSessionNotFound, "session not found"))}, nil
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return GetSession200JSONResponse(apiSession(request.SessionId, e)), nil
-}
-
-func (s *Server) ApplyAction(_ context.Context, request ApplyActionRequestObject) (ApplyActionResponseObject, error) {
-	e, ok := s.registry.get(request.SessionId)
-	if !ok {
-		return ApplyAction404JSONResponse{NotFoundJSONResponse(apiError(ErrorCodeSessionNotFound, "session not found"))}, nil
-	}
-	if request.Body == nil {
-		return ApplyAction400JSONResponse{BadRequestJSONResponse(apiError(ErrorCodeInvalidRequest, "request body is required"))}, nil
-	}
-	action, expected, err := translateAction(*request.Body)
-	if err != nil {
-		return ApplyAction422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidAction, err.Error()))}, nil
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if expected != e.revision {
-		conflict := RevisionConflict{CurrentRevision: e.revision, Snapshot: apiSnapshot(e.game.Snapshot())}
-		conflict.Error.Code = "revision-conflict"
-		conflict.Error.Message = "expected_revision does not match current revision"
-		return ApplyAction409JSONResponse(conflict), nil
-	}
-	before, serializeErr := e.game.Serialize()
-	if serializeErr != nil {
-		return ApplyAction500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to snapshot session"))}, nil
-	}
-	beforeStatus := e.game.Snapshot().Status
-	result, err := e.game.Apply(action)
-	if err != nil {
-		var engineErr *game.EngineError
-		if errors.As(err, &engineErr) {
-			return ApplyAction422JSONResponse{UnprocessableEntityJSONResponse(engineAPIError(engineErr))}, nil
-		}
-		return ApplyAction500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to apply action"))}, nil
-	}
-	e.revision++
-	if err := s.registry.persist(request.SessionId, e); err != nil {
-		if restored, restoreErr := game.Restore(before, s.registry.options); restoreErr == nil {
-			e.game = restored
-			e.revision--
-		}
-		return ApplyAction500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodePersistenceFailed, "unable to persist action"))}, nil
-	}
-	var warnings *[]string
-	if e.tracker != nil {
-		e.tracker.Observe(beforeStatus, result)
-		if warning := e.tracker.TakeWarning(); warning != nil {
-			items := []string{warning.Error()}
-			warnings = &items
-		}
-	}
-	return ApplyAction200JSONResponse(ActionResponse{Revision: e.revision, Snapshot: apiSnapshot(e.game.Snapshot()), Result: apiResult(result), Warnings: warnings}), nil
-}
-
-func (s *Server) ExportSession(context.Context, ExportSessionRequestObject) (ExportSessionResponseObject, error) {
-	return ExportSession500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "export is handled by the raw session adapter"))}, nil
-}
-
-func (s *Server) PreviewHint(_ context.Context, request PreviewHintRequestObject) (PreviewHintResponseObject, error) {
-	e, ok := s.registry.get(request.SessionId)
-	if !ok {
-		return PreviewHint404JSONResponse{NotFoundJSONResponse(apiError(ErrorCodeSessionNotFound, "session not found"))}, nil
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	h := e.game.Hint()
-	if h == nil {
-		return PreviewHint422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeNoHint, "no hint is available"))}, nil
-	}
-	return PreviewHint200JSONResponse(HintPreview{Revision: e.revision, Hint: apiHintPlan(h)}), nil
-}
+func NewServer() *Server { return &Server{} }
 
 func (*Server) GetHealth(context.Context, GetHealthRequestObject) (GetHealthResponseObject, error) {
 	return GetHealth200JSONResponse{Status: "healthy"}, nil
 }
 
-func (s *Server) RawImport(w http.ResponseWriter, r *http.Request) {
-	data, err := io.ReadAll(io.LimitReader(r.Body, MaxRequestBytes+1))
-	if err != nil {
-		writeError(w, 400, ErrorCodeInvalidRequest, "unable to read request")
-		return
-	}
-	if len(data) > MaxRequestBytes {
-		writeError(w, 413, ErrorCodePayloadTooLarge, "request exceeds 1 MiB")
-		return
-	}
-	g, err := game.Restore(data, s.registry.options)
-	if err != nil {
-		writeError(w, 422, ErrorCodeInvalidSession, err.Error())
-		return
-	}
-	actual := Easy
-	if s.classifyGame != nil {
-		actual, err = s.classifyGame(g)
-		if err != nil {
-			writeError(w, 422, ErrorCodeInvalidSession, err.Error())
-			return
-		}
-	}
-	id, e, err := s.registry.add(g, SessionDifficulty{Actual: actual}, nil)
-	if err != nil {
-		writeError(w, 500, ErrorCodePersistenceFailed, "unable to persist session")
-		return
-	}
-	w.Header().Set("Location", "/api/v1/sessions/"+id)
-	writeJSON(w, 201, apiSession(id, e))
-}
-
-func (s *Server) RawExport(w http.ResponseWriter, _ *http.Request, id string) {
-	e, ok := s.registry.get(id)
-	if !ok {
-		writeError(w, 404, ErrorCodeSessionNotFound, "session not found")
-		return
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	data, err := e.game.Serialize()
-	if err != nil {
-		writeError(w, 500, ErrorCodeInternalError, "unable to serialize session")
-		return
-	}
-	w.Header().Set("Content-Type", SessionMediaType)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"sudoku-%s.json\"", id))
-	w.WriteHeader(200)
-	_, _ = w.Write(data)
-}
-
-func NewHandler(server *Server, token string, origins []string) http.Handler {
+func NewHandler(server *Server, origins []string) http.Handler {
 	strict := NewStrictHandlerWithOptions(server, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
 			writeError(w, 400, ErrorCodeInvalidJson, "invalid JSON request")
@@ -414,26 +36,14 @@ func NewHandler(server *Server, token string, origins []string) http.Handler {
 			writeError(w, 500, ErrorCodeInternalError, "internal server error")
 		},
 	})
-	generated := Handler(strict)
 	allowed := make(map[string]struct{}, len(origins))
 	for _, origin := range origins {
 		allowed[origin] = struct{}{}
 	}
-	return middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/import" {
-			server.RawImport(w, r)
-			return
-		}
-		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/sessions/") && strings.HasSuffix(r.URL.Path, "/export") {
-			id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v1/sessions/"), "/export")
-			server.RawExport(w, r, id)
-			return
-		}
-		generated.ServeHTTP(w, r)
-	}), token, allowed)
+	return middleware(Handler(strict), allowed)
 }
 
-func middleware(next http.Handler, token string, origins map[string]struct{}) http.Handler {
+func middleware(next http.Handler, origins map[string]struct{}) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
@@ -454,19 +64,8 @@ func middleware(next http.Handler, token string, origins map[string]struct{}) ht
 				return
 			}
 		}
-		if strings.HasPrefix(r.URL.Path, "/api/v1/sessions") && token != "" {
-			value, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if !ok || value == "" || subtle.ConstantTimeCompare([]byte(value), []byte(token)) != 1 {
-				w.Header().Set("WWW-Authenticate", "Bearer")
-				writeError(w, 401, ErrorCodeUnauthorized, "valid bearer token required")
-				return
-			}
-		}
 		if r.Method == http.MethodPost && postRequiresBody(r.URL.Path) {
 			want := "application/json"
-			if r.URL.Path == "/api/v1/sessions/import" {
-				want = SessionMediaType
-			}
 			got := strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0])
 			if got != want {
 				writeError(w, 415, ErrorCodeUnsupportedMediaType, "unsupported content type")
@@ -495,9 +94,7 @@ func middleware(next http.Handler, token string, origins map[string]struct{}) ht
 
 func postRequiresBody(path string) bool {
 	switch path {
-	case "/api/v1/sessions",
-		"/api/v1/sessions/import",
-		"/api/v1/guest/games",
+	case "/api/v1/guest/games",
 		"/api/v1/guest/games/actions",
 		"/api/v1/account/games",
 		"/api/v1/account/games/claim":
@@ -655,9 +252,6 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 	}
 }
 
-func apiSession(id string, e *entry) Session {
-	return Session{Id: id, Revision: e.revision, RequestedDifficulty: e.difficulty.Requested, ActualDifficulty: e.difficulty.Actual, Snapshot: apiSnapshot(e.game.Snapshot())}
-}
 func apiStatus(v game.Status) GameStatus { return GameStatus(v) }
 func digits(set core.CandidateSet) []int { return set.Values() }
 func apiSnapshot(v game.Snapshot) Snapshot {
@@ -781,7 +375,7 @@ func validateJSONRequest(path string, data []byte) error {
 		return err
 	}
 	switch {
-	case path == "/api/v1/sessions" || path == "/api/v1/guest/games" || path == "/api/v1/account/games":
+	case path == "/api/v1/guest/games" || path == "/api/v1/account/games":
 		if err := requireKeys(object, "source"); err != nil {
 			return err
 		}
