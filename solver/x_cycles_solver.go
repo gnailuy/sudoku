@@ -154,7 +154,9 @@ func (s *XCyclesSolver) dfsXCycle(board *core.Board, digit int, adj map[core.Pos
 
 		visited[firstEdge.to] = true
 
-		if move := s.dfsChain(board, digit, adj, startPos, firstEdge.to, !firstEdge.strong, 1, visited, firstEdge.strong); move != nil {
+		path := []core.Position{startPos, firstEdge.to}
+		linkKinds := []bool{firstEdge.strong}
+		if move := s.dfsChain(board, digit, adj, startPos, firstEdge.to, !firstEdge.strong, 1, visited, firstEdge.strong, path, linkKinds); move != nil {
 			return move
 		}
 	}
@@ -163,7 +165,7 @@ func (s *XCyclesSolver) dfsXCycle(board *core.Board, digit int, adj map[core.Pos
 }
 
 // dfsChain recursively searches for an alternating chain back to startPos.
-func (s *XCyclesSolver) dfsChain(board *core.Board, digit int, adj map[core.Position][]xcEdge, startPos, currPos core.Position, nextMustStrong bool, depth int, visited map[core.Position]bool, firstLinkStrong bool) *Move {
+func (s *XCyclesSolver) dfsChain(board *core.Board, digit int, adj map[core.Position][]xcEdge, startPos, currPos core.Position, nextMustStrong bool, depth int, visited map[core.Position]bool, firstLinkStrong bool, path []core.Position, linkKinds []bool) *Move {
 	// Limit chain length to prevent excessive computation.
 	if depth > 20 {
 		return nil
@@ -177,6 +179,9 @@ func (s *XCyclesSolver) dfsChain(board *core.Board, digit int, adj map[core.Posi
 		// Check if we've returned to startPos (closing the loop).
 		if edge.to == startPos && depth >= 3 {
 			// We have a cycle: startPos -> ... -> currPos -> startPos.
+			cycle := append(append([]core.Position(nil), path...), startPos)
+			cycleLinks := append(append([]bool(nil), linkKinds...), edge.strong)
+			evidence := xCycleEvidence(board, digit, cycle, cycleLinks)
 			// The first link was firstLinkStrong, the last link is edge.strong.
 			// For a proper alternating nice loop, both links at startPos
 			// should have compatible types.
@@ -193,6 +198,7 @@ func (s *XCyclesSolver) dfsChain(board *core.Board, digit int, adj map[core.Posi
 							"X-Cycles (Type 1): alternating chain proves %d must be at %s",
 							digit, startPos.ToString(),
 						),
+						Evidence: evidence,
 					}
 				}
 			}
@@ -201,6 +207,7 @@ func (s *XCyclesSolver) dfsChain(board *core.Board, digit int, adj map[core.Posi
 			// The digit can be eliminated from startPos.
 			if !firstLinkStrong && !edge.strong {
 				if board.EliminateCandidate(startPos, digit) {
+					evidence.Eliminations = []CandidateRef{{Position: startPos, Value: digit}}
 					cands := board.Candidates(startPos)
 					if cands.Count() == 1 {
 						value := cands.Values()[0]
@@ -211,6 +218,7 @@ func (s *XCyclesSolver) dfsChain(board *core.Board, digit int, adj map[core.Posi
 								"X-Cycles (Type 2): alternating chain eliminates %d from %s, leaving %d",
 								digit, startPos.ToString(), value,
 							),
+							Evidence: evidence,
 						}
 					}
 					return &Move{
@@ -220,6 +228,7 @@ func (s *XCyclesSolver) dfsChain(board *core.Board, digit int, adj map[core.Posi
 							"X-Cycles (Type 2): alternating chain eliminates %d from %s",
 							digit, startPos.ToString(),
 						),
+						Evidence: evidence,
 					}
 				}
 			}
@@ -238,11 +247,37 @@ func (s *XCyclesSolver) dfsChain(board *core.Board, digit int, adj map[core.Posi
 
 		// Continue the chain.
 		visited[edge.to] = true
-		if move := s.dfsChain(board, digit, adj, startPos, edge.to, !nextMustStrong, depth+1, visited, firstLinkStrong); move != nil {
+		nextPath := append(append([]core.Position(nil), path...), edge.to)
+		nextLinks := append(append([]bool(nil), linkKinds...), edge.strong)
+		if move := s.dfsChain(board, digit, adj, startPos, edge.to, !nextMustStrong, depth+1, visited, firstLinkStrong, nextPath, nextLinks); move != nil {
 			return move
 		}
 		delete(visited, edge.to)
 	}
 
 	return nil
+}
+
+func xCycleEvidence(board *core.Board, digit int, path []core.Position, strong []bool) *Evidence {
+	evidence := &Evidence{}
+	for index, position := range path {
+		if index == len(path)-1 && position == path[0] {
+			break
+		}
+		values := board.Candidates(position).Values()
+		evidence.Chain = append(evidence.Chain, CandidateGroup{Position: position, Values: values})
+		evidence.Premises = append(evidence.Premises, CandidateGroup{Position: position, Values: []int{digit}})
+	}
+	for index := 0; index+1 < len(path) && index < len(strong); index++ {
+		kind := LinkWeak
+		if strong[index] {
+			kind = LinkStrong
+		}
+		evidence.Links = append(evidence.Links, CandidateLink{
+			From: CandidateRef{Position: path[index], Value: digit},
+			To:   CandidateRef{Position: path[index+1], Value: digit},
+			Kind: kind,
+		})
+	}
+	return evidence
 }

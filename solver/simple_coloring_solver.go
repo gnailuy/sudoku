@@ -2,6 +2,7 @@ package solver
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/gnailuy/sudoku/core"
 )
@@ -132,6 +133,7 @@ func (s *SimpleColoringSolver) colorDigit(board *core.Board, digit int) *Move {
 		// Rule 1: If two same-colored cells share a unit, that color is invalid.
 		// Eliminate the digit from all cells of that color.
 		if invalidColor := s.findColorConflict(color0, color1); invalidColor >= 0 {
+			evidence := coloringEvidence(digit, color0, color1, adj)
 			validCells := color0
 			invalidCells := color1
 			if invalidColor == 0 {
@@ -155,6 +157,7 @@ func (s *SimpleColoringSolver) colorDigit(board *core.Board, digit int) *Move {
 								"Simple Coloring (Rule 1): %d — two same-colored cells conflict, leaving %d as the only candidate for %s",
 								digit, value, pos.ToString(),
 							),
+							Evidence: evidence,
 						}
 					}
 				}
@@ -172,6 +175,7 @@ func (s *SimpleColoringSolver) colorDigit(board *core.Board, digit int) *Move {
 								"Simple Coloring (Rule 1): %d — opposite color confirmed true, placing %d at %s",
 								digit, digit, pos.ToString(),
 							),
+							Evidence: evidence,
 						}
 					}
 				}
@@ -188,13 +192,14 @@ func (s *SimpleColoringSolver) colorDigit(board *core.Board, digit int) *Move {
 						"Simple Coloring (Rule 1): %d — two same-colored cells share a unit, color eliminated",
 						digit,
 					),
+					Evidence: evidence,
 				}
 			}
 		}
 
 		// Rule 2: If an uncolored cell sees cells of both colors, eliminate
 		// the digit from that cell.
-		move := s.applyRule2(board, digit, color0, color1, colored)
+		move := s.applyRule2(board, digit, color0, color1, colored, adj)
 		if move != nil {
 			return move
 		}
@@ -228,9 +233,10 @@ func (s *SimpleColoringSolver) hasInternalConflict(cells []core.Position) bool {
 }
 
 // applyRule2 eliminates the digit from uncolored cells that see both colors.
-func (s *SimpleColoringSolver) applyRule2(board *core.Board, digit int, color0, color1 []core.Position, colored map[core.Position]int) *Move {
+func (s *SimpleColoringSolver) applyRule2(board *core.Board, digit int, color0, color1 []core.Position, colored map[core.Position]int, adj map[core.Position][]core.Position) *Move {
 	var move *Move
 	eliminated := false
+	evidence := coloringEvidence(digit, color0, color1, adj)
 
 	for row := 0; row < 9; row++ {
 		for col := 0; col < 9; col++ {
@@ -270,6 +276,7 @@ func (s *SimpleColoringSolver) applyRule2(board *core.Board, digit int, color0, 
 			// This cell sees both colors — eliminate the digit.
 			if board.EliminateCandidate(pos, digit) {
 				eliminated = true
+				evidence.Eliminations = append(evidence.Eliminations, CandidateRef{Position: pos, Value: digit})
 				cands := board.Candidates(pos)
 				if cands.Count() == 1 && move == nil {
 					value := cands.Values()[0]
@@ -280,6 +287,7 @@ func (s *SimpleColoringSolver) applyRule2(board *core.Board, digit int, color0, 
 							"Simple Coloring (Rule 2): %d — %s sees both colors, leaving %d as the only candidate",
 							digit, pos.ToString(), value,
 						),
+						Evidence: evidence,
 					}
 				}
 			}
@@ -297,8 +305,44 @@ func (s *SimpleColoringSolver) applyRule2(board *core.Board, digit int, color0, 
 				"Simple Coloring (Rule 2): %d — candidates eliminated from cells seeing both colors",
 				digit,
 			),
+			Evidence: evidence,
 		}
 	}
 
 	return nil
+}
+
+func coloringEvidence(digit int, color0, color1 []core.Position, adj map[core.Position][]core.Position) *Evidence {
+	evidence := &Evidence{}
+	for _, group := range [][]core.Position{color0, color1} {
+		partition := CandidatePartition{}
+		for _, position := range group {
+			ref := CandidateRef{Position: position, Value: digit}
+			partition.Candidates = append(partition.Candidates, ref)
+			evidence.Premises = append(evidence.Premises, CandidateGroup{Position: position, Values: []int{digit}})
+		}
+		evidence.Partitions = append(evidence.Partitions, partition)
+	}
+	seen := make(map[[2]core.Position]struct{})
+	for _, from := range sortedPositions(adj) {
+		neighbors := append([]core.Position(nil), adj[from]...)
+		sort.Slice(neighbors, func(left, right int) bool {
+			if neighbors[left].Row != neighbors[right].Row {
+				return neighbors[left].Row < neighbors[right].Row
+			}
+			return neighbors[left].Column < neighbors[right].Column
+		})
+		for _, to := range neighbors {
+			if _, ok := seen[[2]core.Position{to, from}]; ok {
+				continue
+			}
+			seen[[2]core.Position{from, to}] = struct{}{}
+			evidence.Links = append(evidence.Links, CandidateLink{
+				From: CandidateRef{Position: from, Value: digit},
+				To:   CandidateRef{Position: to, Value: digit},
+				Kind: LinkStrong,
+			})
+		}
+	}
+	return evidence
 }

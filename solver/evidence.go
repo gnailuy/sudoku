@@ -29,6 +29,30 @@ type CandidateRef struct {
 	Value    int
 }
 
+// LinkKind describes the logical relationship between two candidate nodes.
+type LinkKind string
+
+const (
+	// LinkStrong means exactly one endpoint must contain the candidate.
+	LinkStrong LinkKind = "strong"
+	// LinkWeak means the two endpoints cannot both contain the candidate.
+	LinkWeak LinkKind = "weak"
+	// LinkImplication connects consecutive bivalue cells in an implication chain.
+	LinkImplication LinkKind = "implication"
+)
+
+// CandidateLink records one renderer-neutral relationship between candidates.
+type CandidateLink struct {
+	From CandidateRef
+	To   CandidateRef
+	Kind LinkKind
+}
+
+// CandidatePartition records one side of an alternating candidate grouping.
+type CandidatePartition struct {
+	Candidates []CandidateRef
+}
+
 // Evidence is renderer-neutral strategy evidence for one deduction.
 type Evidence struct {
 	// Unit is retained for common single-unit techniques. Units contains every
@@ -37,6 +61,9 @@ type Evidence struct {
 	Unit         *UnitRef
 	Units        []UnitRef
 	Premises     []CandidateGroup
+	Chain        []CandidateGroup
+	Links        []CandidateLink
+	Partitions   []CandidatePartition
 	RuledOut     []CandidateRef
 	Eliminations []CandidateRef
 }

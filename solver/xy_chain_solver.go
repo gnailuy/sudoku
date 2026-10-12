@@ -11,7 +11,7 @@ import (
 // An XY-Chain is a generalization of XY-Wing to chains of arbitrary length.
 // It uses bi-value cells (exactly 2 candidates) connected end-to-end:
 //
-//   Cell 1: {A,B} — Cell 2: {B,C} — Cell 3: {C,D} — ... — Cell N: {?,Z}
+//	Cell 1: {A,B} — Cell 2: {B,C} — Cell 3: {C,D} — ... — Cell N: {?,Z}
 //
 // Each consecutive pair shares a unit and a candidate. The chain alternates:
 // if we assume A in Cell 1, then Cell 1 ≠ B, so Cell 2 = B (strong inference
@@ -136,7 +136,7 @@ func (s *XYChainSolver) Apply(board *core.Board) *Move {
 
 			// DFS: follow links where the entering digit matches our
 			// current exit digit.
-			if move := s.dfsChainSearch(board, biCells, adj, visited, startIdx, startDigit, exitDigit, startIdx, 1); move != nil {
+			if move := s.dfsChainSearch(board, biCells, adj, visited, startIdx, startDigit, exitDigit, startIdx, 1, []int{startIdx}); move != nil {
 				return move
 			}
 		}
@@ -147,7 +147,7 @@ func (s *XYChainSolver) Apply(board *core.Board) *Move {
 
 // dfsChainSearch recursively follows the chain, looking for endpoints where
 // the exit digit matches startDigit.
-func (s *XYChainSolver) dfsChainSearch(board *core.Board, biCells []xyChainCell, adj [][]xyLink, visited []bool, startIdx int, startDigit int, currentExitDigit int, currentIdx int, depth int) *Move {
+func (s *XYChainSolver) dfsChainSearch(board *core.Board, biCells []xyChainCell, adj [][]xyLink, visited []bool, startIdx int, startDigit int, currentExitDigit int, currentIdx int, depth int, chain []int) *Move {
 	// Limit chain depth to prevent excessive computation.
 	if depth > 15 {
 		return nil
@@ -183,7 +183,8 @@ func (s *XYChainSolver) dfsChainSearch(board *core.Board, biCells []xyChainCell,
 				// Only process chains of length >= 3.
 			} else {
 				// Eliminate startDigit from cells seeing both start and end.
-				if move := s.eliminateChainEndpoints(board, startPos, endPos, startDigit); move != nil {
+				completeChain := append(append([]int(nil), chain...), nextIdx)
+				if move := s.eliminateChainEndpoints(board, biCells, completeChain, startPos, endPos, startDigit); move != nil {
 					return move
 				}
 			}
@@ -191,7 +192,8 @@ func (s *XYChainSolver) dfsChainSearch(board *core.Board, biCells []xyChainCell,
 
 		// Continue the chain.
 		visited[nextIdx] = true
-		if move := s.dfsChainSearch(board, biCells, adj, visited, startIdx, startDigit, nextExitDigit, nextIdx, depth+1); move != nil {
+		nextChain := append(append([]int(nil), chain...), nextIdx)
+		if move := s.dfsChainSearch(board, biCells, adj, visited, startIdx, startDigit, nextExitDigit, nextIdx, depth+1, nextChain); move != nil {
 			return move
 		}
 		visited[nextIdx] = false
@@ -201,9 +203,10 @@ func (s *XYChainSolver) dfsChainSearch(board *core.Board, biCells []xyChainCell,
 }
 
 // eliminateChainEndpoints eliminates digit from cells seeing both chain endpoints.
-func (s *XYChainSolver) eliminateChainEndpoints(board *core.Board, startPos, endPos core.Position, digit int) *Move {
+func (s *XYChainSolver) eliminateChainEndpoints(board *core.Board, biCells []xyChainCell, chain []int, startPos, endPos core.Position, digit int) *Move {
 	var move *Move
 	eliminated := false
+	evidence := xyChainEvidence(biCells, chain)
 
 	for row := 0; row < 9; row++ {
 		for col := 0; col < 9; col++ {
@@ -216,6 +219,7 @@ func (s *XYChainSolver) eliminateChainEndpoints(board *core.Board, startPos, end
 			}
 			if board.EliminateCandidate(pos, digit) {
 				eliminated = true
+				evidence.Eliminations = append(evidence.Eliminations, CandidateRef{Position: pos, Value: digit})
 				cands := board.Candidates(pos)
 				if cands.Count() == 1 && move == nil {
 					value := cands.Values()[0]
@@ -227,6 +231,7 @@ func (s *XYChainSolver) eliminateChainEndpoints(board *core.Board, startPos, end
 							startPos.ToString(), endPos.ToString(), digit,
 							digit, pos.ToString(), value,
 						),
+						Evidence: evidence,
 					}
 				}
 			}
@@ -244,8 +249,36 @@ func (s *XYChainSolver) eliminateChainEndpoints(board *core.Board, startPos, end
 				"XY-Chain: chain from %s to %s — %d eliminated from cells seeing both ends",
 				startPos.ToString(), endPos.ToString(), digit,
 			),
+			Evidence: evidence,
 		}
 	}
 
 	return nil
+}
+
+func xyChainEvidence(cells []xyChainCell, chain []int) *Evidence {
+	evidence := &Evidence{}
+	for _, index := range chain {
+		cell := cells[index]
+		values := []int{cell.vals[0], cell.vals[1]}
+		evidence.Chain = append(evidence.Chain, CandidateGroup{Position: cell.pos, Values: values})
+		evidence.Premises = append(evidence.Premises, CandidateGroup{Position: cell.pos, Values: values})
+	}
+	for index := 0; index+1 < len(chain); index++ {
+		left, right := cells[chain[index]], cells[chain[index+1]]
+		shared := 0
+		for _, first := range left.vals {
+			for _, second := range right.vals {
+				if first == second {
+					shared = first
+				}
+			}
+		}
+		evidence.Links = append(evidence.Links, CandidateLink{
+			From: CandidateRef{Position: left.pos, Value: shared},
+			To:   CandidateRef{Position: right.pos, Value: shared},
+			Kind: LinkImplication,
+		})
+	}
+	return evidence
 }
