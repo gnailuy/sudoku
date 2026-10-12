@@ -157,6 +157,10 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		plan.Steps = fishSteps(move, display)
 	case "xy-wing", "w-wing", "xyz-wing":
 		plan.Steps = relationalSteps(move, display)
+	case "bug-plus-one":
+		plan.Steps = bugPlusOneSteps(move, display)
+	case "unique-rectangle", "unique-rectangle-2", "unique-rectangle-3", "unique-rectangle-4":
+		plan.Steps = uniquenessSteps(move, display)
 	default:
 		plan.Steps = evidenceSteps(move, plan.Conclusion)
 	}
@@ -372,6 +376,109 @@ func relationalSteps(move *solver.Move, display string) []HintStep {
 		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: compare, Marks: marks},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because that candidate relationship holds, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
+}
+
+func bugPlusOneSteps(move *solver.Move, display string) []HintStep {
+	if move.Evidence == nil || len(move.Evidence.Premises) == 0 || !move.IsPlacement() {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
+	premise := move.Evidence.Premises[0]
+	marks := unitAndPremiseMarks(move.Evidence)
+	conclusion := HintConclusion{Placement: placement(move)}
+	return []HintStep{
+		{ID: "find-trivalue-cell", Kind: HintStepObserve, Message: fmt.Sprintf("Look at %s. It is the only unsolved cell with three candidates: %s; every other unsolved cell has two.", cellName(premise.Position), intsText(premise.Values)), Marks: marks},
+		{ID: "compare-extra-candidate", Kind: HintStepCompare, Message: fmt.Sprintf("Candidate %d is the extra candidate that keeps the row, column, and box candidate counts from forming a two-solution loop.", move.Cell.Value), Marks: marks},
+		{ID: "apply-bug-plus-one", Kind: HintStepConclude, Message: fmt.Sprintf("Because removing that extra candidate would leave two interchangeable solutions, place %d at %s. This pattern is called %s.", move.Cell.Value, cellName(move.Cell.Position), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+	}
+}
+
+func uniquenessSteps(move *solver.Move, display string) []HintStep {
+	evidence := move.Evidence
+	if evidence == nil {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
+	if len(evidence.Premises) < 4 {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
+	}
+	premises := evidence.Premises
+	pair := sharedValues(premises[:4]...)
+	if len(pair) < 2 {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
+	}
+	pair = pair[:2]
+	locations := make([]string, 4)
+	for index := range locations {
+		locations[index] = cellName(premises[index].Position)
+	}
+	marks := unitAndPremiseMarks(evidence)
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	observe := fmt.Sprintf("Look at the rectangle corners %s. They span two rows, two columns, and two boxes, and all four contain candidates %s.", joinNatural(locations), intsText(pair))
+	compare := ""
+	switch move.Technique {
+	case "unique-rectangle":
+		compare = fmt.Sprintf("Three corners contain only %s. The fourth must use another candidate; otherwise the two digits could swap around the rectangle and create two solutions.", intsText(pair))
+	case "unique-rectangle-2":
+		extra := firstValueOutside(premises[2].Values, pair)
+		compare = fmt.Sprintf("The other two corners contain only %s, while the two expanded corners both contain candidate %d. At least one expanded corner must use %d, so any cell that sees both cannot use it.", intsText(pair), extra, extra)
+	case "unique-rectangle-3":
+		unitName := namedUnit(evidence.Unit)
+		compare = fmt.Sprintf("The extra candidates in the expanded corners join the highlighted cells in %s to reserve those digits, so the same candidates can be removed elsewhere in that unit.", unitName)
+	case "unique-rectangle-4":
+		removed := 0
+		if len(evidence.Eliminations) > 0 {
+			removed = evidence.Eliminations[0].Value
+		}
+		conjugate := pair[0]
+		if conjugate == removed {
+			conjugate = pair[1]
+		}
+		compare = fmt.Sprintf("In %s, candidate %d appears in exactly the two expanded corners. One of them must contain %d, so candidate %d can be removed from both.", namedUnit(evidence.Unit), conjugate, conjugate, removed)
+	}
+	return []HintStep{
+		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: observe, Marks: marks},
+		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: compare, Marks: marks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because the alternative would make the solution non-unique, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+	}
+}
+
+func sharedValues(groups ...solver.CandidateGroup) []int {
+	if len(groups) == 0 {
+		return nil
+	}
+	counts := make(map[int]int)
+	for _, group := range groups {
+		seen := make(map[int]struct{})
+		for _, value := range group.Values {
+			seen[value] = struct{}{}
+		}
+		for value := range seen {
+			counts[value]++
+		}
+	}
+	var values []int
+	for value, count := range counts {
+		if count == len(groups) {
+			values = append(values, value)
+		}
+	}
+	sort.Ints(values)
+	return values
+}
+
+func firstValueOutside(values, excluded []int) int {
+	for _, value := range values {
+		found := false
+		for _, blocked := range excluded {
+			if value == blocked {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return value
+		}
+	}
+	return 0
 }
 
 func unitAndPremiseMarks(evidence *solver.Evidence) []HintMark {

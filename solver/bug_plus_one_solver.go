@@ -85,6 +85,14 @@ func (s *BUGPlusOneSolver) Apply(board *core.Board) *Move {
 	return &Move{
 		Cell:      core.NewCell(*triCell, value),
 		Technique: "bug-plus-one",
+		Evidence: &Evidence{
+			Premises: []CandidateGroup{{Position: *triCell, Values: triCands.Values()}},
+			Units: []UnitRef{
+				{Kind: UnitRow, Index: triCell.Row},
+				{Kind: UnitColumn, Index: triCell.Column},
+				{Kind: UnitBox, Index: boxIndex(*triCell)},
+			},
+		},
 		Reason: fmt.Sprintf(
 			"BUG+1: all unsolved cells have 2 candidates except %s with {%s} — %d is the extra candidate and must be placed",
 			triCell.ToString(), candidateString(triCands), value,
