@@ -309,14 +309,7 @@ func (game *Game) applyHintPlan(plan *HintPlan) error {
 
 	next := game.notes
 	if noteMapIsEmpty(next) {
-		for row := range next {
-			for column := range next[row] {
-				position := core.Position{Row: row, Column: column}
-				if game.Get(position) == 0 && game.problemBoard.Get(position) == 0 {
-					next[row][column] = game.playBoard.Candidates(position)
-				}
-			}
-		}
+		next = game.candidatesAsNotes()
 	}
 	changed := false
 	for _, elimination := range plan.Conclusion.Eliminations {
@@ -353,6 +346,19 @@ func noteMapIsEmpty(notes [9][9]core.CandidateSet) bool {
 		}
 	}
 	return true
+}
+
+func (game *Game) candidatesAsNotes() [9][9]core.CandidateSet {
+	var notes [9][9]core.CandidateSet
+	for row := range notes {
+		for column := range notes[row] {
+			position := core.NewPosition(row, column)
+			if game.Get(position) == 0 && game.problemBoard.Get(position) == 0 {
+				notes[row][column] = game.playBoard.Candidates(position)
+			}
+		}
+	}
+	return notes
 }
 
 func (game *Game) status() Status {
@@ -423,16 +429,7 @@ func (game *Game) adoptCandidatesAsNotes(position core.Position, value int) erro
 	}
 
 	before := game.captureState()
-	for row := 0; row < 9; row++ {
-		for column := 0; column < 9; column++ {
-			candidatePosition := core.NewPosition(row, column)
-			if game.problemBoard.Get(candidatePosition) != 0 || game.Get(candidatePosition) != 0 {
-				game.notes[row][column] = 0
-				continue
-			}
-			game.notes[row][column] = game.playBoard.Candidates(candidatePosition)
-		}
-	}
+	game.notes = game.candidatesAsNotes()
 
 	notes := game.notes[position.Row][position.Column]
 	if notes.Has(value) {
