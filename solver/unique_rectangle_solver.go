@@ -166,6 +166,9 @@ func (s *UniqueRectangleSolver) checkTriple(board *core.Board, three [3]core.Pos
 		return nil
 	}
 
+	// Preserve the four-corner facts before applying the conclusion.
+	premises := rectanglePremises(board, append(three[:], fourthPos)...)
+
 	// Eliminate a and b from the fourth cell.
 	elimA := board.EliminateCandidate(fourthPos, a)
 	elimB := board.EliminateCandidate(fourthPos, b)
@@ -175,11 +178,19 @@ func (s *UniqueRectangleSolver) checkTriple(board *core.Board, three [3]core.Pos
 
 	// Check if the fourth cell now has a single candidate.
 	newCands := board.Candidates(fourthPos)
+	evidence := &Evidence{
+		Premises: premises,
+		Eliminations: []CandidateRef{
+			{Position: fourthPos, Value: a},
+			{Position: fourthPos, Value: b},
+		},
+	}
 	if newCands.Count() == 1 {
 		value := newCands.Values()[0]
 		return &Move{
 			Cell:      core.NewCell(fourthPos, value),
 			Technique: "unique-rectangle",
+			Evidence:  evidence,
 			Reason: fmt.Sprintf(
 				"Unique Rectangle Type 1: cells %s, %s, %s all have {%d,%d} — "+
 					"%s can't be %d or %d (deadly pattern), leaving %d",
@@ -192,6 +203,7 @@ func (s *UniqueRectangleSolver) checkTriple(board *core.Board, three [3]core.Pos
 	return &Move{
 		EliminationOnly: true,
 		Technique:       "unique-rectangle",
+		Evidence:        evidence,
 		Reason: fmt.Sprintf(
 			"Unique Rectangle Type 1: cells %s, %s, %s all have {%d,%d} — "+
 				"eliminated %d,%d from %s (would create deadly pattern)",
@@ -199,6 +211,14 @@ func (s *UniqueRectangleSolver) checkTriple(board *core.Board, three [3]core.Pos
 			a, b, a, b, fourthPos.ToString(),
 		),
 	}
+}
+
+func rectanglePremises(board *core.Board, positions ...core.Position) []CandidateGroup {
+	premises := make([]CandidateGroup, 0, len(positions))
+	for _, position := range positions {
+		premises = append(premises, CandidateGroup{Position: position, Values: board.Candidates(position).Values()})
+	}
+	return premises
 }
 
 // boxIndex returns the box number (0-8) for a given position.

@@ -104,9 +104,12 @@ func (s *UniqueRectangleType2Solver) checkType2(board *core.Board, corners [4]co
 		posE0 := corners[extraIdxs[0]]
 		posE1 := corners[extraIdxs[1]]
 
+		premises := rectanglePremises(board, corners[biIdxs[0]], corners[biIdxs[1]], posE0, posE1)
+
 		// Eliminate X from cells seeing both extra corners.
 		var move *Move
 		eliminated := false
+		var eliminations []CandidateRef
 		for row := 0; row < 9; row++ {
 			for col := 0; col < 9; col++ {
 				pos := core.NewPosition(row, col)
@@ -122,6 +125,7 @@ func (s *UniqueRectangleType2Solver) checkType2(board *core.Board, corners [4]co
 				}
 				if board.EliminateCandidate(pos, x) {
 					eliminated = true
+					eliminations = append(eliminations, CandidateRef{Position: pos, Value: x})
 					cands := board.Candidates(pos)
 					if cands.Count() == 1 && move == nil {
 						value := cands.Values()[0]
@@ -141,12 +145,15 @@ func (s *UniqueRectangleType2Solver) checkType2(board *core.Board, corners [4]co
 		}
 
 		if eliminated {
+			evidence := &Evidence{Premises: premises, Eliminations: eliminations}
 			if move != nil {
+				move.Evidence = evidence
 				return move
 			}
 			return &Move{
 				EliminationOnly: true,
 				Technique:       s.Key,
+				Evidence:        evidence,
 				Reason: fmt.Sprintf(
 					"Unique Rectangle Type 2: corners %s,%s have {%d,%d,%d} — %d eliminated from cells seeing both",
 					posE0.ToString(), posE1.ToString(), a, b, x, x,
@@ -357,10 +364,21 @@ func mapKeys(m map[core.Position]bool) []core.Position {
 	for k := range m {
 		keys = append(keys, k)
 	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].Row != keys[j].Row {
+			return keys[i].Row < keys[j].Row
+		}
+		return keys[i].Column < keys[j].Column
+	})
 	return keys
 }
 
 func (s *UniqueRectangleType3Solver) eliminateFromUnit(board *core.Board, u unit, excludeList []core.Position, corners [4]core.Position, extras core.CandidateSet) *Move {
+	unitRef := unitReference(u)
+	premisePositions := append([]core.Position(nil), corners[:]...)
+	premisePositions = append(premisePositions, excludeList...)
+	premises := uniquePositionPremises(board, premisePositions)
+
 	exclude := make(map[core.Position]bool)
 	for _, p := range excludeList {
 		exclude[p] = true
@@ -368,6 +386,7 @@ func (s *UniqueRectangleType3Solver) eliminateFromUnit(board *core.Board, u unit
 
 	var move *Move
 	eliminated := false
+	var eliminations []CandidateRef
 	for _, pos := range u.positions {
 		if exclude[pos] {
 			continue
@@ -378,6 +397,7 @@ func (s *UniqueRectangleType3Solver) eliminateFromUnit(board *core.Board, u unit
 		for _, v := range extras.Values() {
 			if board.EliminateCandidate(pos, v) {
 				eliminated = true
+				eliminations = append(eliminations, CandidateRef{Position: pos, Value: v})
 				cands := board.Candidates(pos)
 				if cands.Count() == 1 && move == nil {
 					value := cands.Values()[0]
@@ -395,12 +415,20 @@ func (s *UniqueRectangleType3Solver) eliminateFromUnit(board *core.Board, u unit
 	}
 
 	if eliminated {
+		evidence := &Evidence{
+			Unit:         &unitRef,
+			Units:        []UnitRef{unitRef},
+			Premises:     premises,
+			Eliminations: eliminations,
+		}
 		if move != nil {
+			move.Evidence = evidence
 			return move
 		}
 		return &Move{
 			EliminationOnly: true,
 			Technique:       s.Key,
+			Evidence:        evidence,
 			Reason: fmt.Sprintf(
 				"Unique Rectangle Type 3: UR extras form naked subset {%s} — candidates eliminated",
 				formatValues(extras.Values()),
@@ -515,11 +543,14 @@ func (s *UniqueRectangleType4Solver) checkType4(board *core.Board, corners [4]co
 				}
 
 				// Conjugate pair on conjugateDigit! Eliminate elimDigit from both extra corners.
+				premises := rectanglePremises(board, corners[biIdxs[0]], corners[biIdxs[1]], posE0, posE1)
 				var move *Move
 				eliminated := false
+				var eliminations []CandidateRef
 				for _, pos := range []core.Position{posE0, posE1} {
 					if board.EliminateCandidate(pos, elimDigit) {
 						eliminated = true
+						eliminations = append(eliminations, CandidateRef{Position: pos, Value: elimDigit})
 						cands := board.Candidates(pos)
 						if cands.Count() == 1 && move == nil {
 							value := cands.Values()[0]
@@ -537,12 +568,21 @@ func (s *UniqueRectangleType4Solver) checkType4(board *core.Board, corners [4]co
 				}
 
 				if eliminated {
+					unitRef := unitReference(u)
+					evidence := &Evidence{
+						Unit:         &unitRef,
+						Units:        []UnitRef{unitRef},
+						Premises:     premises,
+						Eliminations: eliminations,
+					}
 					if move != nil {
+						move.Evidence = evidence
 						return move
 					}
 					return &Move{
 						EliminationOnly: true,
 						Technique:       s.Key,
+						Evidence:        evidence,
 						Reason: fmt.Sprintf(
 							"Unique Rectangle Type 4: %d is conjugate in %s,%s — %d eliminated from both",
 							conjugateDigit, posE0.ToString(), posE1.ToString(), elimDigit,
@@ -554,6 +594,35 @@ func (s *UniqueRectangleType4Solver) checkType4(board *core.Board, corners [4]co
 	}
 
 	return nil
+}
+
+func uniquePositionPremises(board *core.Board, positions []core.Position) []CandidateGroup {
+	seen := make(map[core.Position]struct{})
+	unique := make([]core.Position, 0, len(positions))
+	for _, position := range positions {
+		if _, ok := seen[position]; ok {
+			continue
+		}
+		seen[position] = struct{}{}
+		unique = append(unique, position)
+	}
+	return rectanglePremises(board, unique...)
+}
+
+func unitReference(u unit) UnitRef {
+	first := u.positions[0]
+	sameRow, sameColumn := true, true
+	for _, position := range u.positions[1:] {
+		sameRow = sameRow && position.Row == first.Row
+		sameColumn = sameColumn && position.Column == first.Column
+	}
+	if sameRow {
+		return UnitRef{Kind: UnitRow, Index: first.Row}
+	}
+	if sameColumn {
+		return UnitRef{Kind: UnitColumn, Index: first.Column}
+	}
+	return UnitRef{Kind: UnitBox, Index: boxIndex(first)}
 }
 
 // ---- Shared UR scanning infrastructure ----

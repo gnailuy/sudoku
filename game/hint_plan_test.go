@@ -240,6 +240,56 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 	}
 }
 
+func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
+	games := realGamesForHintStrategies(t)
+	store := solver.NewStore()
+	keys := store.GetAllStrategySolverKeys()
+	families := []string{"bug-plus-one", "unique-rectangle", "unique-rectangle-2", "unique-rectangle-3", "unique-rectangle-4"}
+	for _, key := range families {
+		t.Run(key, func(t *testing.T) {
+			options := NewDefaultOptions(store)
+			options.StrategySolverKeys = keys
+			current := NewGame(boardFromPuzzle(t, games[key]), options)
+			var plan *HintPlan
+			for number := 0; number < 128; number++ {
+				plan = current.Hint()
+				if plan == nil {
+					t.Fatalf("exhausted hints before %s", key)
+				}
+				if plan.Strategy.ID == key {
+					break
+				}
+				if _, err := current.Apply(ApplyHint{PlanID: plan.PlanID}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != 3 {
+				t.Fatalf("unexpected family plan: %+v", plan)
+			}
+			for _, step := range plan.Steps[:2] {
+				if strings.Contains(step.Message, plan.Strategy.DisplayName) {
+					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message)
+				}
+				if strings.Contains(step.Message, "(") {
+					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message)
+				}
+			}
+			if !strings.Contains(plan.Steps[2].Message, "Because") || !strings.Contains(plan.Steps[2].Message, plan.Strategy.DisplayName) {
+				t.Fatalf("conclusion does not explain then name the strategy: %q", plan.Steps[2].Message)
+			}
+			if key == "bug-plus-one" {
+				if !strings.Contains(plan.Steps[0].Message, "only unsolved cell with three candidates") || !strings.Contains(plan.Steps[1].Message, "extra candidate") {
+					t.Fatalf("BUG+1 plan does not teach the bivalue exception: %+v", plan.Steps)
+				}
+			} else {
+				if !strings.Contains(plan.Steps[0].Message, "rectangle corners") || !strings.Contains(plan.Steps[1].Message, "two solution") && !strings.Contains(plan.Steps[1].Message, "two-solution") && !strings.Contains(plan.Steps[1].Message, "At least one") && !strings.Contains(plan.Steps[1].Message, "reserve") && !strings.Contains(plan.Steps[1].Message, "appears in exactly") {
+					t.Fatalf("rectangle plan does not teach its uniqueness relationship: %+v", plan.Steps)
+				}
+			}
+		})
+	}
+}
+
 func TestBoxLineReductionUsesItsSpecificRelationshipName(t *testing.T) {
 	source := solver.UnitRef{Kind: solver.UnitRow, Index: 3}
 	box := solver.UnitRef{Kind: solver.UnitBox, Index: 3}
