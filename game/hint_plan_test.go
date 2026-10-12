@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/gnailuy/sudoku/core"
@@ -24,6 +25,15 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	if first.ProtocolVersion != 1 || first.Strategy.ID != "naked-single" || len(first.Steps) != 2 || first.Conclusion.Placement == nil {
 		t.Fatalf("unexpected naked-single plan: %+v", first)
 	}
+	if strings.Contains(first.Steps[0].Message, "Naked Single") || !strings.Contains(first.Steps[0].Message, "row ") || !strings.Contains(first.Steps[0].Message, ", column ") {
+		t.Fatalf("naked-single observation is not beginner-first: %q", first.Steps[0].Message)
+	}
+	if !strings.Contains(first.Steps[1].Message, "Because") || !strings.Contains(first.Steps[1].Message, "called a Naked Single") {
+		t.Fatalf("naked-single conclusion does not explain then name the strategy: %q", first.Steps[1].Message)
+	}
+	if strings.Contains(first.Summary, compactCellName(first.Conclusion.Placement.Position)) || !strings.Contains(first.Summary, cellName(first.Conclusion.Placement.Position)) || !strings.HasPrefix(first.Summary, first.Steps[0].Message) {
+		t.Fatalf("naked-single summary is not ordered beginner prose: %q", first.Summary)
+	}
 	if _, err := game.Apply(ApplyHint{PlanID: "wrong"}); !errors.Is(err, &EngineError{Code: ErrorStaleHint}) {
 		t.Fatalf("wrong plan id error = %v", err)
 	}
@@ -41,6 +51,12 @@ func TestHiddenSingleHintPlanHasUnitEvidence(t *testing.T) {
 	}
 	if plan.Steps[0].Kind != HintStepObserve || plan.Steps[1].Kind != HintStepCompare || plan.Steps[2].Kind != HintStepConclude {
 		t.Fatalf("unexpected step order: %+v", plan.Steps)
+	}
+	if strings.Contains(plan.Steps[0].Message, "Hidden Single") || strings.Contains(plan.Steps[1].Message, "Hidden Single") {
+		t.Fatalf("hidden-single name appears before the reasoning: %+v", plan.Steps)
+	}
+	if !strings.Contains(plan.Steps[1].Message, "row ") || !strings.Contains(plan.Steps[1].Message, ", column ") || !strings.Contains(plan.Steps[2].Message, "called a Hidden Single") {
+		t.Fatalf("hidden-single steps do not use plain location prose and delayed naming: %+v", plan.Steps)
 	}
 }
 
@@ -67,6 +83,12 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	plan := game.Hint()
 	if plan == nil || plan.Strategy.ID != "naked-pair" || len(plan.Steps) != 3 || len(plan.Conclusion.Eliminations) == 0 || plan.Conclusion.Placement != nil {
 		t.Fatalf("unexpected naked-pair plan: %+v", plan)
+	}
+	if strings.Contains(plan.Steps[0].Message, "Naked Pair") || strings.Contains(plan.Steps[1].Message, "Naked Pair") {
+		t.Fatalf("naked-pair name appears before the visible facts and relationship: %+v", plan.Steps)
+	}
+	if !strings.Contains(plan.Steps[1].Message, "in some order") || !strings.Contains(plan.Steps[2].Message, "Because") || !strings.Contains(plan.Steps[2].Message, "called a Naked Pair") {
+		t.Fatalf("naked-pair steps do not explain the reservation before naming it: %+v", plan.Steps)
 	}
 	before := game.Snapshot()
 	result, err := game.Apply(ApplyHint{PlanID: plan.PlanID})
