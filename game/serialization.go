@@ -12,7 +12,7 @@ import (
 )
 
 // StateVersion is the current serialized game-state schema version.
-const StateVersion = 1
+const StateVersion = 2
 
 // StateErrorCode identifies a serialized-state validation failure.
 type StateErrorCode string
@@ -58,12 +58,19 @@ type serializedGame struct {
 }
 
 type serializedSessionState struct {
-	Values  string           `json:"values"`
-	Invalid string           `json:"invalid"`
-	Notes   []serializedNote `json:"notes"`
+	Values       string                  `json:"values"`
+	Invalid      string                  `json:"invalid"`
+	Notes        []serializedNote        `json:"notes"`
+	Eliminations []serializedElimination `json:"eliminations"`
 }
 
 type serializedNote struct {
+	Row    int   `json:"row"`
+	Column int   `json:"column"`
+	Values []int `json:"values"`
+}
+
+type serializedElimination struct {
 	Row    int   `json:"row"`
 	Column int   `json:"column"`
 	Values []int `json:"values"`
@@ -156,6 +163,7 @@ func serializeSessionState(problem core.Board, state sessionState) serializedSes
 	values := core.NewEmptyBoard()
 	invalid := core.NewEmptyBoard()
 	notes := make([]serializedNote, 0)
+	eliminations := make([]serializedElimination, 0)
 	for row := 0; row < 9; row++ {
 		for column := 0; column < 9; column++ {
 			position := core.NewPosition(row, column)
@@ -172,10 +180,15 @@ func serializeSessionState(problem core.Board, state sessionState) serializedSes
 					Row: row, Column: column, Values: state.notes[row][column].Values(),
 				})
 			}
+			if eliminated := state.playBoard.Eliminations(position); !eliminated.IsEmpty() {
+				eliminations = append(eliminations, serializedElimination{
+					Row: row, Column: column, Values: eliminated.Values(),
+				})
+			}
 		}
 	}
 	return serializedSessionState{
-		Values: values.ToString(), Invalid: invalid.ToString(), Notes: notes,
+		Values: values.ToString(), Invalid: invalid.ToString(), Notes: notes, Eliminations: eliminations,
 	}
 }
 
@@ -208,6 +221,28 @@ func deserializeSessionState(problem core.Board, payload serializedSessionState,
 	}
 	if !playBoard.IsValid() {
 		return sessionState{}, stateError(StateErrorInvalidSession, "session values violate Sudoku constraints", nil)
+	}
+
+	seenEliminations := make(map[core.Position]struct{}, len(payload.Eliminations))
+	for _, elimination := range payload.Eliminations {
+		position := core.Position{Row: elimination.Row, Column: elimination.Column}
+		if !position.IsValid() {
+			return sessionState{}, stateError(StateErrorInvalidSession, "session elimination position is invalid", nil)
+		}
+		if _, exists := seenEliminations[position]; exists {
+			return sessionState{}, stateError(StateErrorInvalidSession, fmt.Sprintf("session has duplicate eliminations at row %d, column %d", elimination.Row, elimination.Column), nil)
+		}
+		seenEliminations[position] = struct{}{}
+		if len(elimination.Values) == 0 || problem.Get(position) != 0 || values.Get(position) != 0 {
+			return sessionState{}, stateError(StateErrorInvalidSession, "session eliminations require an empty editable cell", nil)
+		}
+		seenValues := core.CandidateSet(0)
+		for _, value := range elimination.Values {
+			if value < 1 || value > 9 || seenValues.Has(value) || !playBoard.EliminateCandidate(position, value) {
+				return sessionState{}, stateError(StateErrorInvalidSession, "session elimination values are invalid", nil)
+			}
+			seenValues.Add(value)
+		}
 	}
 
 	var notes [9][9]core.CandidateSet

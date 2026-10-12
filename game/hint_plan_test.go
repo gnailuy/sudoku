@@ -77,8 +77,26 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	for _, elimination := range plan.Conclusion.Eliminations {
 		expectedNotes[elimination.Position.Row][elimination.Position.Column].Remove(elimination.Value)
 	}
-	if after := game.Snapshot(); after.Notes != expectedNotes {
-		t.Fatalf("elimination did not materialize the candidate map: expected=%v after=%v", expectedNotes, after.Notes)
+	if after := game.Snapshot(); after.Notes != expectedNotes || after.Candidates != expectedNotes {
+		t.Fatalf("elimination did not persist candidate progress: expected=%v notes=%v candidates=%v", expectedNotes, after.Notes, after.Candidates)
+	}
+	next := game.Hint()
+	if next != nil && sameEliminations(next.Conclusion.Eliminations, plan.Conclusion.Eliminations) {
+		t.Fatalf("next hint repeated the consumed elimination: before=%+v after=%+v", plan, next)
+	}
+	data, err := game.Serialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := NewDefaultOptions(solver.NewStore())
+	options.StrategySolverKeys = []string{"naked-pair"}
+	restored, err := Restore(data, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restoredNext := restored.Hint()
+	if restoredNext != nil && sameEliminations(restoredNext.Conclusion.Eliminations, plan.Conclusion.Eliminations) {
+		t.Fatalf("restored game repeated the consumed elimination: before=%+v after=%+v", plan, restoredNext)
 	}
 	if _, err := game.Apply(Undo{}); err != nil {
 		t.Fatal(err)
@@ -86,4 +104,16 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	if after := game.Snapshot(); after.Notes != before.Notes {
 		t.Fatalf("undo did not restore notes: before=%v after=%v", before.Notes, after.Notes)
 	}
+}
+
+func sameEliminations(left, right []solver.CandidateRef) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }

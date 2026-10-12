@@ -57,7 +57,7 @@ OpenAPI validation cannot prove listener safety, generated routing, middleware o
 
 **Action:** Exercise hint plans, complete note replacement, candidate adoption, invalid-value mistake counting, Undo/Redo, elapsed-time synchronization, and revision conflict in guest and account modes.
 
-**Expected:** Both ownership modes expose identical game-engine semantics. Read-only hints do not mutate state; an elimination hint applied to an empty note map materializes the legal-candidate grid, removes the taught candidates, and remains one undoable revision; accepted actions advance once; stale writes never overwrite authoritative state.
+**Expected:** Both ownership modes expose identical game-engine semantics. Read-only hints do not mutate state; an elimination hint applied to an empty note map materializes the candidate grid, removes and persists the taught candidates in one undoable revision, and the next hint does not repeat the consumed deduction after document replacement; accepted actions advance once; stale writes never overwrite authoritative state.
 
 ## Database Cutover
 

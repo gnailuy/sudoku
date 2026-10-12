@@ -71,28 +71,28 @@ The hint query returns one complete renderer-neutral `HintPlan` without mutation
 
 ## Note-Taking Semantics
 
-Notes are player annotations, distinct from `core.Board.Candidates`, which computes legal solver candidates. Notes use `core.CandidateSet` as a value representation but are stored by the game engine.
+Notes are player annotations, distinct from `core.Board.Candidates`, which computes solver candidates from accepted values and strategy-derived eliminations. Notes use `core.CandidateSet` as a value representation but are stored separately by the game engine.
 
 Notes are allowed only on editable empty cells and contain digits 1–9. Setting any visible value clears notes in that cell. Only a value accepted into the solver-safe board removes that value from notes in peer cells; a visible invalid entry does not constrain legal candidates and therefore must not prune peer notes. Clearing a value does not recreate notes. Every automatic note cleanup is part of the same action delta, so undo restores the exact previous notes.
 
-`Game.Snapshot` derives legal candidates from the solver-safe play board through `core.Board.Candidates`. Derived candidates remain separate from manual notes, dirty state, and serialization until a player adopts them or applies an elimination hint to an empty note map. `AdoptCandidatesAsNotes` replaces the complete manual-note map for every editable visibly empty cell, toggles the initiating digit, and records the result as one atomic history transition. An elimination hint against an empty note map likewise materializes the complete legal-candidate grid before removing its conclusion, so a candidate-preview client can reveal the reduced notes after one action. One Undo restores the complete prior note map in either case.
+`Game.Snapshot` derives candidates from the solver-safe play board through `core.Board.Candidates`. Derived candidates remain separate from manual notes and dirty state. `AdoptCandidatesAsNotes` replaces the complete manual-note map for every editable visibly empty cell, toggles the initiating digit, and records the result as one atomic history transition. An elimination hint against an empty note map likewise materializes the complete candidate grid before removing its conclusion, and records the same strategy-derived elimination in the solver-safe board. Later hints, automatic candidates, serialization, Undo, and Redo therefore continue from the consumed deduction while ordinary manual-note edits still cannot alter solver state.
 
 ## Serialization Contract
 
 `Game.Serialize()` returns the complete session as versioned JSON. `game.Restore(data, options)` validates that JSON and returns a newly constructed game. The host supplies `Options` during restoration because solver configuration is executable host policy, not persisted player state.
 
-Version 1 has these fields:
+Version 2 has these fields:
 
-- `version`: schema version, currently `1`;
+- `version`: schema version, currently `2`;
 - `puzzle`: the original 81-character puzzle string;
 - `mistakes`: the cumulative count of confirmed invalid value submissions;
 - `current`: the current player-controlled state;
 - `history`: ordered before/after state records;
 - `cursor`: the applied history record, or `-1` when no record is applied.
 
-Each player-controlled state stores separate 81-character `values` and `invalid` grids plus sparse `notes` records containing a zero-based row, zero-based column, and note digits. `values` excludes puzzle givens. Separating invalid entries keeps player mistakes visible without contaminating the solver board. Before/after history records use the same complete state shape, so restoration preserves mixed value/note undo and redo exactly.
+Each player-controlled state stores separate 81-character `values` and `invalid` grids plus sparse `notes` and `eliminations` records containing a zero-based row, zero-based column, and digits. Eliminations are strategy-derived solver progress; manual notes remain player-owned annotations. `values` excludes puzzle givens. Separating invalid entries keeps player mistakes visible without contaminating the solver board. Before/after history records use the same complete state shape, so restoration preserves mixed value/note undo and redo exactly.
 
-Restoration rejects malformed JSON, unknown fields, unsupported versions, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid note records, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Current state is stored independently from the cursor because temporary compatibility adapters may change state outside the stable action history; restoration preserves that state and the adapter's existing undo/redo behavior. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `unsupported-version`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
+Restoration rejects malformed JSON, unknown fields, unsupported versions, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid note or elimination records, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Current state is stored independently from the cursor because temporary compatibility adapters may change state outside the stable action history; restoration preserves that state and the adapter's existing undo/redo behavior. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `unsupported-version`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
 
 Unknown schema versions fail explicitly, and each supported migration is version-specific. `Game.ToString` remains diagnostic text and is not a persistence format.
 

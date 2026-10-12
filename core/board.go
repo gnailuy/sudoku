@@ -122,6 +122,12 @@ func (board *Board) ClearEliminations(position Position) {
 	board.eliminations[position.Row][position.Column] = 0
 }
 
+// Eliminations returns the strategy-derived candidate eliminations stored for
+// an empty cell. The returned value is detached from the board.
+func (board *Board) Eliminations(position Position) CandidateSet {
+	return board.eliminations[position.Row][position.Column]
+}
+
 // EmptyPositions returns all positions on the board that are empty (value 0).
 func (board *Board) EmptyPositions() []Position {
 	positions := make([]Position, 0, 81-board.filledCellsCount)

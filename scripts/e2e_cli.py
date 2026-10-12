@@ -322,8 +322,8 @@ def main():
         if stat.S_IMODE(session.stat().st_mode) != 0o600:
             raise AssertionError("session file mode is not 0600")
         saved = json.loads(session.read_text(encoding="utf-8"))
-        if saved.get("version") != 1:
-            raise AssertionError("saved session does not use version 1")
+        if saved.get("version") != 2:
+            raise AssertionError("saved session does not use version 2")
         output = run(binary, ["--resume", str(session)], root, "check\nr\ncheck\nq\n")
         contains(
             output,
