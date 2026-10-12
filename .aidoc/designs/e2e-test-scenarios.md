@@ -3,6 +3,7 @@ domain: Designs
 status: Active
 entry_points:
   - scripts/e2e_cli.py
+  - scripts/e2e_hint_strategies.py
   - scripts/e2e_tui.py
   - scripts/e2e_api.py
 dependencies:
@@ -33,7 +34,7 @@ End-to-end tests treat the built Sudoku binary as a user would, outside Go packa
 
 | Boundary | Scenario document | Automated entry point |
 |----------|-------------------|-----------------------|
-| Root play and game commands | `.aidoc/designs/e2e-play-scenarios.md` | `scripts/e2e_cli.py` |
+| Root play and game commands | `.aidoc/designs/e2e-play-scenarios.md` | `scripts/e2e_cli.py` and `scripts/e2e_hint_strategies.py` |
 | Calibration | `.aidoc/designs/e2e-calibration-scenarios.md` | `scripts/e2e_cli.py` |
 | Puzzle generation | `.aidoc/designs/e2e-generation-scenarios.md` | `scripts/e2e_cli.py` |
 | Puzzle import | `.aidoc/designs/e2e-import-scenarios.md` | `scripts/e2e_cli.py` |
@@ -44,7 +45,7 @@ End-to-end tests treat the built Sudoku binary as a user would, outside Go packa
 
 ## Automation and Isolation
 
-Every automated black-box entry point builds or receives the repository binary and owns isolated temporary XDG roots. `scripts/e2e_cli.py` covers root play, sessions, calibration, generation, import, and SQLite composition. `scripts/e2e_tui.py` owns pseudo-terminal behavior and recovery. `scripts/e2e_api.py` owns the running HTTP lifecycle, while `scripts/check-api-contract.sh` validates OpenAPI compatibility.
+Every automated black-box entry point builds or receives the repository binary and owns isolated temporary XDG roots. `scripts/e2e_cli.py` covers root play, sessions, calibration, generation, import, and SQLite composition. `scripts/e2e_hint_strategies.py` drives complete valid games through repeated preview/apply commands until every registered strategy is observed and applied. `scripts/e2e_tui.py` owns pseudo-terminal behavior and recovery. `scripts/e2e_api.py` owns the running HTTP lifecycle, while `scripts/check-api-contract.sh` validates OpenAPI compatibility.
 
 The harnesses use fixed puzzle fixtures whenever deterministic assertions matter. Generation smoke tests bound real generation and verify command, worker, and database composition without asserting a random difficulty result. The public `--from-db` boundary provides deterministic exact-grade acquisition and migration coverage; focused package tests cover generated-fallback accounting. Play-statistics coverage spans the line CLI, TUI, and API so completion semantics cannot drift between frontends.
 
