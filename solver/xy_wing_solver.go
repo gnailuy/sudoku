@@ -146,7 +146,13 @@ func (s *XYWingSolver) Apply(board *core.Board) *Move {
 				}
 
 				if eliminated {
+					evidence := &Evidence{Premises: []CandidateGroup{
+						{Position: pivot.pos, Values: []int{x, y}},
+						{Position: w1.pos, Values: []int{x, z}},
+						{Position: w2.pos, Values: []int{y, z}},
+					}}
 					if move != nil {
+						move.Evidence = evidence
 						return move
 					}
 					return &Move{
@@ -159,6 +165,7 @@ func (s *XYWingSolver) Apply(board *core.Board) *Move {
 							w2.pos.ToString(), w2.vals[0], w2.vals[1],
 							z,
 						),
+						Evidence: evidence,
 					}
 				}
 			}

@@ -164,7 +164,13 @@ func (s *XYZWingSolver) tryXYZWing(board *core.Board, pivotPos core.Position, ca
 			}
 
 			if eliminated {
+				evidence := &Evidence{Premises: []CandidateGroup{
+					{Position: pivotPos, Values: []int{ca, cb, shared}},
+					{Position: w1, Values: []int{ca, shared}},
+					{Position: w2, Values: []int{cb, shared}},
+				}}
 				if move != nil {
+					move.Evidence = evidence
 					return move
 				}
 				return &Move{
@@ -177,6 +183,7 @@ func (s *XYZWingSolver) tryXYZWing(board *core.Board, pivotPos core.Position, ca
 						w2.ToString(), cb, shared,
 						shared,
 					),
+					Evidence: evidence,
 				}
 			}
 		}

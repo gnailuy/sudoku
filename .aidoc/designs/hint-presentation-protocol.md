@@ -39,7 +39,7 @@ The project is still in development, so the protocol replaces the current hint s
 
 A strategy produces typed evidence for one deduction: examined units, candidate constraints, eliminations, placements, and the technique identity. Placement and candidate elimination are equally valid conclusions; elimination strategies are not duplicated as hint-only variants. Strategy evidence contains no colors, animation timing, widget commands, prose parsing requirements, or transport models.
 
-A shared engine composer converts typed evidence into one `HintPlan`. The composer owns default teaching order and wording so 23 strategies do not duplicate client choreography. Naked Single and Hidden Single establish direct and unit-scoped placement teaching. Naked/Hidden Pair–Quad and Pointing Pair/Box-Line Reduction establish subset and intersection teaching: exact candidate cells and units appear first, the reservation or confinement relationship follows, and the formal strategy name appears only in the concluding because-clause. Every remaining registered strategy keeps the shared evidence-driven observe, compare, and apply sequence until its strategy family receives equivalent typed relationships and composition.
+A shared engine composer converts typed evidence into one `HintPlan`. The composer owns default teaching order and wording so 23 strategies do not duplicate client choreography. Naked Single and Hidden Single establish direct and unit-scoped placement teaching. Naked/Hidden Pair–Quad and Pointing Pair/Box-Line Reduction establish subset and intersection teaching. X-Wing, Swordfish, and Jellyfish identify their base lines, cross lines, and exact candidate intersections before explaining confinement. XY-Wing, W-Wing, and XYZ-Wing identify their pivot, wing, or strong-link cells before explaining which shared candidate another cell cannot contain. Every family reveals formal strategy vocabulary only in the concluding because-clause; remaining strategies keep the shared evidence-driven sequence until their family receives equivalent typed relationships and composition.
 
 A renderer consumes a complete plan and never infers Sudoku reasoning from technique names or fallback prose. Renderers preserve the ordered text and logical conclusion, and full teaching renderers defer strategy name and grade until the final step so vocabulary reinforces reasoning instead of preceding it. Limited renderers receive the same messages joined in order as `summary`.
 
@@ -109,7 +109,7 @@ Unsupported semantic data is ignored visibly rather than guessed. A renderer may
 
 ## Reference Teaching Plans
 
-`.aidoc/designs/hint-reference-plans.md` defines canonical placement, subset, and intersection examples. The examples prove that the same plan contract expresses placement and elimination conclusions without renderer-owned reasoning.
+`.aidoc/designs/hint-reference-plans.md` defines canonical placement, subset, intersection, fish, and relational examples. The examples prove that the same plan contract expresses placement and elimination conclusions without renderer-owned reasoning.
 
 ## Delivery Boundary
 
