@@ -161,6 +161,12 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		plan.Steps = bugPlusOneSteps(move, display)
 	case "unique-rectangle", "unique-rectangle-2", "unique-rectangle-3", "unique-rectangle-4":
 		plan.Steps = uniquenessSteps(move, display)
+	case "simple-coloring":
+		plan.Steps = coloringSteps(move, display)
+	case "x-cycles":
+		plan.Steps = xCycleSteps(move, display)
+	case "xy-chain":
+		plan.Steps = xyChainSteps(move, display)
 	default:
 		plan.Steps = evidenceSteps(move, plan.Conclusion)
 	}
@@ -438,6 +444,87 @@ func uniquenessSteps(move *solver.Move, display string) []HintStep {
 		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: observe, Marks: marks},
 		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: compare, Marks: marks},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because the alternative would make the solution non-unique, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+	}
+}
+
+func coloringSteps(move *solver.Move, display string) []HintStep {
+	evidence := move.Evidence
+	if evidence == nil {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
+	if len(evidence.Partitions) != 2 || len(evidence.Premises) == 0 {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
+	}
+	digit := evidence.Premises[0].Values[0]
+	marks := unitAndPremiseMarks(evidence)
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	compare := fmt.Sprintf("Alternating that either-or choice separates the highlighted candidates into two groups. Each highlighted target sees one cell from each group, so whichever group is true, the target cannot contain %d.", digit)
+	if partitionConflict(evidence.Partitions[0]) || partitionConflict(evidence.Partitions[1]) {
+		compare = "Alternating that either-or choice separates the highlighted candidates into two groups. Two cells in one group share a unit, so that group cannot be true and the other group must be true."
+	}
+	return []HintStep{
+		{ID: "find-simple-coloring", Kind: HintStepObserve, Message: fmt.Sprintf("For candidate %d, follow the highlighted links. In each linked row, column, or box, %d has exactly two possible cells, so one must contain %d and the other cannot.", digit, digit, digit), Marks: marks},
+		{ID: "compare-simple-coloring", Kind: HintStepCompare, Message: compare, Marks: marks},
+		{ID: "apply-simple-coloring", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because the alternating groups settle the highlighted candidates, %s This method is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+	}
+}
+
+func partitionConflict(partition solver.CandidatePartition) bool {
+	for left := 0; left < len(partition.Candidates); left++ {
+		for right := left + 1; right < len(partition.Candidates); right++ {
+			if sharesTeachingUnit(partition.Candidates[left].Position, partition.Candidates[right].Position) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func xCycleSteps(move *solver.Move, display string) []HintStep {
+	evidence := move.Evidence
+	if evidence == nil {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
+	if len(evidence.Chain) < 3 || len(evidence.Links) < 3 {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
+	}
+	digit := evidence.Links[0].From.Value
+	marks := unitAndPremiseMarks(evidence)
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	locations := make([]string, len(evidence.Chain))
+	for index, group := range evidence.Chain {
+		locations[index] = cellName(group.Position)
+	}
+	compare := fmt.Sprintf("The links alternate around the loop and return to %s. If that cell contained %d, following the cannot-both and must-contain links would return requiring it not to contain %d, so %d must be removed there.", cellName(evidence.Chain[0].Position), digit, digit, digit)
+	if conclusion.Placement != nil && conclusion.Placement.Value == digit {
+		compare = fmt.Sprintf("The links alternate around the loop and return to %s. If that cell did not contain %d, following the must-contain and cannot-both links would return requiring it to contain %d, so %d must go there.", cellName(evidence.Chain[0].Position), digit, digit, digit)
+	}
+	return []HintStep{
+		{ID: "find-x-cycle", Kind: HintStepObserve, Message: fmt.Sprintf("For candidate %d, follow the loop through %s. A must-contain link has exactly two possible cells in a unit; a cannot-both link joins cells that share a unit.", digit, joinNatural(locations)), Marks: marks},
+		{ID: "compare-x-cycle", Kind: HintStepCompare, Message: compare, Marks: marks},
+		{ID: "apply-x-cycle", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because the alternating loop closes with that forced result, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+	}
+}
+
+func xyChainSteps(move *solver.Move, display string) []HintStep {
+	evidence := move.Evidence
+	if evidence == nil {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
+	if len(evidence.Chain) < 4 {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
+	}
+	marks := unitAndPremiseMarks(evidence)
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	endpoint := sharedCandidate(evidence.Chain[0].Values, evidence.Chain[len(evidence.Chain)-1].Values)
+	cells := make([]string, len(evidence.Chain))
+	for index, group := range evidence.Chain {
+		cells[index] = fmt.Sprintf("%s with %s", cellName(group.Position), intsText(group.Values))
+	}
+	return []HintStep{
+		{ID: "find-xy-chain", Kind: HintStepObserve, Message: fmt.Sprintf("Follow these two-candidate cells in order: %s. Each neighboring pair sees each other and shares one candidate.", joinNatural(cells)), Marks: marks},
+		{ID: "compare-xy-chain", Kind: HintStepCompare, Message: fmt.Sprintf("If the first endpoint does not contain %d, its other candidate forces the shared candidate in the next cell. That implication continues through the chain until the last endpoint must contain %d, so at least one endpoint contains %d.", endpoint, endpoint, endpoint), Marks: marks},
+		{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because every highlighted target sees both endpoints, it cannot contain %d; %s This pattern is called an %s.", endpoint, deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 

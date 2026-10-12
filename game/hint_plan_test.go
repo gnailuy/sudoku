@@ -290,6 +290,60 @@ func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
 	}
 }
 
+func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
+	games := realGamesForHintStrategies(t)
+	store := solver.NewStore()
+	keys := store.GetAllStrategySolverKeys()
+	for _, key := range []string{"simple-coloring", "x-cycles", "xy-chain"} {
+		t.Run(key, func(t *testing.T) {
+			options := NewDefaultOptions(store)
+			options.StrategySolverKeys = keys
+			current := NewGame(boardFromPuzzle(t, games[key]), options)
+			var plan *HintPlan
+			for number := 0; number < 128; number++ {
+				plan = current.Hint()
+				if plan == nil {
+					t.Fatalf("exhausted hints before %s", key)
+				}
+				if plan.Strategy.ID == key {
+					break
+				}
+				if _, err := current.Apply(ApplyHint{PlanID: plan.PlanID}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != 3 {
+				t.Fatalf("unexpected family plan: %+v", plan)
+			}
+			for _, step := range plan.Steps[:2] {
+				if strings.Contains(step.Message, plan.Strategy.DisplayName) {
+					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message)
+				}
+				if strings.Contains(step.Message, "r1c") || strings.Contains(step.Message, "(") {
+					t.Fatalf("family plan exposes compact notation: %q", step.Message)
+				}
+			}
+			if !strings.Contains(plan.Steps[2].Message, "Because") || !strings.Contains(plan.Steps[2].Message, plan.Strategy.DisplayName) {
+				t.Fatalf("conclusion does not explain then name the strategy: %q", plan.Steps[2].Message)
+			}
+			switch key {
+			case "simple-coloring":
+				if !strings.Contains(plan.Steps[0].Message, "exactly two possible cells") || !strings.Contains(plan.Steps[1].Message, "two groups") {
+					t.Fatalf("coloring plan does not teach alternating groups: %+v", plan.Steps)
+				}
+			case "x-cycles":
+				if !strings.Contains(plan.Steps[0].Message, "must-contain link") || !strings.Contains(plan.Steps[0].Message, "cannot-both link") || !strings.Contains(plan.Steps[1].Message, "return") {
+					t.Fatalf("cycle plan does not teach alternating links: %+v", plan.Steps)
+				}
+			case "xy-chain":
+				if !strings.Contains(plan.Steps[0].Message, "two-candidate cells") || !strings.Contains(plan.Steps[1].Message, "implication continues") || !strings.Contains(plan.Steps[1].Message, "at least one endpoint") {
+					t.Fatalf("XY-chain plan does not teach the endpoint implication: %+v", plan.Steps)
+				}
+			}
+		})
+	}
+}
+
 func TestBoxLineReductionUsesItsSpecificRelationshipName(t *testing.T) {
 	source := solver.UnitRef{Kind: solver.UnitRow, Index: 3}
 	box := solver.UnitRef{Kind: solver.UnitBox, Index: 3}

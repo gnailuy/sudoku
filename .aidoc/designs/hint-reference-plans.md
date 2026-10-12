@@ -78,4 +78,10 @@ BUG+1 plans identify the only unsolved cell with three candidates after establis
 
 Unique Rectangle Types 1–4 first identify four corners spanning two rows, two columns, and two boxes plus the candidate pair common to every corner. The comparison then distinguishes the exact typed relationship: one expanded corner for Type 1, a shared extra candidate for Type 2, a unit-scoped subset for Type 3, or a conjugate pair for Type 4. `solver.Evidence.Premises`, `solver.Evidence.Unit`, and exact eliminations preserve those facts without parsing solver reasons.
 
-The remaining registered strategies use the same semantic roles and exact effects through the shared evidence composition defined in `.aidoc/designs/hint-presentation-protocol.md`; separate examples are unnecessary until another family establishes a distinct teaching invariant.
+## Coloring and Chain Families
+
+Simple Coloring plans begin with the concrete either-or fact behind each highlighted link: one candidate has exactly two possible cells in a unit, so one endpoint must contain it. `solver.Evidence.Partitions` records the two alternating groups, and typed strong links connect them. The comparison then shows either that one group conflicts within a unit or that a target sees both possible groups before the conclusion names Simple Coloring.
+
+X-Cycles plans preserve the ordered single-candidate loop and classify each typed link as must-contain or cannot-both. The comparison follows the alternating loop back to its first cell and explains why two closing must-contain links force the candidate there or two closing cannot-both links remove it. The renderer never reconstructs the loop from the strategy name or diagnostic prose.
+
+XY-Chain plans preserve every ordered bivalue cell plus the candidate shared by each neighboring pair. The comparison walks the implication from the first endpoint to the last: if the first endpoint lacks the common endpoint digit, each cell's other candidate forces the next shared candidate until the final endpoint must contain it. A cell seeing both endpoints can therefore remove that digit before the conclusion names XY-Chain.
