@@ -340,7 +340,7 @@ func fishSteps(move *solver.Move, display string) []HintStep {
 	marks := unitAndPremiseMarks(evidence)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	return []HintStep{
-		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: fmt.Sprintf("For candidate %d, look at %s and %s. In each selected %s, %d appears only at the highlighted intersections.", digit, namedUnits(baseUnits), namedUnits(crossUnits), pluralUnit(baseUnits[0].Kind), digit), Marks: marks},
+		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: fmt.Sprintf("For candidate %d, look at %s and %s. In each selected %s, %d appears only at the highlighted intersections.", digit, groupedUnits(baseUnits), groupedUnits(crossUnits), baseUnits[0].Kind, digit), Marks: marks},
 		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: fmt.Sprintf("Those %d %s confine candidate %d to the same %d %s, so other cells in those %s cannot contain %d.", size, pluralUnit(baseUnits[0].Kind), digit, size, pluralUnit(crossUnits[0].Kind), pluralUnit(crossUnits[0].Kind), digit), Marks: marks},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because candidate %d is locked into those intersections, %s This pattern is called %s.", digit, deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
@@ -391,13 +391,12 @@ func unitAndPremiseMarks(evidence *solver.Evidence) []HintMark {
 	return marks
 }
 
-func namedUnits(units []solver.UnitRef) string {
-	names := make([]string, len(units))
-	for index := range units {
-		unit := units[index]
-		names[index] = namedUnit(&unit)
+func groupedUnits(units []solver.UnitRef) string {
+	indices := make([]int, len(units))
+	for index, unit := range units {
+		indices[index] = unit.Index + 1
 	}
-	return joinNatural(names)
+	return pluralUnit(units[0].Kind) + " " + intsText(indices)
 }
 
 func pluralUnit(kind solver.UnitKind) string {
