@@ -64,4 +64,12 @@ Naked Pair–Quad plans first identify the exact cells and their combined candid
 
 Pointing Pair and Box-Line Reduction plans identify one candidate, its exact premise cells, and both intersecting units. A box-first source names Pointing Pair because the candidate is confined to one row or column inside the box; a row- or column-first source names Box-Line Reduction because the candidate is confined to one box. `solver.Evidence.Unit` identifies the source direction, while `solver.Evidence.Units` preserves both units.
 
+## Fish Family
+
+X-Wing, Swordfish, and Jellyfish plans identify one candidate, two to four base lines, the same number of cross lines, and every highlighted intersection where that candidate remains. The comparison explains that confinement across the base lines removes the candidate from other cells on the cross lines. `solver.FishSolver` preserves the ordered base and cross units plus exact premise candidates, so the composer never infers orientation from prose or strategy names.
+
+## Relational Wing Family
+
+XY-Wing and XYZ-Wing plans identify one pivot and two wings with their exact candidate sets before explaining the shared-candidate implication. W-Wing plans identify two equal bi-value outer cells and both ends of the strong link before explaining why one outer cell must take the elimination candidate. `solver.XYWingSolver`, `solver.XYZWingSolver`, and `solver.WWingSolver` preserve the role order in typed premises, allowing the shared composer to name plain row-and-column locations without parsing solver reasons.
+
 The remaining registered strategies use the same semantic roles and exact effects through the shared evidence composition defined in `.aidoc/designs/hint-presentation-protocol.md`; separate examples are unnecessary until another family establishes a distinct teaching invariant.

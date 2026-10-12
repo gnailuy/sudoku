@@ -192,7 +192,16 @@ func (s *WWingSolver) tryWWing(board *core.Board, cellA, cellB core.Position, li
 		}
 
 		if eliminated {
+			pairValues := []int{linkDigit, elimDigit}
+			sort.Ints(pairValues)
+			evidence := &Evidence{Premises: []CandidateGroup{
+				{Position: cellA, Values: append([]int(nil), pairValues...)},
+				{Position: cellB, Values: append([]int(nil), pairValues...)},
+				{Position: aEnd, Values: []int{linkDigit}},
+				{Position: bEnd, Values: []int{linkDigit}},
+			}}
 			if move != nil {
+				move.Evidence = evidence
 				return move
 			}
 			return &Move{
@@ -205,6 +214,7 @@ func (s *WWingSolver) tryWWing(board *core.Board, cellA, cellB core.Position, li
 					aEnd.ToString(), bEnd.ToString(),
 					elimDigit,
 				),
+				Evidence: evidence,
 			}
 		}
 	}

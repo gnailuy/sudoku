@@ -153,6 +153,10 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		plan.Steps = hiddenSubsetSteps(move, display)
 	case "pointing-pair":
 		plan.Steps = intersectionSteps(move)
+	case "x-wing", "swordfish", "jellyfish":
+		plan.Steps = fishSteps(move, display)
+	case "xy-wing", "w-wing", "xyz-wing":
+		plan.Steps = relationalSteps(move, display)
 	default:
 		plan.Steps = evidenceSteps(move, plan.Conclusion)
 	}
@@ -326,6 +330,96 @@ func intersectionSteps(move *solver.Move) []HintStep {
 		{ID: "compare-intersection", Kind: HintStepCompare, Message: fmt.Sprintf("Candidate %d is therefore unavailable in the rest of %s outside %s.", value, other, source), Marks: premiseMarks},
 		{ID: "apply-intersection", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because candidate %d is confined to that intersection, %s This is called %s.", value, deductionPhrase(conclusion), name), Marks: append(premiseMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
+}
+
+func fishSteps(move *solver.Move, display string) []HintStep {
+	evidence := move.Evidence
+	size := map[string]int{"x-wing": 2, "swordfish": 3, "jellyfish": 4}[move.Technique]
+	baseUnits, crossUnits := evidence.Units[:size], evidence.Units[size:size*2]
+	digit := evidence.Premises[0].Values[0]
+	marks := unitAndPremiseMarks(evidence)
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	return []HintStep{
+		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: fmt.Sprintf("For candidate %d, look at %s and %s. In each selected %s, %d appears only at the highlighted intersections.", digit, groupedUnits(baseUnits), groupedUnits(crossUnits), baseUnits[0].Kind, digit), Marks: marks},
+		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: fmt.Sprintf("Those %d %s confine candidate %d to the same %d %s, so other cells in those %s cannot contain %d.", size, pluralUnit(baseUnits[0].Kind), digit, size, pluralUnit(crossUnits[0].Kind), pluralUnit(crossUnits[0].Kind), digit), Marks: marks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because candidate %d is locked into those intersections, %s This pattern is called %s.", digit, deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+	}
+}
+
+func relationalSteps(move *solver.Move, display string) []HintStep {
+	evidence := move.Evidence
+	premises := evidence.Premises
+	marks := unitAndPremiseMarks(evidence)
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	var observe, compare string
+	switch move.Technique {
+	case "xy-wing":
+		shared := sharedCandidate(premises[1].Values, premises[2].Values)
+		observe = fmt.Sprintf("Look at pivot %s with candidates %s and its two wings, %s with %s and %s with %s.", cellName(premises[0].Position), intsText(premises[0].Values), cellName(premises[1].Position), intsText(premises[1].Values), cellName(premises[2].Position), intsText(premises[2].Values))
+		compare = fmt.Sprintf("Whichever value the pivot takes, one wing must contain %d, so any cell that sees both wings cannot contain %d.", shared, shared)
+	case "w-wing":
+		link := premises[2].Values[0]
+		pair := intsText(premises[0].Values)
+		observe = fmt.Sprintf("Look at %s and %s. Both contain only %s, and candidate %d has a strong link between %s and %s.", cellName(premises[0].Position), cellName(premises[1].Position), pair, link, cellName(premises[2].Position), cellName(premises[3].Position))
+		compare = "The strong link guarantees that one of the two outer cells takes the other candidate, so a cell that sees both outer cells cannot use it."
+	case "xyz-wing":
+		shared := sharedCandidate(premises[0].Values, premises[1].Values, premises[2].Values)
+		observe = fmt.Sprintf("Look at pivot %s with candidates %s and its two wings, %s with %s and %s with %s.", cellName(premises[0].Position), intsText(premises[0].Values), cellName(premises[1].Position), intsText(premises[1].Values), cellName(premises[2].Position), intsText(premises[2].Values))
+		compare = fmt.Sprintf("One of those three cells must contain %d, so any cell that sees the pivot and both wings cannot contain %d.", shared, shared)
+	}
+	return []HintStep{
+		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: observe, Marks: marks},
+		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: compare, Marks: marks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because that candidate relationship holds, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+	}
+}
+
+func unitAndPremiseMarks(evidence *solver.Evidence) []HintMark {
+	var marks []HintMark
+	for _, unitRef := range evidence.Units {
+		unit := unitRef
+		if target, ok := unitTarget(&unit); ok {
+			marks = append(marks, HintMark{Target: target, Role: HintRoleFocus})
+		}
+	}
+	for _, premise := range evidence.Premises {
+		marks = append(marks, HintMark{Target: cellTarget(premise.Position), Role: HintRoleFocus})
+		for _, value := range premise.Values {
+			marks = append(marks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: value}), Role: HintRolePremise})
+		}
+	}
+	return marks
+}
+
+func groupedUnits(units []solver.UnitRef) string {
+	indices := make([]int, len(units))
+	for index, unit := range units {
+		indices[index] = unit.Index + 1
+	}
+	return pluralUnit(units[0].Kind) + " " + intsText(indices)
+}
+
+func pluralUnit(kind solver.UnitKind) string {
+	return string(kind) + "s"
+}
+
+func sharedCandidate(groups ...[]int) int {
+	counts := make(map[int]int)
+	for _, values := range groups {
+		seen := make(map[int]struct{})
+		for _, value := range values {
+			seen[value] = struct{}{}
+		}
+		for value := range seen {
+			counts[value]++
+		}
+	}
+	for value, count := range counts {
+		if count == len(groups) {
+			return value
+		}
+	}
+	return 0
 }
 
 func placement(move *solver.Move) *core.Cell {

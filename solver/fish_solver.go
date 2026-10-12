@@ -191,13 +191,16 @@ func (s *FishSolver) fishCombinationsSearch(board *core.Board, eligible []fishLi
 		}
 
 		if eliminated {
+			evidence := fishEvidence(eligible, indices, crossLines, digit, rowBased, s.size)
 			if move != nil {
+				move.Evidence = evidence
 				return move
 			}
 			return &Move{
 				EliminationOnly: true,
 				Technique:       s.Key,
 				Reason:          s.formatEliminationReason(digit, baseLines, crossLines, rowBased),
+				Evidence:        evidence,
 			}
 		}
 
@@ -212,6 +215,31 @@ func (s *FishSolver) fishCombinationsSearch(board *core.Board, eligible []fishLi
 	}
 
 	return nil
+}
+
+func fishEvidence(eligible []fishLineInfo, indices, crossLines []int, digit int, rowBased bool, size int) *Evidence {
+	baseKind, crossKind := UnitRow, UnitColumn
+	if !rowBased {
+		baseKind, crossKind = UnitColumn, UnitRow
+	}
+	units := make([]UnitRef, 0, size*2)
+	premises := make([]CandidateGroup, 0, size*size)
+	for _, selected := range indices[:size] {
+		line := eligible[selected]
+		units = append(units, UnitRef{Kind: baseKind, Index: line.lineIndex})
+		for _, cross := range line.crossPositions {
+			position := core.NewPosition(line.lineIndex, cross)
+			if !rowBased {
+				position = core.NewPosition(cross, line.lineIndex)
+			}
+			premises = append(premises, CandidateGroup{Position: position, Values: []int{digit}})
+		}
+	}
+	for _, cross := range crossLines {
+		units = append(units, UnitRef{Kind: crossKind, Index: cross})
+	}
+	primary := units[0]
+	return &Evidence{Unit: &primary, Units: units, Premises: premises}
 }
 
 // formatReason creates a human-readable explanation for a fish placement move.
