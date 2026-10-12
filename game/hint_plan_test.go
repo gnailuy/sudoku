@@ -73,10 +73,12 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	if err != nil || len(result.Changes) == 0 || !result.CanUndo {
 		t.Fatalf("apply elimination plan = %+v, %v", result, err)
 	}
+	expectedNotes := before.Candidates
 	for _, elimination := range plan.Conclusion.Eliminations {
-		if game.Snapshot().Notes[elimination.Position.Row][elimination.Position.Column].Has(elimination.Value) {
-			t.Fatalf("candidate %d remained at %+v", elimination.Value, elimination.Position)
-		}
+		expectedNotes[elimination.Position.Row][elimination.Position.Column].Remove(elimination.Value)
+	}
+	if after := game.Snapshot(); after.Notes != expectedNotes {
+		t.Fatalf("elimination did not materialize the candidate map: expected=%v after=%v", expectedNotes, after.Notes)
 	}
 	if _, err := game.Apply(Undo{}); err != nil {
 		t.Fatal(err)

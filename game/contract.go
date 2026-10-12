@@ -308,6 +308,16 @@ func (game *Game) applyHintPlan(plan *HintPlan) error {
 	}
 
 	next := game.notes
+	if noteMapIsEmpty(next) {
+		for row := range next {
+			for column := range next[row] {
+				position := core.Position{Row: row, Column: column}
+				if game.Get(position) == 0 && game.problemBoard.Get(position) == 0 {
+					next[row][column] = game.playBoard.Candidates(position)
+				}
+			}
+		}
+	}
 	changed := false
 	for _, elimination := range plan.Conclusion.Eliminations {
 		position := elimination.Position
@@ -332,6 +342,17 @@ func (game *Game) applyHintPlan(plan *HintPlan) error {
 	game.notes = next
 	game.recordTransition(before)
 	return nil
+}
+
+func noteMapIsEmpty(notes [9][9]core.CandidateSet) bool {
+	for row := range notes {
+		for column := range notes[row] {
+			if !notes[row][column].IsEmpty() {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (game *Game) status() Status {
