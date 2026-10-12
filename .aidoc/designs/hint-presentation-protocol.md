@@ -95,7 +95,7 @@ Applying the conclusion is a separate player intent because the player may inspe
 
 A client does not translate a preview into unrelated ordinary actions because that would discard exact-plan verification and could split a multi-cell elimination across history entries. The `apply-hint` kind exists for provenance, validation, and atomicity while remaining part of the ordinary action union.
 
-A placement conclusion records one value transition. An elimination conclusion records one atomic manual-note transition across every affected cell: existing notes are filtered without adding candidates, while an affected cell with no notes uses its current legal candidates as the local baseline before the proven digits are removed. This bounded materialization makes the deduction visible without replacing unrelated player notes or changing `core.Board.Candidates`.
+A placement conclusion records one value transition. An elimination conclusion records one atomic manual-note transition across every affected cell. When the manual-note map is empty, the engine first materializes the complete current legal-candidate grid and then removes the proven digits; clients can therefore move from automatic-candidate preview to the reduced player-owned notes without losing the rest of the grid. When any manual notes already exist, existing notes are preserved and only an affected empty note set uses its current legal candidates as the local baseline. Neither path changes `core.Board.Candidates`.
 
 Elimination application never places a value, even when the remaining notes form a single. The complete note delta is one undoable history entry, and a conclusion already absent from every affected note set is stale or consumed rather than an accepted no-op.
 
