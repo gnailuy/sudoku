@@ -192,9 +192,11 @@ func (s *WWingSolver) tryWWing(board *core.Board, cellA, cellB core.Position, li
 		}
 
 		if eliminated {
+			pairValues := []int{linkDigit, elimDigit}
+			sort.Ints(pairValues)
 			evidence := &Evidence{Premises: []CandidateGroup{
-				{Position: cellA, Values: []int{linkDigit, elimDigit}},
-				{Position: cellB, Values: []int{linkDigit, elimDigit}},
+				{Position: cellA, Values: append([]int(nil), pairValues...)},
+				{Position: cellB, Values: append([]int(nil), pairValues...)},
 				{Position: aEnd, Values: []int{linkDigit}},
 				{Position: bEnd, Values: []int{linkDigit}},
 			}}
