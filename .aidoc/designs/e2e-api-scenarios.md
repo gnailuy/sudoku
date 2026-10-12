@@ -5,6 +5,8 @@ entry_points:
   - scripts/e2e_api.py
   - webapi/server_test.go
   - webapi/account_routes_test.go
+  - webapi/hint_strategy_routes_test.go
+  - tools/e2e-web-server/main.go
 dependencies:
   - .aidoc/designs/web-api.md
   - .aidoc/designs/user-accounts.md
@@ -47,9 +49,9 @@ OpenAPI validation cannot prove listener safety, generated routing, middleware o
 
 ## Configured Guest and Account Integration
 
-**Action:** Create a sealed guest game, preview a hint, apply revisioned note/value/hint actions, and replace the document after each accepted mutation.
+**Action:** Create a sealed guest game, preview a hint, apply revisioned note/value/hint actions, and replace the document after each accepted mutation. Repeat preview and exact apply over the maintained complete-game manifest until each of the 23 registered strategies crosses the HTTP handler boundary.
 
-**Expected:** Guest state creates no user, application-session, account-game, claim, or recovery row. Revisions advance once, stale or wrong hint plans fail, and every replacement document opens to the authoritative snapshot.
+**Expected:** Guest state creates no user, application-session, account-game, claim, or recovery row. Revisions advance once, stale or wrong hint plans fail, and every replacement document opens to the authoritative snapshot. Every strategy exposes its public identifier, name, grade, ordered teaching steps, and typed semantic marks before the exact `plan_id` advances the sealed document by one revision.
 
 **Action:** Complete deterministic local OIDC login, use the application-session cookie and request proof, create an account game, claim a guest game twice, mutate/list/delete owned games, revoke sessions, and delete the account.
 
@@ -58,6 +60,12 @@ OpenAPI validation cannot prove listener safety, generated routing, middleware o
 **Action:** Exercise hint plans, complete note replacement, candidate adoption, invalid-value mistake counting, Undo/Redo, elapsed-time synchronization, and revision conflict in guest and account modes.
 
 **Expected:** Both ownership modes expose identical game-engine semantics. Read-only hints do not mutate state; an elimination hint applied to an empty note map materializes the candidate grid, removes and persists the taught candidates in one undoable revision, and the next hint does not repeat the consumed deduction after document replacement; accepted actions advance once; stale writes never overwrite authoritative state.
+
+## Cross-Repository Browser Harness
+
+**Action:** Start `go run ./tools/e2e-web-server` from an isolated checkout, then run the web client's dedicated full-stack Playwright corpus through its Vite proxy.
+
+**Expected:** The harness exposes only temporary guest/account state, cycles through the maintained minimal nine-game fixture corpus, and uses the production HTTP handler, sealed-document transport, revisions, engine, and strategy registry. The web client must solve every game and observe the exact 23-strategy union. The harness is test infrastructure rather than a production server mode.
 
 ## Database Cutover
 

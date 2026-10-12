@@ -40,7 +40,7 @@ def read_response(master, process, timeout=10):
                 output.extend(os.read(master, 65536))
             except OSError:
                 break
-            if PROMPT.encode() in output:
+            if PROMPT.encode() in output or b"Congratulations! You have solved the problem." in output:
                 return output.decode(errors="replace")
         if process.poll() is not None:
             while True:

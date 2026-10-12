@@ -202,8 +202,12 @@ The project index provides reading chains for common starting points and a compl
 | `scripts/import_sudoku_exchange_diabolical.sh` | Exact public-domain source download pin and import composition |
 | `scripts/e2e_cli.py` | Built-binary line CLI, session, calibration, import, generation, and SQLite E2E harness |
 | `scripts/e2e_hint_strategies.py` | Built-binary user-perspective hint preview/apply matrix for every registered strategy |
+| `scripts/e2e_full_game_hints.py` | Built-binary minimal corpus of complete hint-driven games covering the exact strategy registry |
+| `tools/export-hint-plans/main.go` | Deterministic API-shaped every-strategy fixture exporter for renderer acceptance tests |
+| `tools/e2e-web-server/main.go` | Isolated deterministic guest HTTP harness for cross-repository full-game browser acceptance |
 | `scripts/e2e_api.py` | Built-binary HTTP lifecycle E2E harness |
 | `scripts/e2e_tui.py` | Built-binary PTY TUI and recovery E2E harness |
+| `scripts/e2e_tui_hint_strategies.py` | Built-binary PTY preview/navigation/apply matrix for every registered strategy |
 | `scripts/coverage_report.py` | Package-level Go coverage summary for risk-based CI review |
 | `db/db.go` | SQLite puzzle and account database — open, close, schema migration |
 | `db/accounts.go` | Provider identity, revocable session, and owner-scoped account-game persistence |
