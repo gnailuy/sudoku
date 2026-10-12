@@ -6,6 +6,7 @@ entry_points:
   - cmd/root.go
   - cli/controller.go
   - scripts/e2e_hint_strategies.py
+  - scripts/e2e_full_game_hints.py
 dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/game-engine.md
@@ -105,19 +106,23 @@ The game-command scenarios verify the stable engine boundary through the real te
 **Action:** Execute `scripts/e2e_hint_strategies.py` against the built binary. The harness starts one complete valid game per registered strategy and repeatedly uses the public `hint` and `hint apply` commands.
 **Expected:** All 23 registered strategies appear with their public display name and strategy grade, expose an exact conclusion, and are accepted through the same CLI action a player uses. The shared `game/testdata/hint_strategy_games.json` manifest keeps the black-box matrix aligned with package-level typed-plan coverage without candidate-only synthetic boards.
 
-### 2.10 Solve (`solve` / `s`)
+### 2.10 Complete Hint-Driven Games and Exact Strategy Union
+**Action:** Execute `scripts/e2e_full_game_hints.py` against the built binary. The harness solves the maintained minimal nine-game corpus entirely through repeated public `hint` and `hint apply` commands and collects every displayed strategy.
+**Expected:** Every game starts from its original puzzle, reaches the normal solved completion message, and exits cleanly. The combined trace set equals the exact 23 public strategy names: no registered strategy is absent and no unregistered fallback is needed.
+
+### 2.11 Solve (`solve` / `s`)
 **Input:** `solve` or `s`
 **Expected:** The complete solution is displayed. "Congratulations" message shown.
 
-### 2.11 Quit (`quit` / `q`)
+### 2.12 Quit (`quit` / `q`)
 **Input:** `quit` or `q`
 **Expected:** Game exits cleanly.
 
-### 2.12 Shorthand Digit Input
+### 2.13 Shorthand Digit Input
 **Input:** `1 2 3` (no `add` prefix)
 **Expected:** Treated as `add 1 2 3`. Cell (1,2) is set to 3.
 
-### 2.13 Divergent Input Truncates Redo History
+### 2.14 Divergent Input Truncates Redo History
 **Input:** Add a value, undo it, add a different value, then run `redo`.
 **Expected:** The different value remains in the cell and the abandoned value does not reappear because the new action replaced the old redo branch.
 
