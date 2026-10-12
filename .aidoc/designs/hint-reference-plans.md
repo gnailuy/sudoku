@@ -54,4 +54,14 @@ The Naked Pair reference examines row 4, where `r4c2` and `r4c7` each contain ex
 | `reserve-r4c2-r4c7` | `compare` | focus row 4; premise pair cells; focus candidate `r4c9:2` | none | “Those two cells must contain 2 and 7 in some order, so no other cell in row 4 can contain either digit.” |
 | `remove-pair-candidates` | `eliminate` | premise pair cells; conclusion candidate `r4c9:2` | eliminate candidate `2` from `r4c9` | “Because those two cells reserve 2 and 7, remove candidate 2 from row 4, column 9; this deduction does not place a value. This pattern is called a Naked Pair.” |
 
-Every renderer applies the same conclusion without parsing fallback prose or reconstructing logic from the technique name. The Naked Pair reference explicitly proves that a valid hint may change notes without placing a value. The remaining registered strategies use the same semantic roles and exact effects through the shared evidence composition defined in `.aidoc/designs/hint-presentation-protocol.md`; separate examples are unnecessary because they would duplicate the protocol rather than establish another invariant.
+Every renderer applies the same conclusion without parsing fallback prose or reconstructing logic from the technique name. The Naked Pair reference explicitly proves that a valid hint may change notes without placing a value.
+
+## Subset Family
+
+Naked Pair–Quad plans first identify the exact cells and their combined candidate set, then explain that the cells reserve the same number of digits before applying the placement or elimination. Hidden Pair–Quad plans invert the relationship: the selected digits appear only in the highlighted cells, so other candidates in those cells can be removed. `solver.Evidence.Premises` and `solver.Evidence.Unit` carry these facts without prose parsing.
+
+## Box/Line Intersections
+
+Pointing Pair and Box-Line Reduction plans identify one candidate, its exact premise cells, and both intersecting units. A box-first source names Pointing Pair because the candidate is confined to one row or column inside the box; a row- or column-first source names Box-Line Reduction because the candidate is confined to one box. `solver.Evidence.Unit` identifies the source direction, while `solver.Evidence.Units` preserves both units.
+
+The remaining registered strategies use the same semantic roles and exact effects through the shared evidence composition defined in `.aidoc/designs/hint-presentation-protocol.md`; separate examples are unnecessary until another family establishes a distinct teaching invariant.

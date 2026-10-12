@@ -139,3 +139,76 @@ func sameEliminations(left, right []solver.CandidateRef) bool {
 	}
 	return true
 }
+
+func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
+	games := realGamesForHintStrategies(t)
+	store := solver.NewStore()
+	keys := store.GetAllStrategySolverKeys()
+	families := []string{
+		"naked-pair", "naked-triple", "naked-quad",
+		"hidden-pair", "hidden-triple", "hidden-quad",
+		"pointing-pair",
+	}
+	for _, key := range families {
+		t.Run(key, func(t *testing.T) {
+			options := NewDefaultOptions(store)
+			options.StrategySolverKeys = keys
+			current := NewGame(boardFromPuzzle(t, games[key]), options)
+			var plan *HintPlan
+			for number := 0; number < 128; number++ {
+				plan = current.Hint()
+				if plan == nil {
+					t.Fatalf("exhausted hints before %s", key)
+				}
+				if plan.Strategy.ID == key {
+					break
+				}
+				if _, err := current.Apply(ApplyHint{PlanID: plan.PlanID}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != 3 {
+				t.Fatalf("unexpected family plan: %+v", plan)
+			}
+			for _, step := range plan.Steps[:2] {
+				if strings.Contains(step.Message, plan.Strategy.DisplayName) {
+					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message)
+				}
+			}
+			last := plan.Steps[2].Message
+			expectedName := plan.Strategy.DisplayName
+			if key == "pointing-pair" {
+				expectedName = "Pointing Pair"
+			}
+			if !strings.Contains(last, "Because") || !strings.Contains(last, expectedName) {
+				t.Fatalf("conclusion does not explain then name the strategy: %q", last)
+			}
+			for _, step := range plan.Steps {
+				if strings.Contains(step.Message, "(") {
+					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestBoxLineReductionUsesItsSpecificRelationshipName(t *testing.T) {
+	source := solver.UnitRef{Kind: solver.UnitRow, Index: 3}
+	box := solver.UnitRef{Kind: solver.UnitBox, Index: 3}
+	move := &solver.Move{
+		Cell:      core.NewCell(core.NewPosition(4, 2), 7),
+		Technique: "pointing-pair",
+		Evidence: &solver.Evidence{
+			Unit:  &source,
+			Units: []solver.UnitRef{source, box},
+			Premises: []solver.CandidateGroup{
+				{Position: core.NewPosition(3, 0), Values: []int{9}},
+				{Position: core.NewPosition(3, 1), Values: []int{9}},
+			},
+		},
+	}
+	steps := intersectionSteps(move)
+	if !strings.Contains(steps[0].Message, "row 4") || !strings.Contains(steps[0].Message, "box 4") || !strings.Contains(steps[2].Message, "Box-Line Reduction") {
+		t.Fatalf("unexpected box-line teaching plan: %+v", steps)
+	}
+}

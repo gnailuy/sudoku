@@ -147,8 +147,12 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		plan.Steps = nakedSingleSteps(move)
 	case "hidden-single":
 		plan.Steps = hiddenSingleSteps(move)
-	case "naked-pair":
-		plan.Steps = nakedPairSteps(move)
+	case "naked-pair", "naked-triple", "naked-quad":
+		plan.Steps = nakedSubsetSteps(move, display)
+	case "hidden-pair", "hidden-triple", "hidden-quad":
+		plan.Steps = hiddenSubsetSteps(move, display)
+	case "pointing-pair":
+		plan.Steps = intersectionSteps(move)
 	default:
 		plan.Steps = evidenceSteps(move, plan.Conclusion)
 	}
@@ -235,32 +239,131 @@ func hiddenSingleSteps(move *solver.Move) []HintStep {
 	}
 }
 
-func nakedPairSteps(move *solver.Move) []HintStep {
+func nakedSubsetSteps(move *solver.Move, display string) []HintStep {
 	evidence := move.Evidence
 	unit, _ := unitTarget(evidence.Unit)
 	premiseMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
 	var cells []string
 	var cellIDs []string
-	var values []int
+	valueSet := make(map[int]struct{})
 	for _, premise := range evidence.Premises {
 		cells = append(cells, cellName(premise.Position))
 		cellIDs = append(cellIDs, compactCellName(premise.Position))
-		if len(values) == 0 {
-			values = append(values, premise.Values...)
-		}
 		for _, value := range premise.Values {
+			valueSet[value] = struct{}{}
 			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: value}), Role: HintRolePremise})
 		}
 	}
-	sort.Ints(values)
+	values := sortedValues(valueSet)
 	valueText := intsText(values)
-	unitName := fmt.Sprintf("%s %d", evidence.Unit.Kind, evidence.Unit.Index+1)
-	conclusion := conclusionMarks(HintConclusion{Eliminations: evidence.Eliminations})
+	unitName := namedUnit(evidence.Unit)
+	count := len(evidence.Premises)
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	finalMessage := fmt.Sprintf("Because those %d cells reserve %s, %s This pattern is called a %s.", count, valueText, deductionPhrase(conclusion), display)
 	return []HintStep{
-		{ID: "find-" + strings.Join(cellIDs, "-"), Kind: HintStepObserve, Message: fmt.Sprintf("In %s, the cells at %s each have exactly the same two candidates: %s.", unitName, strings.Join(cells, " and "), valueText), Marks: premiseMarks},
-		{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepCompare, Message: fmt.Sprintf("Those two cells must contain %s in some order, so no other cell in %s can contain either digit.", valueText, unitName), Marks: premiseMarks},
-		{ID: "remove-pair-candidates", Kind: HintStepEliminate, Message: fmt.Sprintf("Because those two cells reserve %s, %s This pattern is called a Naked Pair.", valueText, lowerFirst(eliminationMessage(evidence.Eliminations))), Marks: append(premiseMarks[1:], conclusion...), Effect: &HintEffect{Eliminations: append([]solver.CandidateRef(nil), evidence.Eliminations...)}},
+		{ID: "find-" + strings.Join(cellIDs, "-"), Kind: HintStepObserve, Message: fmt.Sprintf("In %s, look at %s. Together, those %d cells contain only %s.", unitName, joinNatural(cells), count, valueText), Marks: premiseMarks},
+		{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepCompare, Message: fmt.Sprintf("Those %d cells must contain %s in some order, so no other cell in %s can use those digits.", count, valueText, unitName), Marks: premiseMarks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: finalMessage, Marks: append(premiseMarks[1:], conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
+}
+
+func hiddenSubsetSteps(move *solver.Move, display string) []HintStep {
+	evidence := move.Evidence
+	unit, _ := unitTarget(evidence.Unit)
+	premiseMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+	var cells []string
+	valueSet := make(map[int]struct{})
+	for _, premise := range evidence.Premises {
+		cells = append(cells, cellName(premise.Position))
+		for _, value := range premise.Values {
+			valueSet[value] = struct{}{}
+			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: value}), Role: HintRolePremise})
+		}
+	}
+	values := sortedValues(valueSet)
+	valueText := intsText(values)
+	unitName := namedUnit(evidence.Unit)
+	count := len(values)
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	return []HintStep{
+		{ID: "find-confined-" + move.Technique, Kind: HintStepObserve, Message: fmt.Sprintf("In %s, the digits %s can appear only in %s.", unitName, valueText, joinNatural(cells)), Marks: premiseMarks},
+		{ID: "compare-confined-" + move.Technique, Kind: HintStepCompare, Message: fmt.Sprintf("Those %d digits must fill those %d cells in some order, so every other candidate in the cells can be removed.", count, len(cells)), Marks: premiseMarks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because %s are confined to those cells, %s This pattern is called a %s.", valueText, deductionPhrase(conclusion), display), Marks: append(premiseMarks[1:], conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+	}
+}
+
+func intersectionSteps(move *solver.Move) []HintStep {
+	evidence := move.Evidence
+	var premiseMarks []HintMark
+	for _, unitRef := range evidence.Units {
+		unit := unitRef
+		target, _ := unitTarget(&unit)
+		premiseMarks = append(premiseMarks, HintMark{Target: target, Role: HintRoleFocus})
+	}
+	var cells []string
+	value := 0
+	for _, premise := range evidence.Premises {
+		cells = append(cells, cellName(premise.Position))
+		for _, candidate := range premise.Values {
+			value = candidate
+			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: candidate}), Role: HintRolePremise})
+		}
+	}
+	source := namedUnit(evidence.Unit)
+	other := "the intersecting unit"
+	if len(evidence.Units) > 1 {
+		other = namedUnit(&evidence.Units[1])
+	}
+	name := "Pointing Pair"
+	relation := fmt.Sprintf("Within %s, candidate %d appears only in %s, all on %s.", source, value, joinNatural(cells), other)
+	if evidence.Unit != nil && evidence.Unit.Kind != solver.UnitBox {
+		name = "Box-Line Reduction"
+		relation = fmt.Sprintf("Within %s, candidate %d appears only in %s, all inside %s.", source, value, joinNatural(cells), other)
+	}
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	return []HintStep{
+		{ID: "find-intersection", Kind: HintStepObserve, Message: relation, Marks: premiseMarks},
+		{ID: "compare-intersection", Kind: HintStepCompare, Message: fmt.Sprintf("Candidate %d is therefore unavailable in the rest of %s outside %s.", value, other, source), Marks: premiseMarks},
+		{ID: "apply-intersection", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because candidate %d is confined to that intersection, %s This is called %s.", value, deductionPhrase(conclusion), name), Marks: append(premiseMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+	}
+}
+
+func placement(move *solver.Move) *core.Cell {
+	if move.IsPlacement() {
+		cell := move.Cell
+		return &cell
+	}
+	return nil
+}
+
+func conclusionKind(conclusion HintConclusion) HintStepKind {
+	if conclusion.Placement != nil {
+		return HintStepConclude
+	}
+	return HintStepEliminate
+}
+
+func namedUnit(unit *solver.UnitRef) string {
+	if unit == nil {
+		return "the highlighted unit"
+	}
+	return fmt.Sprintf("%s %d", unit.Kind, unit.Index+1)
+}
+
+func sortedValues(set map[int]struct{}) []int {
+	values := make([]int, 0, len(set))
+	for value := range set {
+		values = append(values, value)
+	}
+	sort.Ints(values)
+	return values
+}
+
+func joinNatural(items []string) string {
+	if len(items) < 2 {
+		return strings.Join(items, "")
+	}
+	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
 }
 
 func lowerFirst(text string) string {
@@ -275,7 +378,14 @@ func intsText(values []int) string {
 	for i, value := range values {
 		parts[i] = fmt.Sprint(value)
 	}
-	return strings.Join(parts, " and ")
+	return joinNatural(parts)
+}
+
+func deductionPhrase(conclusion HintConclusion) string {
+	if conclusion.Placement != nil {
+		return fmt.Sprintf("%s is left with only %d, so place %d there.", cellName(conclusion.Placement.Position), conclusion.Placement.Value, conclusion.Placement.Value)
+	}
+	return lowerFirst(eliminationMessage(conclusion.Eliminations))
 }
 
 func eliminationMessage(refs []solver.CandidateRef) string {
