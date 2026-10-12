@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "strategy": "naked-single",
+      "display_name": "Naked Single",
+      "grade": "easy",
+      "puzzle": "........1..1234...256..7.......2..5.....8.49.593.4..1.9.....5..3.....68.7..4691.."
+    },
+    {
+      "strategy": "hidden-single",
+      "display_name": "Hidden Single",
+      "grade": "easy",
+      "puzzle": "........1..1234...256..7.......2..5.....8.49.593.4..1.9.....5..3.....68.7..4691.."
+    },
+    {
+      "strategy": "naked-pair",
+      "display_name": "Naked Pair",
+      "grade": "medium",
+      "puzzle": "......123.....14.....234.....2..5..6..78.32...98.7..417....968.6...4.5..24.16...9"
+    },
+    {
+      "strategy": "naked-triple",
+      "display_name": "Naked Triple",
+      "grade": "medium",
+      "puzzle": ".............12.34.15..3.6..............51.76.34..7.1..5..247..4.2...6..8.7...3.."
+    },
+    {
+      "strategy": "pointing-pair",
+      "display_name": "Pointing Pairs / Box-Line Reduction",
+      "grade": "medium",
+      "puzzle": ".......12..12345..256..73....2.7..5..7.5...316....8.7...87....3.4...9..55...2..47"
+    },
+    {
+      "strategy": "hidden-pair",
+      "display_name": "Hidden Pair",
+      "grade": "medium",
+      "puzzle": ".....1..2..1.23....24.5..67...1.7..5..8..2...7.65..2.3...97..285.238....86....43."
+    },
+    {
+      "strategy": "x-wing",
+      "display_name": "X-Wing",
+      "grade": "hard",
+      "puzzle": ".......12....13.....2.4...5...5..67..8.32.....45.8..31...9.87..8.....4.97.9.56..3"
+    },
+    {
+      "strategy": "xy-wing",
+      "display_name": "XY-Wing",
+      "grade": "hard",
+      "puzzle": "........1..2..3..4..4..526...5..6....1..7.....63.4819..2..3.51.5..9....38..6..742"
+    },
+    {
+      "strategy": "hidden-triple",
+      "display_name": "Hidden Triple",
+      "grade": "hard",
+      "puzzle": "..............1..2.13.4..5.....2..6....3..2..6..4.78.9.85..9..4.6718.39.9..6..7.."
+    },
+    {
+      "strategy": "w-wing",
+      "display_name": "W-Wing",
+      "grade": "hard",
+      "puzzle": "...............123.14.567.8..9..8....26.719.58..5...7..3..6.....9..4.6.27..2....."
+    },
+    {
+      "strategy": "swordfish",
+      "display_name": "Swordfish",
+      "grade": "expert",
+      "puzzle": "......123.....14.....253.....5.2...6..73.8.4..24....7.6...3...85..8..93.84.5....."
+    },
+    {
+      "strategy": "naked-quad",
+      "display_name": "Naked Quad",
+      "grade": "expert",
+      "puzzle": ".....1..2....3..45...4.67....1.85....48.9..1.9......53..59.7...6.....5.473.5..1.."
+    },
+    {
+      "strategy": "simple-coloring",
+      "display_name": "Simple Coloring",
+      "grade": "expert",
+      "puzzle": ".....1.23...24.5....6..34...1...7..5.8..9.6..4.91.673..68.192.42....5.9.9..3..1.."
+    },
+    {
+      "strategy": "hidden-quad",
+      "display_name": "Hidden Quad",
+      "grade": "expert",
+      "puzzle": ".............12.341563..2.......7.8....8..3....8.9...6....8...2..9..5.4...42.675."
+    },
+    {
+      "strategy": "xyz-wing",
+      "display_name": "XYZ-Wing",
+      "grade": "expert",
+      "puzzle": "........1...234...235...........6.4..63.72.8.17..8..3...8...9...4.12.7...21.538.."
+    },
+    {
+      "strategy": "jellyfish",
+      "display_name": "Jellyfish",
+      "grade": "evil",
+      "puzzle": "........1..2.1345..6174.32.......5..1.8..4.6754.2.1.93.....86....4.....27.6.32..."
+    },
+    {
+      "strategy": "bug-plus-one",
+      "display_name": "BUG+1",
+      "grade": "evil",
+      "puzzle": "........1..1234...256..7.......2..5.....8.49.593.4..1.9.....5..3.....68.7..4691.."
+    },
+    {
+      "strategy": "unique-rectangle",
+      "display_name": "Unique Rectangle Type 1",
+      "grade": "evil",
+      "puzzle": "...............123.14.567.8..9..8....26.719.58..5...7..3..6.....9..4.6.27..2....."
+    },
+    {
+      "strategy": "unique-rectangle-2",
+      "display_name": "Unique Rectangle Type 2",
+      "grade": "evil",
+      "puzzle": ".............12.34...3.567............8.3...225.6.174..........937..6.8.682.7...1"
+    },
+    {
+      "strategy": "unique-rectangle-3",
+      "display_name": "Unique Rectangle Type 3",
+      "grade": "evil",
+      "puzzle": ".......12...1234..124...5....6.15.7..72..4.5.5..7...2..8..92..5.61.5...99..3....6"
+    },
+    {
+      "strategy": "unique-rectangle-4",
+      "display_name": "Unique Rectangle Type 4",
+      "grade": "evil",
+      "puzzle": "........1..1.23.4.24.5.6.7..6.....8.8......6771......3.2..549...5.98..241........"
+    },
+    {
+      "strategy": "x-cycles",
+      "display_name": "X-Cycles",
+      "grade": "evil",
+      "puzzle": "........1.12.34...5.67.8......3...1..7..6.9.418....3.....14..3..5....4..2..9...67"
+    },
+    {
+      "strategy": "xy-chain",
+      "display_name": "XY-Chain",
+      "grade": "evil",
+      "puzzle": ".......12.......34.....56.7..7682....92.3....64.1..3....8451....26.7....15.9..7.."
+    }
+  ]
+}

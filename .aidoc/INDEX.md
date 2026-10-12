@@ -109,7 +109,7 @@ The project index provides reading chains for common starting points and a compl
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
-2. `.aidoc/designs/e2e-play-scenarios.md` — root play and game commands
+2. `.aidoc/designs/e2e-play-scenarios.md` — root play, game commands, and every-strategy hint acceptance
 3. `.aidoc/designs/e2e-calibration-scenarios.md` — immutable corpus measurement
 4. `.aidoc/designs/e2e-generation-scenarios.md` — generation flags, workers, and storage
 5. `.aidoc/designs/e2e-import-scenarios.md` — import parsing and deduplication
@@ -201,6 +201,7 @@ The project index provides reading chains for common starting points and a compl
 | `core/canonical.go` | Shared canonical representative across digit relabelling and Sudoku-preserving symmetries |
 | `scripts/import_sudoku_exchange_diabolical.sh` | Exact public-domain source download pin and import composition |
 | `scripts/e2e_cli.py` | Built-binary line CLI, session, calibration, import, generation, and SQLite E2E harness |
+| `scripts/e2e_hint_strategies.py` | Built-binary user-perspective hint preview/apply matrix for every registered strategy |
 | `scripts/e2e_api.py` | Built-binary HTTP lifecycle E2E harness |
 | `scripts/e2e_tui.py` | Built-binary PTY TUI and recovery E2E harness |
 | `scripts/coverage_report.py` | Package-level Go coverage summary for risk-based CI review |

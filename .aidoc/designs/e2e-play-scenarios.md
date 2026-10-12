@@ -5,6 +5,7 @@ entry_points:
   - main.go
   - cmd/root.go
   - cli/controller.go
+  - scripts/e2e_hint_strategies.py
 dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/game-engine.md
@@ -100,19 +101,23 @@ The game-command scenarios verify the stable engine boundary through the real te
 **Input:** Run `hint` or `i`, inspect the output, then run `hint apply`; separately preview and run `hint cancel`.
 **Expected:** Preview displays the strategy, summary, ordered teaching steps, and exact placement or elimination conclusion without changing the board or history. `hint apply` submits the cached `plan_id` as one action and consumes it; `hint cancel` discards it without mutation. Any successful non-hint mutation discards the preview with an explicit notice, while failed and no-op commands retain it. A missing or consumed plan cannot be applied.
 
-### 2.9 Solve (`solve` / `s`)
+### 2.9 Every Registered Strategy Through Real Games
+**Action:** Execute `scripts/e2e_hint_strategies.py` against the built binary. The harness starts one complete valid game per registered strategy and repeatedly uses the public `hint` and `hint apply` commands.
+**Expected:** All 23 registered strategies appear with their public display name and strategy grade, expose an exact conclusion, and are accepted through the same CLI action a player uses. The shared `game/testdata/hint_strategy_games.json` manifest keeps the black-box matrix aligned with package-level typed-plan coverage without candidate-only synthetic boards.
+
+### 2.10 Solve (`solve` / `s`)
 **Input:** `solve` or `s`
 **Expected:** The complete solution is displayed. "Congratulations" message shown.
 
-### 2.10 Quit (`quit` / `q`)
+### 2.11 Quit (`quit` / `q`)
 **Input:** `quit` or `q`
 **Expected:** Game exits cleanly.
 
-### 2.11 Shorthand Digit Input
+### 2.12 Shorthand Digit Input
 **Input:** `1 2 3` (no `add` prefix)
 **Expected:** Treated as `add 1 2 3`. Cell (1,2) is set to 3.
 
-### 2.12 Divergent Input Truncates Redo History
+### 2.13 Divergent Input Truncates Redo History
 **Input:** Add a value, undo it, add a different value, then run `redo`.
 **Expected:** The different value remains in the cell and the abandoned value does not reappear because the new action replaced the old redo branch.
 
