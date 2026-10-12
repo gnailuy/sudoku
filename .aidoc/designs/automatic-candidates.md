@@ -28,7 +28,7 @@ Automatic candidates provide opt-in legal-candidate assistance and an explicit a
 
 Legal candidates answer which digits remain possible under the accepted Sudoku values. Manual notes record a player's own reasoning and may intentionally be incomplete or temporarily wrong. Treating automatic candidates as notes would erase that distinction, create surprising history changes, and require synchronization rules during every action.
 
-The engine therefore exposes legal candidates as detached snapshot data computed from the solver-safe play board. Merely displaying automatic candidates is not an action, history entry, or dirty-state change. A deliberate `AdoptCandidatesAsNotes` action materializes the current candidate grid as player-owned notes, applies the initiating digit toggle, and enters history. Existing version 1 session files remain compatible because candidate data and frontend preferences are not serialized.
+The engine therefore exposes candidates as detached snapshot data computed from the solver-safe play board. Merely displaying automatic candidates is not an action, history entry, or dirty-state change. A deliberate `AdoptCandidatesAsNotes` action materializes the current candidate grid as player-owned notes, applies the initiating digit toggle, and enters history. Strategy-derived hint eliminations are different: they are persisted with version 2 solver state so automatic candidates and later hints continue from an applied deduction; frontend display preferences remain outside serialization.
 
 ## Engine Read Contract
 
@@ -42,7 +42,7 @@ Snapshot candidate arrays are value data and remain detached from `game.Game`. M
 
 Every new snapshot reflects the current accepted board. Candidate sets therefore update after value entry, clear, undo, redo, hint application, solve, repair, reset, and restore without a candidate-specific transition or event.
 
-Direct manual-note actions do not alter legal candidates. Automatic candidate changes do not appear in `game.Result.Changes`, because results describe accepted mutable-state transitions rather than recomputed read data. `AdoptCandidatesAsNotes` is the exception: the engine computes every legal candidate set, replaces notes on every editable visibly empty cell, toggles the initiating digit, and returns all changed notes in one result. Frontends refresh from the post-action snapshot and never reconstruct candidate rules.
+Direct manual-note actions do not alter candidates. Accepted elimination hints do alter candidates atomically with their materialized note transition so a consumed deduction cannot recur. Automatic candidate changes do not appear in `game.Result.Changes`, because results describe accepted mutable-state transitions rather than recomputed read data. `AdoptCandidatesAsNotes` is the exception: the engine computes every legal candidate set, replaces notes on every editable visibly empty cell, toggles the initiating digit, and returns all changed notes in one result. Frontends refresh from the post-action snapshot and never reconstruct candidate rules.
 
 ## TUI Interaction
 

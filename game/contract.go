@@ -307,9 +307,10 @@ func (game *Game) applyHintPlan(plan *HintPlan) error {
 		return &EngineError{Code: ErrorNoHint, Detail: "hint plan has no applicable conclusion"}
 	}
 
-	next := game.notes
-	if noteMapIsEmpty(next) {
-		next = game.candidatesAsNotes()
+	nextBoard := game.playBoard.Copy()
+	nextNotes := game.notes
+	if noteMapIsEmpty(nextNotes) {
+		nextNotes = game.candidatesAsNotes()
 	}
 	changed := false
 	for _, elimination := range plan.Conclusion.Eliminations {
@@ -317,14 +318,17 @@ func (game *Game) applyHintPlan(plan *HintPlan) error {
 		if !position.IsValid() || elimination.Value < 1 || elimination.Value > 9 || game.Get(position) != 0 || game.problemBoard.Get(position) != 0 {
 			return &EngineError{Code: ErrorStaleHint, Position: &position, Detail: "hint elimination no longer applies"}
 		}
-		current := next[position.Row][position.Column]
+		current := nextNotes[position.Row][position.Column]
 		if current.IsEmpty() {
 			current = game.playBoard.Candidates(position)
 		}
 		updated := current
 		updated.Remove(elimination.Value)
 		if updated != current {
-			next[position.Row][position.Column] = updated
+			nextNotes[position.Row][position.Column] = updated
+			changed = true
+		}
+		if nextBoard.EliminateCandidate(position, elimination.Value) {
 			changed = true
 		}
 	}
@@ -332,7 +336,8 @@ func (game *Game) applyHintPlan(plan *HintPlan) error {
 		return &EngineError{Code: ErrorStaleHint, Detail: "hint conclusion is already consumed"}
 	}
 	before := game.captureState()
-	game.notes = next
+	game.playBoard = nextBoard
+	game.notes = nextNotes
 	game.recordTransition(before)
 	return nil
 }

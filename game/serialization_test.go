@@ -80,8 +80,8 @@ func TestRestoreRejectsMalformedAndUnsupportedState(t *testing.T) {
 	}{
 		{name: "malformed JSON", data: []byte(`{"version":`), code: StateErrorMalformed},
 		{name: "trailing JSON", data: append(mustSerialize(t, newTestGame()), []byte(` {}`)...), code: StateErrorMalformed},
-		{name: "unknown field", data: []byte(`{"version":1,"puzzle":"","current":{},"history":[],"cursor":-1,"extra":true}`), code: StateErrorMalformed},
-		{name: "negative mistakes", data: []byte(`{"version":1,"puzzle":"..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8..2.3..9..5.1.3..","mistakes":-1,"current":{},"history":[],"cursor":-1}`), code: StateErrorInvalidSession},
+		{name: "unknown field", data: []byte(`{"version":2,"puzzle":"","current":{},"history":[],"cursor":-1,"extra":true}`), code: StateErrorMalformed},
+		{name: "negative mistakes", data: []byte(`{"version":2,"puzzle":"..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8..2.3..9..5.1.3..","mistakes":-1,"current":{},"history":[],"cursor":-1}`), code: StateErrorInvalidSession},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -54,7 +54,7 @@ Player transitions enter through typed actions in `game/contract.go`. `game.Game
 
 Manual notes are engine state rather than solver candidates. Value actions clear notes on the changed cell and remove the value from peer notes as one atomic transition. The unified history restores boards, invalid markers, and notes together, which prevents frontends from reconstructing note cleanup during undo or redo.
 
-`game.Game.Hint` is a query even when a strategy solver uses candidate elimination internally. Hint search operates on a board copy; only `game.ApplyHint` records and applies the recommended value.
+`game.Game.Hint` is a query even when a strategy solver uses candidate elimination internally. Hint search operates on a board copy. `game.ApplyHint` records either the recommended value or the exact strategy-derived eliminations from the previewed plan; elimination application reuses `core.Board.EliminateCandidate` and updates manual notes in the same history transition so later hints consume the deduction without treating player annotations as solver facts.
 
 ## Solver Interface Contract
 
@@ -65,6 +65,6 @@ Manual notes are engine state rather than solver candidates. Value actions clear
 ## Design Constraints
 
 - **Interface naming:** Types follow Go conventions. Examples: `Solver` (base interface), `StrategySolver`, `CompleteSolver`, `Base`, `Backtracker`, `Store`, `Move`, `Board`, `Game`, `Difficulty`, `Options`, `CandidateSet`.
-- **Candidate computation:** `Board.Candidates(pos)` computes valid candidates on the fly by scanning row, column, and box peers. The `CandidateSet` bitfield type provides compact representation (`uint16`, bits 1–9) for the result. Board itself stores only the grid — no cached candidate state to maintain. Strategy solvers call `board.Candidates(pos)` when they need candidates.
+- **Candidate computation:** `Board.Candidates(pos)` computes value-derived candidates on the fly by scanning row, column, and box peers, then removes strategy-derived digits from the board's elimination layer. The `CandidateSet` bitfield type provides compact representation (`uint16`, bits 1–9) for both results and stored eliminations. `core.Board.EliminateCandidate` is the single authoritative mutation primitive for trusted solver progress; manual notes remain separate and cannot alter this layer. Strategy solvers and applied elimination hints reuse that primitive, while Undo/Redo and versioned game serialization preserve the resulting board state.
 - **Error vs panic:** Methods called with invalid state from within the system `panic` (bug detection). Methods processing user input return errors. This split is intentional.
 - **Geometric distribution stop:** The generator uses `util.RandomBool(0.125)` to probabilistically stop cell removal after reaching the target clue range. This produces natural variation within a difficulty band.
