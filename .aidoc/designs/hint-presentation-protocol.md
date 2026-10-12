@@ -39,9 +39,9 @@ The project is still in development, so the protocol replaces the current hint s
 
 A strategy produces typed evidence for one deduction: examined units, candidate constraints, eliminations, placements, and the technique identity. Placement and candidate elimination are equally valid conclusions; elimination strategies are not duplicated as hint-only variants. Strategy evidence contains no colors, animation timing, widget commands, prose parsing requirements, or transport models.
 
-A shared engine composer converts typed evidence into one `HintPlan`. The composer owns default teaching order and wording so 23 strategies do not duplicate client choreography. Naked Single, Hidden Single, and Naked Pair keep focused reference compositions; every other registered strategy uses the same evidence-driven observe, compare, and apply sequence without renderer branching.
+A shared engine composer converts typed evidence into one `HintPlan`. The composer owns default teaching order and wording so 23 strategies do not duplicate client choreography. Naked Single, Hidden Single, and Naked Pair establish the beginner-first contract across a direct placement, a unit-scoped placement, and a candidate elimination: visible facts come first, the relationship and because-clause follow, and the formal strategy name appears only in the concluding step. Every other registered strategy keeps the shared evidence-driven observe, compare, and apply sequence until its strategy family receives equivalent typed relationships and composition.
 
-A renderer consumes a complete plan and never infers Sudoku reasoning from technique names or fallback prose. Renderers may omit unsupported reinforcement, but must preserve the ordered text and logical conclusion.
+A renderer consumes a complete plan and never infers Sudoku reasoning from technique names or fallback prose. Renderers preserve the ordered text and logical conclusion, and full teaching renderers defer strategy name and grade until the final step so vocabulary reinforces reasoning instead of preceding it. Limited renderers receive the same messages joined in order as `summary`.
 
 ## HintPlan Contract
 
@@ -101,7 +101,7 @@ Elimination application never places a value, even when the remaining notes form
 
 ## Graceful Degradation and Accessibility
 
-A fully capable renderer presents each scene and its message in order. A limited renderer presents the same ordered messages and conclusion while ignoring unsupported marks or target types. The simplest renderer may present `summary` and the conclusion, but must not invent omitted reasoning.
+A fully capable renderer presents each scene and its message in order, withholding formal strategy metadata until the concluding step. A limited renderer presents the same ordered messages and conclusion while ignoring unsupported marks or target types. The simplest renderer may present `summary`, which joins those messages in teaching order, and the conclusion, but must not invent omitted reasoning.
 
 Step order, messages, roles, and explicit effects carry the meaning independently of color, position, or motion. Renderers expose the active step and step count to assistive technology, preserve user-controlled pacing, and avoid automatic animation that blocks reading or input.
 
