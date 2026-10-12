@@ -198,6 +198,11 @@ func nakedSubsetCombinationsSearch(eligible []nakedSubsetCell, allPositions []co
 				value := reduced.Values()[0]
 				cellNames := nakedSubsetCellNames(eligible, indices, size)
 				valNames := nakedSubsetValNames(unionVals)
+				premises := make([]CandidateGroup, size)
+				for i := 0; i < size; i++ {
+					selected := eligible[indices[i]]
+					premises[i] = CandidateGroup{Position: selected.pos, Values: selected.candidates.Values()}
+				}
 				return &Move{
 					Cell:      core.NewCell(pos, value),
 					Technique: technique,
@@ -205,6 +210,7 @@ func nakedSubsetCombinationsSearch(eligible []nakedSubsetCell, allPositions []co
 						"%s {%s} in %s at {%s} eliminates candidates, leaving %d as the only candidate for %s",
 						displayName, valNames, unitName, cellNames, value, pos.ToString(),
 					),
+					Evidence: &Evidence{Unit: parseNakedSubsetUnit(unitName), Premises: premises},
 				}
 			}
 		}

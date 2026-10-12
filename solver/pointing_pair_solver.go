@@ -103,6 +103,7 @@ func (s *PointingPairSolver) findPointingPairs(board *core.Board) *Move {
 										"Pointing pair: %d in box %d is confined to row %d, leaving %d as the only candidate for %s",
 										digit, boxRow*3+boxCol+1, row+1, value, pos.ToString(),
 									),
+									Evidence: pointingEvidence(UnitRef{Kind: UnitBox, Index: boxRow*3 + boxCol}, UnitRef{Kind: UnitRow, Index: row}, positions, digit),
 								}
 							}
 						}
@@ -135,6 +136,7 @@ func (s *PointingPairSolver) findPointingPairs(board *core.Board) *Move {
 										"Pointing pair: %d in box %d is confined to column %d, leaving %d as the only candidate for %s",
 										digit, boxRow*3+boxCol+1, col+1, value, pos.ToString(),
 									),
+									Evidence: pointingEvidence(UnitRef{Kind: UnitBox, Index: boxRow*3 + boxCol}, UnitRef{Kind: UnitColumn, Index: col}, positions, digit),
 								}
 							}
 						}
@@ -197,6 +199,7 @@ func (s *PointingPairSolver) findBoxLineReductions(board *core.Board) *Move {
 									"Box-line reduction: %d in row %d is confined to box %d, leaving %d as the only candidate for %s",
 									digit, row+1, boxRow*3+boxCol+1, value, pos.ToString(),
 								),
+								Evidence: pointingEvidence(UnitRef{Kind: UnitRow, Index: row}, UnitRef{Kind: UnitBox, Index: boxRow*3 + boxCol}, positions, digit),
 							}
 						}
 					}
@@ -252,6 +255,7 @@ func (s *PointingPairSolver) findBoxLineReductions(board *core.Board) *Move {
 									"Box-line reduction: %d in column %d is confined to box %d, leaving %d as the only candidate for %s",
 									digit, col+1, boxRow*3+boxCol+1, value, pos.ToString(),
 								),
+								Evidence: pointingEvidence(UnitRef{Kind: UnitColumn, Index: col}, UnitRef{Kind: UnitBox, Index: boxRow*3 + boxCol}, positions, digit),
 							}
 						}
 					}
@@ -261,4 +265,12 @@ func (s *PointingPairSolver) findBoxLineReductions(board *core.Board) *Move {
 	}
 
 	return nil
+}
+
+func pointingEvidence(source, intersecting UnitRef, positions []core.Position, digit int) *Evidence {
+	premises := make([]CandidateGroup, len(positions))
+	for i, position := range positions {
+		premises[i] = CandidateGroup{Position: position, Values: []int{digit}}
+	}
+	return &Evidence{Unit: &source, Units: []UnitRef{source, intersecting}, Premises: premises}
 }

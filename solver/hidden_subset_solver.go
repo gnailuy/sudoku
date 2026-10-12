@@ -167,11 +167,31 @@ func hiddenSubsetCombinationsSearch(board *core.Board, digits []hiddenDigitPosit
 			return nil
 		}
 
-		// Build the set of digits in the hidden subset.
+		// Build the set of digits in the hidden subset and preserve the exact
+		// cells/digits as renderer-neutral teaching evidence.
 		hiddenDigits := make(map[int]bool, size)
+		hiddenValues := make([]int, size)
 		for i := 0; i < size; i++ {
-			hiddenDigits[digits[indices[i]].digit] = true
+			value := digits[indices[i]].digit
+			hiddenDigits[value] = true
+			hiddenValues[i] = value
 		}
+		sort.Ints(hiddenValues)
+		positions := make([]core.Position, 0, len(posSet))
+		for position := range posSet {
+			positions = append(positions, position)
+		}
+		sort.Slice(positions, func(i, j int) bool {
+			if positions[i].Row != positions[j].Row {
+				return positions[i].Row < positions[j].Row
+			}
+			return positions[i].Column < positions[j].Column
+		})
+		premises := make([]CandidateGroup, len(positions))
+		for i, position := range positions {
+			premises[i] = CandidateGroup{Position: position, Values: append([]int(nil), hiddenValues...)}
+		}
+		evidence := &Evidence{Unit: parseNakedSubsetUnit(unitName), Premises: premises}
 
 		// For each cell in the subset, eliminate non-hidden candidates.
 		var move *Move
@@ -204,6 +224,7 @@ func hiddenSubsetCombinationsSearch(board *core.Board, digits []hiddenDigitPosit
 
 		if eliminated {
 			if move != nil {
+				move.Evidence = evidence
 				return move
 			}
 			// Eliminations applied but no naked single yet.
@@ -216,6 +237,7 @@ func hiddenSubsetCombinationsSearch(board *core.Board, digits []hiddenDigitPosit
 					"%s {%s} in %s confined to {%s} — candidates eliminated",
 					displayName, digitNames, unitName, cellNames,
 				),
+				Evidence: evidence,
 			}
 		}
 
