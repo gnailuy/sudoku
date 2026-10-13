@@ -128,7 +128,7 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	}
 }
 
-func TestReportedAccountGamePreservesEliminationsAcrossHintPlacement(t *testing.T) {
+func TestReportedAccountGamePreservesEliminationsAcrossPlayerPlacement(t *testing.T) {
 	var board core.Board
 	board.FromString("................21..3..8.97..2..6.....7..4568.65.319....9..31...2..8..34.34.65...")
 	store := solver.NewStore()
@@ -154,11 +154,13 @@ func TestReportedAccountGamePreservesEliminationsAcrossHintPlacement(t *testing.
 			t.Fatal(err)
 		}
 	}
+	consumedEliminations := make([][]solver.CandidateRef, 0, 7)
 	for number := 0; number < 7; number++ {
 		plan := current.Hint()
 		if plan == nil || len(plan.Conclusion.Eliminations) == 0 {
 			t.Fatalf("hint %d is not the reported elimination sequence: %+v", number+1, plan)
 		}
+		consumedEliminations = append(consumedEliminations, append([]solver.CandidateRef(nil), plan.Conclusion.Eliminations...))
 		if _, err := current.Apply(ApplyHint{PlanID: plan.PlanID}); err != nil {
 			t.Fatal(err)
 		}
@@ -172,11 +174,11 @@ func TestReportedAccountGamePreservesEliminationsAcrossHintPlacement(t *testing.
 	if placement == nil || placement.Conclusion.Placement == nil || placement.Conclusion.Placement.Position != core.NewPosition(8, 7) || placement.Conclusion.Placement.Value != 8 {
 		t.Fatalf("unexpected reported placement hint: %+v", placement)
 	}
-	if _, err := current.Apply(ApplyHint{PlanID: placement.PlanID}); err != nil {
+	if _, err := current.Apply(SetValue{Position: placement.Conclusion.Placement.Position, Value: placement.Conclusion.Placement.Value}); err != nil {
 		t.Fatal(err)
 	}
 	if current.Snapshot().Candidates[retained.Row][retained.Column].Has(9) {
-		t.Fatal("placing the reported hidden single erased prior hint eliminations")
+		t.Fatal("entering the reported hidden single erased prior hint eliminations")
 	}
 	serialized, err := current.Serialize()
 	if err != nil {
@@ -189,9 +191,18 @@ func TestReportedAccountGamePreservesEliminationsAcrossHintPlacement(t *testing.
 	if restored.Snapshot().Candidates[retained.Row][retained.Column].Has(9) {
 		t.Fatal("restoring the reported game erased prior hint eliminations")
 	}
-	next := current.Hint()
-	if next == nil || next.Strategy.ID == "naked-pair" {
-		t.Fatalf("next hint repeated consumed progress after placement: %+v", next)
+	if restored.Snapshot().Candidates != current.Snapshot().Candidates {
+		t.Fatal("account-game serialization changed the candidate grid")
+	}
+	for label, next := range map[string]*HintPlan{"current": current.Hint(), "restored": restored.Hint()} {
+		if next == nil {
+			t.Fatalf("%s game has no next hint after the reported placement", label)
+		}
+		for _, consumed := range consumedEliminations {
+			if sameEliminations(next.Conclusion.Eliminations, consumed) {
+				t.Fatalf("%s game repeated a consumed elimination after placement: %+v", label, next)
+			}
+		}
 	}
 }
 

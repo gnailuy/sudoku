@@ -42,6 +42,82 @@ func TestServiceAuthorizesOwnerAndPersistsRevisionedActions(t *testing.T) {
 	}
 }
 
+func TestServicePreservesHintEliminationsAcrossPlayerPlacement(t *testing.T) {
+	const puzzle = "................21..3..8.97..2..6.....7..4568.65.319....9..31...2..8..34.34.65..."
+	store := solver.NewStore()
+	service, database, options := newTestServiceWithPuzzle(t, puzzle, store.GetAllStrategySolverKeys())
+	defer database.Close()
+
+	revision := int64(0)
+	apply := func(action game.Action) {
+		t.Helper()
+		transition, err := service.Apply("user-a", "game-a", revision, action)
+		if err != nil {
+			t.Fatal(err)
+		}
+		revision = transition.Game.Revision
+	}
+	for _, input := range []core.Cell{
+		core.NewCell(core.NewPosition(3, 8), 3),
+		core.NewCell(core.NewPosition(5, 8), 2),
+		core.NewCell(core.NewPosition(8, 8), 9),
+		core.NewCell(core.NewPosition(4, 0), 3),
+		core.NewCell(core.NewPosition(4, 1), 1),
+		core.NewCell(core.NewPosition(3, 7), 1),
+		core.NewCell(core.NewPosition(7, 0), 5),
+		core.NewCell(core.NewPosition(0, 5), 2),
+		core.NewCell(core.NewPosition(2, 0), 2),
+		core.NewCell(core.NewPosition(8, 6), 2),
+	} {
+		apply(game.SetValue{Position: input.Position, Value: input.Value})
+	}
+	for number := 0; number < 7; number++ {
+		record, err := database.AccountGameByID("user-a", "game-a")
+		if err != nil || record == nil {
+			t.Fatalf("load account game before hint %d: %+v, %v", number+1, record, err)
+		}
+		current, err := game.Restore(record.EngineState, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan := current.Hint()
+		if plan == nil || len(plan.Conclusion.Eliminations) == 0 {
+			t.Fatalf("hint %d is not the reported elimination sequence: %+v", number+1, plan)
+		}
+		apply(game.ApplyHint{PlanID: plan.PlanID})
+	}
+
+	state, err := service.Get("user-a", "game-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	retained := core.NewPosition(3, 3)
+	if state.Snapshot.Candidates[retained.Row][retained.Column].Has(9) {
+		t.Fatal("durable account game lost the reported elimination before placement")
+	}
+	record, err := database.AccountGameByID("user-a", "game-a")
+	if err != nil || record == nil {
+		t.Fatalf("load account game before placement: %+v, %v", record, err)
+	}
+	current, err := game.Restore(record.EngineState, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	placement := current.Hint()
+	if placement == nil || placement.Conclusion.Placement == nil {
+		t.Fatalf("expected the reported placement after eliminations: %+v", placement)
+	}
+	apply(game.SetValue{Position: placement.Conclusion.Placement.Position, Value: placement.Conclusion.Placement.Value})
+
+	state, err = service.Get("user-a", "game-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Game.Revision != revision || state.Snapshot.Candidates[retained.Row][retained.Column].Has(9) {
+		t.Fatalf("account restore changed retained elimination at revision %d: %+v", revision, state.Snapshot.Candidates[retained.Row][retained.Column])
+	}
+}
+
 func TestServiceReportsCurrentRevisionWhenPersistenceLosesARace(t *testing.T) {
 	_, database, options := newTestService(t)
 	defer database.Close()
@@ -119,6 +195,11 @@ func TestServiceRejectsMissingAuthenticatedIdentity(t *testing.T) {
 
 func newTestService(t *testing.T) (*Service, *db.DB, game.Options) {
 	t.Helper()
+	return newTestServiceWithPuzzle(t, testPuzzle, nil)
+}
+
+func newTestServiceWithPuzzle(t *testing.T, puzzle string, strategyKeys []string) (*Service, *db.DB, game.Options) {
+	t.Helper()
 	database, err := db.Open(":memory:")
 	if err != nil {
 		t.Fatal(err)
@@ -130,20 +211,23 @@ func newTestService(t *testing.T) (*Service, *db.DB, game.Options) {
 		}
 	}
 	board := core.NewEmptyBoard()
-	board.FromString(testPuzzle)
+	board.FromString(puzzle)
 	options := game.NewDefaultOptions(solver.NewStore())
+	if strategyKeys != nil {
+		options.StrategySolverKeys = strategyKeys
+	}
 	current := game.NewGame(board, options)
 	serialized, err := current.Serialize()
 	if err != nil {
 		database.Close()
 		t.Fatal(err)
 	}
-	if _, err := database.InsertPuzzle(db.Puzzle{Puzzle: testPuzzle, Difficulty: "easy", Score: 1, MaxTechnique: "single"}); err != nil {
+	if _, err := database.InsertPuzzle(db.Puzzle{Puzzle: puzzle, Difficulty: "easy", Score: 1, MaxTechnique: "single"}); err != nil {
 		database.Close()
 		t.Fatal(err)
 	}
-	basePuzzleID := db.BasePuzzleID(testPuzzle)
-	if err := database.InsertPlayRun(db.PlayRun{ID: "run-a", BasePuzzleID: basePuzzleID, PresentedPuzzle: testPuzzle}); err != nil {
+	basePuzzleID := db.BasePuzzleID(puzzle)
+	if err := database.InsertPlayRun(db.PlayRun{ID: "run-a", BasePuzzleID: basePuzzleID, PresentedPuzzle: puzzle}); err != nil {
 		database.Close()
 		t.Fatal(err)
 	}
