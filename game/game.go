@@ -50,9 +50,10 @@ func NewGame(problem core.Board, options Options) Game {
 	}
 }
 
-// Function to count the solutions of the current play board using the complete solver.
+// countSolutions uses a detached board because complete solvers may mutate their input while searching.
 func (game *Game) countSolutions() int {
-	return game.completeSolver.CountSolutions(&game.playBoard)
+	board := game.playBoard.Copy()
+	return game.completeSolver.CountSolutions(&board)
 }
 
 // Function to add a non-zero cell input.
