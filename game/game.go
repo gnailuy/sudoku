@@ -50,9 +50,10 @@ func NewGame(problem core.Board, options Options) Game {
 	}
 }
 
-// Function to count the solutions of the current play board using the complete solver.
-func (game *Game) countSolutions() int {
-	return game.completeSolver.CountSolutions(&game.playBoard)
+// countSolutions uses a detached board because complete solvers may mutate their input while searching.
+func (game *Game) countSolutions(board core.Board) int {
+	search := board.Copy()
+	return game.completeSolver.CountSolutions(&search)
 }
 
 // Function to add a non-zero cell input.
@@ -61,14 +62,16 @@ func (game *Game) addNonZeroInput(input core.Cell) {
 		panic("Bug: Cannot add a zero input with this function")
 	}
 
-	_ = game.playBoard.SetCell(input)       // cell validated by caller
-	game.invalidInput.Unset(input.Position) // Reset the invalid input state when adding a new input.
-
-	if game.countSolutions() <= 0 {
-		// Store the invalid input in the invalidInput board and unset the cell in the play board.
-		game.playBoard.Unset(input.Position)
+	nextBoard := game.playBoard.Copy()
+	_ = nextBoard.SetCell(input) // cell validated by caller
+	game.invalidInput.Unset(input.Position)
+	if game.countSolutions(nextBoard) <= 0 {
 		_ = game.invalidInput.SetCell(input) // cell validated by caller
+		return
 	}
+
+	nextBoard.PruneRedundantEliminations()
+	game.playBoard = nextBoard
 }
 
 // Function to add a zero.
@@ -81,7 +84,7 @@ func (game *Game) addZeroInput(input core.Cell) {
 	game.invalidInput.Unset(input.Position) // Reset the invalid input state when adding a new input.
 
 	// If the board has multiple solutions, we need to check if any previously invalid input is now valid.
-	if !game.invalidInput.IsEmpty() && game.countSolutions() > 1 {
+	if !game.invalidInput.IsEmpty() && game.countSolutions(game.playBoard) > 1 {
 		for i := 0; i < 9; i++ {
 			for j := 0; j < 9; j++ {
 				value := game.invalidInput.Get(core.NewPosition(i, j))
