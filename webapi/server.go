@@ -314,8 +314,7 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 		}
 	}
 	return HintPlan{
-		ProtocolVersion: plan.ProtocolVersion,
-		PlanId:          plan.PlanID,
+		PlanId: plan.PlanID,
 		Strategy: HintStrategy{
 			Id:          plan.Strategy.ID,
 			DisplayName: plan.Strategy.DisplayName,

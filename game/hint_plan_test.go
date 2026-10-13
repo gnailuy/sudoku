@@ -22,7 +22,7 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	if first == nil || second == nil || first.PlanID != second.PlanID {
 		t.Fatalf("repeated hint plans differ: %+v / %+v", first, second)
 	}
-	if first.ProtocolVersion != 2 || first.Strategy.ID != "naked-single" || len(first.Steps) != 2 || first.Conclusion.Placement == nil {
+	if first.Strategy.ID != "naked-single" || len(first.Steps) != 2 || first.Conclusion.Placement == nil {
 		t.Fatalf("unexpected naked-single plan: %+v", first)
 	}
 	if strings.Contains(first.Steps[0].Message, "Naked Single") || !strings.Contains(first.Steps[0].Message, "row ") || !strings.Contains(first.Steps[0].Message, ", column ") {

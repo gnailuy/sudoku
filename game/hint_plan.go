@@ -12,8 +12,6 @@ import (
 	"github.com/gnailuy/sudoku/solver"
 )
 
-const HintProtocolVersion = 2
-
 type HintStepKind string
 
 const (
@@ -96,12 +94,11 @@ type HintConclusion struct {
 }
 
 type HintPlan struct {
-	ProtocolVersion int
-	PlanID          string
-	Strategy        HintStrategy
-	Summary         string
-	Steps           []HintStep
-	Conclusion      HintConclusion
+	PlanID     string
+	Strategy   HintStrategy
+	Summary    string
+	Steps      []HintStep
+	Conclusion HintConclusion
 }
 
 // String returns the complete plain-text fallback for limited renderers.
@@ -148,9 +145,8 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		display = strategy.GetDisplayName()
 	}
 	plan := &HintPlan{
-		ProtocolVersion: HintProtocolVersion,
-		Strategy:        HintStrategy{ID: move.Technique, DisplayName: display, Grade: grade},
-		Summary:         move.Reason,
+		Strategy: HintStrategy{ID: move.Technique, DisplayName: display, Grade: grade},
+		Summary:  move.Reason,
 	}
 	if move.IsPlacement() {
 		cell := move.Cell

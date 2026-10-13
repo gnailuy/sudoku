@@ -99,12 +99,11 @@ func wirePlan(plan *game.HintPlan) map[string]any {
 		}
 	}
 	return map[string]any{
-		"protocol_version": plan.ProtocolVersion,
-		"plan_id":          plan.PlanID,
-		"strategy":         map[string]any{"id": plan.Strategy.ID, "display_name": plan.Strategy.DisplayName, "grade": plan.Strategy.Grade},
-		"summary":          plan.Summary,
-		"steps":            steps,
-		"conclusion":       wireEffect(plan.Conclusion.Placement, plan.Conclusion.Eliminations),
+		"plan_id":    plan.PlanID,
+		"strategy":   map[string]any{"id": plan.Strategy.ID, "display_name": plan.Strategy.DisplayName, "grade": plan.Strategy.Grade},
+		"summary":    plan.Summary,
+		"steps":      steps,
+		"conclusion": wireEffect(plan.Conclusion.Placement, plan.Conclusion.Eliminations),
 	}
 }
 

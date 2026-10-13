@@ -938,11 +938,8 @@ components:
     HintPlan:
       type: object
       additionalProperties: false
-      required: [protocol_version, plan_id, strategy, summary, steps, conclusion]
+      required: [plan_id, strategy, summary, steps, conclusion]
       properties:
-        protocol_version:
-          type: integer
-          const: 2
         plan_id:
           type: string
           pattern: ^[0-9a-f]{64}$
