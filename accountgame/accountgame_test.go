@@ -48,15 +48,9 @@ func TestServicePreservesHintEliminationsAcrossPlayerPlacement(t *testing.T) {
 	service, database, options := newTestServiceWithPuzzle(t, puzzle, store.GetAllStrategySolverKeys())
 	defer database.Close()
 
-	revision := int64(0)
-	apply := func(action game.Action) {
-		t.Helper()
-		transition, err := service.Apply("user-a", "game-a", revision, action)
-		if err != nil {
-			t.Fatal(err)
-		}
-		revision = transition.Game.Revision
-	}
+	board := core.NewEmptyBoard()
+	board.FromString(puzzle)
+	current := game.NewGame(board, options)
 	for _, input := range []core.Cell{
 		core.NewCell(core.NewPosition(3, 8), 3),
 		core.NewCell(core.NewPosition(5, 8), 2),
@@ -69,22 +63,26 @@ func TestServicePreservesHintEliminationsAcrossPlayerPlacement(t *testing.T) {
 		core.NewCell(core.NewPosition(2, 0), 2),
 		core.NewCell(core.NewPosition(8, 6), 2),
 	} {
-		apply(game.SetValue{Position: input.Position, Value: input.Value})
-	}
-	for number := 0; number < 7; number++ {
-		record, err := database.AccountGameByID("user-a", "game-a")
-		if err != nil || record == nil {
-			t.Fatalf("load account game before hint %d: %+v, %v", number+1, record, err)
-		}
-		current, err := game.Restore(record.EngineState, options)
-		if err != nil {
+		if _, err := current.Apply(game.SetValue{Position: input.Position, Value: input.Value}); err != nil {
 			t.Fatal(err)
 		}
+	}
+	for number := 0; number < 7; number++ {
 		plan := current.Hint()
 		if plan == nil || len(plan.Conclusion.Eliminations) == 0 {
 			t.Fatalf("hint %d is not the reported elimination sequence: %+v", number+1, plan)
 		}
-		apply(game.ApplyHint{PlanID: plan.PlanID})
+		if _, err := current.Apply(game.ApplyHint{PlanID: plan.PlanID}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	prepared, err := current.Serialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := database.UpdateAccountGame("user-a", "game-a", 0, prepared, string(current.Snapshot().Status))
+	if err != nil || !updated {
+		t.Fatalf("prepare reported account game = %v, %v", updated, err)
 	}
 
 	state, err := service.Get("user-a", "game-a")
@@ -92,29 +90,29 @@ func TestServicePreservesHintEliminationsAcrossPlayerPlacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	retained := core.NewPosition(3, 3)
-	if state.Snapshot.Candidates[retained.Row][retained.Column].Has(9) {
+	if state.Game.Revision != 1 || state.Snapshot.Candidates[retained.Row][retained.Column].Has(9) {
 		t.Fatal("durable account game lost the reported elimination before placement")
-	}
-	record, err := database.AccountGameByID("user-a", "game-a")
-	if err != nil || record == nil {
-		t.Fatalf("load account game before placement: %+v, %v", record, err)
-	}
-	current, err := game.Restore(record.EngineState, options)
-	if err != nil {
-		t.Fatal(err)
 	}
 	placement := current.Hint()
 	if placement == nil || placement.Conclusion.Placement == nil {
 		t.Fatalf("expected the reported placement after eliminations: %+v", placement)
 	}
-	apply(game.SetValue{Position: placement.Conclusion.Placement.Position, Value: placement.Conclusion.Placement.Value})
-
+	transition, err := service.Apply("user-a", "game-a", 1, game.SetValue{
+		Position: placement.Conclusion.Placement.Position,
+		Value:    placement.Conclusion.Placement.Value,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if transition.Game.Revision != 2 || transition.Snapshot.Candidates[retained.Row][retained.Column].Has(9) {
+		t.Fatalf("account mutation changed retained elimination: %+v", transition.Snapshot.Candidates[retained.Row][retained.Column])
+	}
 	state, err = service.Get("user-a", "game-a")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.Game.Revision != revision || state.Snapshot.Candidates[retained.Row][retained.Column].Has(9) {
-		t.Fatalf("account restore changed retained elimination at revision %d: %+v", revision, state.Snapshot.Candidates[retained.Row][retained.Column])
+	if state.Game.Revision != 2 || state.Snapshot.Candidates != transition.Snapshot.Candidates {
+		t.Fatal("account restore changed the post-placement candidate grid")
 	}
 }
 
