@@ -71,23 +71,26 @@ func (board *Board) Get(position Position) int {
 // elimination (from placed values) with any additional eliminations tracked
 // in the eliminations layer.
 func (board *Board) Candidates(position Position) CandidateSet {
+	cs := board.candidatesFromValues(position)
+	cs &^= board.eliminations[position.Row][position.Column]
+	return cs
+}
+
+func (board *Board) candidatesFromValues(position Position) CandidateSet {
 	if board.grid[position.Row][position.Column] != 0 {
 		return 0
 	}
 	cs := allCandidates
-	// Remove values in same row.
 	for c := 0; c < 9; c++ {
 		if v := board.grid[position.Row][c]; v != 0 {
 			cs.Remove(v)
 		}
 	}
-	// Remove values in same column.
 	for r := 0; r < 9; r++ {
 		if v := board.grid[r][position.Column]; v != 0 {
 			cs.Remove(v)
 		}
 	}
-	// Remove values in same box.
 	startRow, startCol := position.Row/3*3, position.Column/3*3
 	for r := startRow; r < startRow+3; r++ {
 		for c := startCol; c < startCol+3; c++ {
@@ -96,9 +99,18 @@ func (board *Board) Candidates(position Position) CandidateSet {
 			}
 		}
 	}
-	// Apply additional eliminations from strategy solvers.
-	cs &^= board.eliminations[position.Row][position.Column]
 	return cs
+}
+
+// PruneRedundantEliminations drops strategy eliminations that placed values
+// now exclude naturally while preserving every still-meaningful deduction.
+func (board *Board) PruneRedundantEliminations() {
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			position := NewPosition(row, column)
+			board.eliminations[row][column] &= board.candidatesFromValues(position)
+		}
+	}
 }
 
 // EliminateCandidate removes a candidate digit from the given position's

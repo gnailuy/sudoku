@@ -178,6 +178,17 @@ func TestReportedAccountGamePreservesEliminationsAcrossHintPlacement(t *testing.
 	if current.Snapshot().Candidates[retained.Row][retained.Column].Has(9) {
 		t.Fatal("placing the reported hidden single erased prior hint eliminations")
 	}
+	serialized, err := current.Serialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := Restore(serialized, options)
+	if err != nil {
+		t.Fatalf("placement left eliminations that could not be restored: %v", err)
+	}
+	if restored.Snapshot().Candidates[retained.Row][retained.Column].Has(9) {
+		t.Fatal("restoring the reported game erased prior hint eliminations")
+	}
 	next := current.Hint()
 	if next == nil || next.Strategy.ID == "naked-pair" {
 		t.Fatalf("next hint repeated consumed progress after placement: %+v", next)
