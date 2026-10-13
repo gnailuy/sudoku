@@ -291,7 +291,23 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 		for j, mark := range step.Marks {
 			marks[j] = HintMark{Target: apiHintTarget(mark.Target), Role: HintRole(mark.Role)}
 		}
-		steps[i] = HintStep{Id: step.ID, Kind: HintStepKind(step.Kind), Message: step.Message, Marks: marks}
+		nodes := make([]HintNode, len(step.Nodes))
+		for j, node := range step.Nodes {
+			nodes[j] = HintNode{Id: node.ID, Target: apiHintTarget(node.Target)}
+			if node.Group != "" {
+				group := HintNodeGroup(node.Group)
+				nodes[j].Group = &group
+			}
+			if node.Order != 0 {
+				order := node.Order
+				nodes[j].Order = &order
+			}
+		}
+		links := make([]HintLink, len(step.Links))
+		for j, link := range step.Links {
+			links[j] = HintLink{From: link.From, To: link.To, Kind: HintLinkKind(link.Kind)}
+		}
+		steps[i] = HintStep{Id: step.ID, Kind: HintStepKind(step.Kind), Message: step.Message, Marks: marks, Nodes: nodes, Links: links}
 		if step.Effect != nil {
 			effect := apiHintEffect(step.Effect.Placement, step.Effect.Eliminations)
 			steps[i].Effect = &effect

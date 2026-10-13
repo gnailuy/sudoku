@@ -23,7 +23,7 @@ The reference plans make the portable teaching protocol concrete for placement a
 
 ## Why Reference Plans Exist
 
-Reference plans prevent strategy composers and renderers from interpreting semantic roles, ordered steps, or logical effects differently. Every reference includes `protocol_version=1`, a deterministic `plan_id`, registered strategy metadata, a complete summary, ordered steps, and one typed placement or elimination conclusion.
+Reference plans prevent strategy composers and renderers from interpreting semantic roles, ordered steps, or logical effects differently. Every reference includes `protocol_version=2`, a deterministic `plan_id`, registered strategy metadata, a complete summary, ordered steps, and one typed placement or elimination conclusion.
 
 ## Naked Single Placement
 
