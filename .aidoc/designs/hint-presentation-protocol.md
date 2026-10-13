@@ -33,7 +33,7 @@ A position, value, technique name, and prose reason are enough to apply a hint b
 
 The protocol standardizes meaning rather than styling. Strategy and engine code describe what facts matter, what changed, and why the conclusion follows; renderers decide whether semantic roles become color, borders, motion, symbols, speech, or plain text.
 
-The project is still in development, so the protocol replaces the current hint shape instead of preserving it through compatibility adapters. `protocol_version` protects future semantic evolution; it does not require support for the superseded position/value/reason contract.
+The project is still in development, so the protocol replaces superseded hint shapes instead of preserving them through compatibility adapters. The codebase keeps only the current contract; a future semantic change replaces it across the coordinated clients rather than introducing parallel versions.
 
 ## Ownership Boundaries
 
@@ -49,14 +49,13 @@ Every plan contains:
 
 | Field | Meaning |
 |-------|---------|
-| `protocol_version` | Semantic schema version, initially `1` |
 | `plan_id` | Deterministic identity bound to the source game state and conclusion |
 | `strategy` | Stable strategy ID, display name, and strategy grade |
 | `summary` | Complete plain-text fallback for the deduction |
 | `steps` | Ordered, independently renderable teaching steps |
 | `conclusion` | Machine-readable placement or candidate eliminations |
 
-Every step contains a stable ID, a semantic kind, a complete fallback message, a declarative scene, and an optional logical effect. Initial step kinds are `observe`, `compare`, `eliminate`, and `conclude`; adding a kind requires a protocol-version decision when an older renderer could change meaning.
+Every step contains a stable ID, a semantic kind, a complete fallback message, a declarative scene, and an optional logical effect. Scenes carry `marks`, stable candidate `nodes`, and typed `links`; each step sends complete arrays, including empty arrays, so a renderer never retains stale visual state. Initial step kinds are `observe`, `compare`, `eliminate`, and `conclude`; changing their meaning requires a coordinated contract replacement across the engine and clients.
 
 Every scene is a complete snapshot for that step rather than a delta from the previous scene. A client can therefore move forward or backward, render one step, skip unsupported visual reinforcement, or recover after interruption without retaining hidden highlight state.
 
@@ -74,6 +73,10 @@ Scene marks pair one target with one semantic role:
 | `conclusion` | Placement or elimination that completes the teaching step |
 
 Semantic roles carry no palette or animation requirement. Color cannot be the sole carrier of meaning, motion is optional, and the fallback message names every fact needed to understand the step.
+
+Candidate nodes provide stable IDs and may carry an `A`/`B` alternating-group label or a one-based chain order. Typed links connect node IDs as `strong`, `weak`, or `implication`; renderers express those meanings with solid lines, dashed lines, or arrows and provide an equivalent legend or accessible description. Unit marks communicate scope only when the unit itself is the fact under examination. Chain and coloring scenes therefore avoid painting every cell in every participating unit.
+
+Complex scenes progress from one bounded relation to the complete pattern. The first coloring, cycle, or chain step introduces one link and its endpoints; the comparison step reveals the complete relationship graph; the conclusion preserves that graph while isolating the exact result. Backward navigation remains deterministic because each scene is complete.
 
 Logical effects are separate from marks. A mark explains presentation emphasis; an effect declares the verifiable placement or candidate eliminations produced by the step. The plan conclusion equals the combined final effect and must be valid against the source game state.
 
@@ -115,6 +118,6 @@ Unsupported semantic data is ignored visibly rather than guessed. A renderer may
 
 `game.Game.Hint` returns the complete plan, `game.ApplyHint` requires its deterministic `plan_id`, and the engine applies either a placement or a multi-cell note elimination as one undoable transition. `game.completeTeachingEvidence` preserves strategy-authored evidence and completes missing typed candidate neighborhoods, affected units, ruled-out candidates, and exact elimination effects from the solver board transition. All 23 registered strategies therefore produce ordered semantic steps and a machine-readable conclusion; fallback prose remains presentation text rather than a client parsing contract.
 
-The line CLI prints and caches the complete plan without mutation, then requires `hint apply` or `hint cancel`; apply submits only the cached identity. Any successful non-hint CLI mutation explicitly discards the cached preview, while failed and no-op commands retain it. The TUI keeps the complete plan during preview, navigates its steps locally, uses color-independent semantic marks, and submits its identity on Enter. The version 1 HTTP contract returns the complete plan with one-based transport coordinates, requires its explicit `plan_id` on `apply-hint`, and returns the applied plan in the action result. Built-binary terminal and API acceptance proves read-only preview, exact-plan application, mutation-driven CLI discard, stale-plan rejection at engine boundaries, and one revision or undo record per accepted conclusion.
+The line CLI prints and caches the complete plan without mutation, then requires `hint apply` or `hint cancel`; apply submits only the cached identity. Any successful non-hint CLI mutation explicitly discards the cached preview, while failed and no-op commands retain it. The TUI keeps the complete plan during preview, navigates its steps locally, uses color-independent semantic marks, and submits its identity on Enter. The HTTP contract returns the complete plan with one-based transport coordinates, requires its explicit `plan_id` on `apply-hint`, and returns the applied plan in the action result. Built-binary terminal and API acceptance proves read-only preview, exact-plan application, mutation-driven CLI discard, stale-plan rejection at engine boundaries, and one revision or undo record per accepted conclusion.
 
 `game.TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame` drives the canonical solver to each strategy using complete valid games from the maintained calibration corpus and catalog audit. The coverage contract rejects synthetic candidate-only boards, missing typed premises, unstable plan identities, incomplete effects, and any registered strategy without a placement or elimination plan.

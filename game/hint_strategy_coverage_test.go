@@ -88,7 +88,11 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 				if !planHasRole(*first, HintRolePremise) {
 					t.Fatal("plan has no typed candidate premise")
 				}
-				if !planHasUnit(*first) {
+				if key == "simple-coloring" || key == "x-cycles" || key == "xy-chain" {
+					if len(first.Steps[1].Nodes) == 0 || len(first.Steps[1].Links) == 0 {
+						t.Fatal("relational plan has no explicit nodes and links")
+					}
+				} else if !planHasUnit(*first) {
 					t.Fatal("plan has no typed affected unit")
 				}
 				last := first.Steps[len(first.Steps)-1]

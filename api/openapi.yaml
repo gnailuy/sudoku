@@ -938,11 +938,8 @@ components:
     HintPlan:
       type: object
       additionalProperties: false
-      required: [protocol_version, plan_id, strategy, summary, steps, conclusion]
+      required: [plan_id, strategy, summary, steps, conclusion]
       properties:
-        protocol_version:
-          type: integer
-          const: 1
         plan_id:
           type: string
           pattern: ^[0-9a-f]{64}$
@@ -1022,6 +1019,42 @@ components:
         role:
           $ref: "#/components/schemas/HintRole"
 
+    HintNode:
+      type: object
+      additionalProperties: false
+      required: [id, target]
+      properties:
+        id:
+          type: string
+          pattern: ^r[1-9]c[1-9]-v[1-9]$
+        target:
+          $ref: "#/components/schemas/HintTarget"
+        group:
+          type: string
+          enum: [A, B]
+        order:
+          type: integer
+          minimum: 1
+          maximum: 32
+
+    HintLinkKind:
+      type: string
+      enum: [strong, weak, implication]
+
+    HintLink:
+      type: object
+      additionalProperties: false
+      required: [from, to, kind]
+      properties:
+        from:
+          type: string
+          pattern: ^r[1-9]c[1-9]-v[1-9]$
+        to:
+          type: string
+          pattern: ^r[1-9]c[1-9]-v[1-9]$
+        kind:
+          $ref: "#/components/schemas/HintLinkKind"
+
     HintPlacement:
       type: object
       additionalProperties: false
@@ -1070,7 +1103,7 @@ components:
     HintStep:
       type: object
       additionalProperties: false
-      required: [id, kind, message, marks]
+      required: [id, kind, message, marks, nodes, links]
       properties:
         id:
           type: string
@@ -1087,6 +1120,16 @@ components:
           maxItems: 729
           items:
             $ref: "#/components/schemas/HintMark"
+        nodes:
+          type: array
+          maxItems: 729
+          items:
+            $ref: "#/components/schemas/HintNode"
+        links:
+          type: array
+          maxItems: 729
+          items:
+            $ref: "#/components/schemas/HintLink"
         effect:
           $ref: "#/components/schemas/HintEffect"
 

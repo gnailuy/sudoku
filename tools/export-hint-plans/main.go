@@ -79,18 +79,31 @@ func wirePlan(plan *game.HintPlan) map[string]any {
 		for j, mark := range step.Marks {
 			marks[j] = map[string]any{"target": wireTarget(mark.Target), "role": mark.Role}
 		}
-		steps[i] = map[string]any{"id": step.ID, "kind": step.Kind, "message": step.Message, "marks": marks}
+		nodes := make([]map[string]any, len(step.Nodes))
+		for j, node := range step.Nodes {
+			nodes[j] = map[string]any{"id": node.ID, "target": wireTarget(node.Target)}
+			if node.Group != "" {
+				nodes[j]["group"] = node.Group
+			}
+			if node.Order != 0 {
+				nodes[j]["order"] = node.Order
+			}
+		}
+		links := make([]map[string]any, len(step.Links))
+		for j, link := range step.Links {
+			links[j] = map[string]any{"from": link.From, "to": link.To, "kind": link.Kind}
+		}
+		steps[i] = map[string]any{"id": step.ID, "kind": step.Kind, "message": step.Message, "marks": marks, "nodes": nodes, "links": links}
 		if step.Effect != nil {
 			steps[i]["effect"] = wireEffect(step.Effect.Placement, step.Effect.Eliminations)
 		}
 	}
 	return map[string]any{
-		"protocol_version": plan.ProtocolVersion,
-		"plan_id":          plan.PlanID,
-		"strategy":         map[string]any{"id": plan.Strategy.ID, "display_name": plan.Strategy.DisplayName, "grade": plan.Strategy.Grade},
-		"summary":          plan.Summary,
-		"steps":            steps,
-		"conclusion":       wireEffect(plan.Conclusion.Placement, plan.Conclusion.Eliminations),
+		"plan_id":    plan.PlanID,
+		"strategy":   map[string]any{"id": plan.Strategy.ID, "display_name": plan.Strategy.DisplayName, "grade": plan.Strategy.Grade},
+		"summary":    plan.Summary,
+		"steps":      steps,
+		"conclusion": wireEffect(plan.Conclusion.Placement, plan.Conclusion.Eliminations),
 	}
 }
 

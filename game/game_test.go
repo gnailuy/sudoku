@@ -168,7 +168,7 @@ func TestHint(t *testing.T) {
 		t.Fatal("Hint returned nil on unsolved game")
 	}
 
-	if hint.ProtocolVersion != HintProtocolVersion || hint.PlanID == "" {
+	if hint.PlanID == "" {
 		t.Fatalf("hint has invalid protocol identity: %+v", hint)
 	}
 	if hint.Strategy.ID == "" || hint.Summary == "" || len(hint.Steps) == 0 {

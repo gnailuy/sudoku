@@ -22,7 +22,7 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	if first == nil || second == nil || first.PlanID != second.PlanID {
 		t.Fatalf("repeated hint plans differ: %+v / %+v", first, second)
 	}
-	if first.ProtocolVersion != 1 || first.Strategy.ID != "naked-single" || len(first.Steps) != 2 || first.Conclusion.Placement == nil {
+	if first.Strategy.ID != "naked-single" || len(first.Steps) != 2 || first.Conclusion.Placement == nil {
 		t.Fatalf("unexpected naked-single plan: %+v", first)
 	}
 	if strings.Contains(first.Steps[0].Message, "Naked Single") || !strings.Contains(first.Steps[0].Message, "row ") || !strings.Contains(first.Steps[0].Message, ", column ") {
@@ -326,17 +326,25 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 			if !strings.Contains(plan.Steps[2].Message, "Because") || !strings.Contains(plan.Steps[2].Message, plan.Strategy.DisplayName) {
 				t.Fatalf("conclusion does not explain then name the strategy: %q", plan.Steps[2].Message)
 			}
+			if len(plan.Steps[0].Links) != 1 || len(plan.Steps[1].Links) <= len(plan.Steps[0].Links) {
+				t.Fatalf("complex scene is not progressive: %+v", plan.Steps)
+			}
+			for _, mark := range plan.Steps[1].Marks {
+				if mark.Target.Kind == HintTargetRow || mark.Target.Kind == HintTargetColumn || mark.Target.Kind == HintTargetBox {
+					t.Fatalf("chain scene paints broad unit scope: %+v", mark)
+				}
+			}
 			switch key {
 			case "simple-coloring":
-				if !strings.Contains(plan.Steps[0].Message, "exactly two possible cells") || !strings.Contains(plan.Steps[1].Message, "two groups") {
+				if !strings.Contains(plan.Steps[0].Message, "Exactly one end") || !strings.Contains(plan.Steps[1].Message, "two groups") || len(plan.Steps[1].Links) == 0 || plan.Steps[1].Nodes[0].Group == "" {
 					t.Fatalf("coloring plan does not teach alternating groups: %+v", plan.Steps)
 				}
 			case "x-cycles":
-				if !strings.Contains(plan.Steps[0].Message, "must-contain link") || !strings.Contains(plan.Steps[0].Message, "cannot-both link") || !strings.Contains(plan.Steps[1].Message, "return") {
+				if !strings.Contains(plan.Steps[0].Message, "solid or dashed") || !strings.Contains(plan.Steps[1].Message, "returns") || len(plan.Steps[1].Links) < 3 || plan.Steps[1].Nodes[0].Order == 0 {
 					t.Fatalf("cycle plan does not teach alternating links: %+v", plan.Steps)
 				}
 			case "xy-chain":
-				if !strings.Contains(plan.Steps[0].Message, "two-candidate cells") || !strings.Contains(plan.Steps[1].Message, "implication continues") || !strings.Contains(plan.Steps[1].Message, "at least one endpoint") {
+				if !strings.Contains(plan.Steps[0].Message, "first two-candidate cells") || !strings.Contains(plan.Steps[1].Message, "implication continues") || !strings.Contains(plan.Steps[1].Message, "at least one endpoint") || len(plan.Steps[1].Links) == 0 || plan.Steps[1].Links[0].Kind != solver.LinkImplication {
 					t.Fatalf("XY-chain plan does not teach the endpoint implication: %+v", plan.Steps)
 				}
 			}
