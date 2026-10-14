@@ -64,6 +64,46 @@ type HintNarrationChunk struct {
 	Value  int
 }
 
+// HasValidNarration reports whether every chunk is one well-formed variant.
+// Renderers use the complete fallback message when this returns false.
+func (step HintStep) HasValidNarration() bool {
+	if len(step.Narration) == 0 {
+		return false
+	}
+	for _, chunk := range step.Narration {
+		switch chunk.Kind {
+		case HintNarrationText:
+			if chunk.Text == "" || chunk.Target != nil || chunk.Value != 0 {
+				return false
+			}
+		case HintNarrationTarget:
+			if chunk.Text != "" || chunk.Target == nil || chunk.Value != 0 || !validHintNarrationTarget(*chunk.Target) {
+				return false
+			}
+		case HintNarrationDigit:
+			if chunk.Text != "" || chunk.Target != nil || chunk.Value < 1 || chunk.Value > 9 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func validHintNarrationTarget(target HintTarget) bool {
+	switch target.Kind {
+	case HintTargetCell:
+		return target.Position != nil && target.Position.IsValid() && target.Value == 0 && target.Index == 0
+	case HintTargetCandidate:
+		return target.Position != nil && target.Position.IsValid() && target.Value >= 1 && target.Value <= 9 && target.Index == 0
+	case HintTargetRow, HintTargetColumn, HintTargetBox:
+		return target.Position == nil && target.Value == 0 && target.Index >= 0 && target.Index < 9
+	default:
+		return false
+	}
+}
+
 type HintMark struct {
 	Target HintTarget
 	Role   HintRole

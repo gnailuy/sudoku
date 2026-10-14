@@ -175,3 +175,16 @@ func TestFormatHintNarrationUsesCLICoordinates(t *testing.T) {
 		t.Fatalf("compact narration = %q", got)
 	}
 }
+
+func TestFormatHintNarrationFallsBackForInvalidVariant(t *testing.T) {
+	step := game.HintStep{
+		Message: "complete fallback",
+		Narration: []game.HintNarrationChunk{{
+			Kind: game.HintNarrationTarget,
+			Text: "conflicting payload",
+		}},
+	}
+	if got := formatHintNarration(step, false); got != step.Message {
+		t.Fatalf("invalid narration = %q, want fallback %q", got, step.Message)
+	}
+}

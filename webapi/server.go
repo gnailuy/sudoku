@@ -308,24 +308,20 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 			links[j] = HintLink{From: link.From, To: link.To, Kind: HintLinkKind(link.Kind)}
 		}
 		steps[i] = HintStep{Id: step.ID, Kind: HintStepKind(step.Kind), Message: step.Message, Marks: marks, Nodes: nodes, Links: links}
-		if len(step.Narration) > 0 {
+		if step.HasValidNarration() {
 			narration := make([]HintNarrationChunk, len(step.Narration))
+			valid := true
 			for j, chunk := range step.Narration {
-				narration[j].Kind = HintNarrationKind(chunk.Kind)
-				if chunk.Text != "" {
-					text := chunk.Text
-					narration[j].Text = &text
-				}
-				if chunk.Target != nil {
-					target := apiHintTarget(*chunk.Target)
-					narration[j].Target = &target
-				}
-				if chunk.Value != 0 {
-					value := Digit(chunk.Value)
-					narration[j].Value = &value
+				var ok bool
+				narration[j], ok = apiHintNarrationChunk(chunk)
+				if !ok {
+					valid = false
+					break
 				}
 			}
-			steps[i].Narration = &narration
+			if valid {
+				steps[i].Narration = &narration
+			}
 		}
 		if step.Effect != nil {
 			effect := apiHintEffect(step.Effect.Placement, step.Effect.Eliminations)
@@ -343,6 +339,22 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 		Steps:      steps,
 		Conclusion: apiHintEffect(plan.Conclusion.Placement, plan.Conclusion.Eliminations),
 	}
+}
+
+func apiHintNarrationChunk(chunk game.HintNarrationChunk) (HintNarrationChunk, bool) {
+	var out HintNarrationChunk
+	var err error
+	switch chunk.Kind {
+	case game.HintNarrationText:
+		err = out.FromHintNarrationText(HintNarrationText{Text: chunk.Text})
+	case game.HintNarrationTarget:
+		err = out.FromHintNarrationTarget(HintNarrationTarget{Target: apiHintTarget(*chunk.Target)})
+	case game.HintNarrationDigit:
+		err = out.FromHintNarrationDigit(HintNarrationDigit{Value: Digit(chunk.Value)})
+	default:
+		return HintNarrationChunk{}, false
+	}
+	return out, err == nil
 }
 
 func apiHintTarget(target game.HintTarget) HintTarget {

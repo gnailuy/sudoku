@@ -316,7 +316,7 @@ func formatNarrationTarget(target game.HintTarget, compact bool) string {
 }
 
 func formatHintNarration(step game.HintStep, compact bool) string {
-	if len(step.Narration) == 0 {
+	if !step.HasValidNarration() {
 		return step.Message
 	}
 	var result strings.Builder

@@ -438,7 +438,7 @@ func (m *Model) apply(action game.Action) tea.Cmd {
 }
 
 func formatTUIHintNarration(step game.HintStep) string {
-	if len(step.Narration) == 0 {
+	if !step.HasValidNarration() {
 		return step.Message
 	}
 	var result strings.Builder

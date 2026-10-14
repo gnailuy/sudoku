@@ -16,6 +16,33 @@ func gameWithStrategies(t *testing.T, board core.Board, keys ...string) Game {
 	return NewGame(board, options)
 }
 
+func TestHintStepHasValidNarrationRequiresOnePayloadPerKind(t *testing.T) {
+	position := core.NewPosition(3, 6)
+	validTarget := HintTarget{Kind: HintTargetCell, Position: &position}
+	tests := []struct {
+		name  string
+		chunk HintNarrationChunk
+		valid bool
+	}{
+		{name: "text", chunk: narrationText("Look at "), valid: true},
+		{name: "target", chunk: narrationTarget(validTarget), valid: true},
+		{name: "digit", chunk: narrationDigit(7), valid: true},
+		{name: "empty text", chunk: HintNarrationChunk{Kind: HintNarrationText}, valid: false},
+		{name: "conflicting target payload", chunk: HintNarrationChunk{Kind: HintNarrationTarget, Text: "wrong", Target: &validTarget}, valid: false},
+		{name: "missing target", chunk: HintNarrationChunk{Kind: HintNarrationTarget}, valid: false},
+		{name: "invalid digit", chunk: HintNarrationChunk{Kind: HintNarrationDigit, Value: 10}, valid: false},
+		{name: "unknown kind", chunk: HintNarrationChunk{Kind: "future"}, valid: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			step := HintStep{Narration: []HintNarrationChunk{test.chunk}}
+			if got := step.HasValidNarration(); got != test.valid {
+				t.Fatalf("HasValidNarration() = %v, want %v", got, test.valid)
+			}
+		})
+	}
+}
+
 func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	game := gameWithStrategies(t, testProblem(), "naked-single")
 	first, second := game.Hint(), game.Hint()

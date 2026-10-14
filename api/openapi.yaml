@@ -983,22 +983,50 @@ components:
       type: string
       enum: [focus, premise, eliminated, conclusion]
 
-    HintNarrationKind:
-      type: string
-      enum: [text, target, digit]
-
     HintNarrationChunk:
+      oneOf:
+        - $ref: "#/components/schemas/HintNarrationText"
+        - $ref: "#/components/schemas/HintNarrationTarget"
+        - $ref: "#/components/schemas/HintNarrationDigit"
+      discriminator:
+        propertyName: kind
+        mapping:
+          text: "#/components/schemas/HintNarrationText"
+          target: "#/components/schemas/HintNarrationTarget"
+          digit: "#/components/schemas/HintNarrationDigit"
+
+    HintNarrationText:
       type: object
       additionalProperties: false
-      required: [kind]
+      required: [kind, text]
       properties:
         kind:
-          $ref: "#/components/schemas/HintNarrationKind"
+          type: string
+          const: text
         text:
           type: string
+          minLength: 1
           maxLength: 1000
+
+    HintNarrationTarget:
+      type: object
+      additionalProperties: false
+      required: [kind, target]
+      properties:
+        kind:
+          type: string
+          const: target
         target:
           $ref: "#/components/schemas/HintTarget"
+
+    HintNarrationDigit:
+      type: object
+      additionalProperties: false
+      required: [kind, value]
+      properties:
+        kind:
+          type: string
+          const: digit
         value:
           $ref: "#/components/schemas/Digit"
 
