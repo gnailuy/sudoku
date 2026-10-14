@@ -157,3 +157,21 @@ func TestSaveCommandRoundTrip(t *testing.T) {
 		t.Fatal("saved session did not preserve notes")
 	}
 }
+
+func TestFormatHintNarrationUsesCLICoordinates(t *testing.T) {
+	position := core.NewPosition(3, 6)
+	step := game.HintStep{
+		Message: "fallback",
+		Narration: []game.HintNarrationChunk{
+			{Kind: game.HintNarrationText, Text: "Look at "},
+			{Kind: game.HintNarrationTarget, Target: &game.HintTarget{Kind: game.HintTargetCell, Position: &position}},
+			{Kind: game.HintNarrationText, Text: "."},
+		},
+	}
+	if got := formatHintNarration(step, false); got != "Look at row 4, column 7." {
+		t.Fatalf("CLI narration = %q", got)
+	}
+	if got := formatHintNarration(step, true); got != "Look at r4c7." {
+		t.Fatalf("compact narration = %q", got)
+	}
+}

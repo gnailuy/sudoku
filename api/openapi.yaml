@@ -983,6 +983,25 @@ components:
       type: string
       enum: [focus, premise, eliminated, conclusion]
 
+    HintNarrationKind:
+      type: string
+      enum: [text, target, digit]
+
+    HintNarrationChunk:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind:
+          $ref: "#/components/schemas/HintNarrationKind"
+        text:
+          type: string
+          maxLength: 1000
+        target:
+          $ref: "#/components/schemas/HintTarget"
+        value:
+          $ref: "#/components/schemas/Digit"
+
     HintTargetKind:
       type: string
       enum: [cell, candidate, row, column, box]
@@ -1115,6 +1134,12 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
+        narration:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items:
+            $ref: "#/components/schemas/HintNarrationChunk"
         marks:
           type: array
           maxItems: 729

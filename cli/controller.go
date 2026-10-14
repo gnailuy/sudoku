@@ -302,6 +302,39 @@ func (ctrl *Controller) runSaveCommand(path string) (bool, error) {
 	return false, nil
 }
 
+func formatNarrationTarget(target game.HintTarget, compact bool) string {
+	if target.Position != nil {
+		if compact {
+			return fmt.Sprintf("r%dc%d", target.Position.Row+1, target.Position.Column+1)
+		}
+		if target.Kind == game.HintTargetCandidate {
+			return fmt.Sprintf("candidate %d at row %d, column %d", target.Value, target.Position.Row+1, target.Position.Column+1)
+		}
+		return fmt.Sprintf("row %d, column %d", target.Position.Row+1, target.Position.Column+1)
+	}
+	return fmt.Sprintf("%s %d", target.Kind, target.Index+1)
+}
+
+func formatHintNarration(step game.HintStep, compact bool) string {
+	if len(step.Narration) == 0 {
+		return step.Message
+	}
+	var result strings.Builder
+	for _, chunk := range step.Narration {
+		switch chunk.Kind {
+		case game.HintNarrationText:
+			result.WriteString(chunk.Text)
+		case game.HintNarrationTarget:
+			if chunk.Target != nil {
+				result.WriteString(formatNarrationTarget(*chunk.Target, compact))
+			}
+		case game.HintNarrationDigit:
+			fmt.Fprint(&result, chunk.Value)
+		}
+	}
+	return result.String()
+}
+
 func formatHintPlan(plan game.HintPlan) string {
 	var result strings.Builder
 	result.WriteString("Hint preview\n")
@@ -309,7 +342,7 @@ func formatHintPlan(plan game.HintPlan) string {
 	fmt.Fprintf(&result, "Summary: %s\n", plan.Summary)
 	result.WriteString("Steps:\n")
 	for index, step := range plan.Steps {
-		fmt.Fprintf(&result, "  %d. [%s] %s\n", index+1, step.Kind, step.Message)
+		fmt.Fprintf(&result, "  %d. [%s] %s\n", index+1, step.Kind, formatHintNarration(step, false))
 	}
 	fmt.Fprintf(&result, "Conclusion: %s\n", hintConclusionText(plan))
 	result.WriteString("Run `hint apply` to accept this plan or `hint cancel` to discard it.\n")

@@ -308,6 +308,25 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 			links[j] = HintLink{From: link.From, To: link.To, Kind: HintLinkKind(link.Kind)}
 		}
 		steps[i] = HintStep{Id: step.ID, Kind: HintStepKind(step.Kind), Message: step.Message, Marks: marks, Nodes: nodes, Links: links}
+		if len(step.Narration) > 0 {
+			narration := make([]HintNarrationChunk, len(step.Narration))
+			for j, chunk := range step.Narration {
+				narration[j].Kind = HintNarrationKind(chunk.Kind)
+				if chunk.Text != "" {
+					text := chunk.Text
+					narration[j].Text = &text
+				}
+				if chunk.Target != nil {
+					target := apiHintTarget(*chunk.Target)
+					narration[j].Target = &target
+				}
+				if chunk.Value != 0 {
+					value := Digit(chunk.Value)
+					narration[j].Value = &value
+				}
+			}
+			steps[i].Narration = &narration
+		}
 		if step.Effect != nil {
 			effect := apiHintEffect(step.Effect.Placement, step.Effect.Eliminations)
 			steps[i].Effect = &effect

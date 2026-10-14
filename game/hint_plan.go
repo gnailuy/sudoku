@@ -47,6 +47,23 @@ type HintTarget struct {
 	Index    int
 }
 
+type HintNarrationKind string
+
+const (
+	HintNarrationText   HintNarrationKind = "text"
+	HintNarrationTarget HintNarrationKind = "target"
+	HintNarrationDigit  HintNarrationKind = "digit"
+)
+
+// HintNarrationChunk carries renderer-neutral language without requiring a
+// client to parse fallback prose. Exactly one payload matches Kind.
+type HintNarrationChunk struct {
+	Kind   HintNarrationKind
+	Text   string
+	Target *HintTarget
+	Value  int
+}
+
 type HintMark struct {
 	Target HintTarget
 	Role   HintRole
@@ -73,13 +90,14 @@ type HintEffect struct {
 }
 
 type HintStep struct {
-	ID      string
-	Kind    HintStepKind
-	Message string
-	Marks   []HintMark
-	Nodes   []HintNode
-	Links   []HintLink
-	Effect  *HintEffect
+	ID        string
+	Kind      HintStepKind
+	Message   string
+	Narration []HintNarrationChunk
+	Marks     []HintMark
+	Nodes     []HintNode
+	Links     []HintLink
+	Effect    *HintEffect
 }
 
 type HintStrategy struct {
@@ -133,6 +151,19 @@ func unitTarget(unit *solver.UnitRef) (HintTarget, bool) {
 		return HintTarget{}, false
 	}
 	return HintTarget{Kind: kind, Index: unit.Index}, true
+}
+
+func narrationText(text string) HintNarrationChunk {
+	return HintNarrationChunk{Kind: HintNarrationText, Text: text}
+}
+
+func narrationTarget(target HintTarget) HintNarrationChunk {
+	copy := target
+	return HintNarrationChunk{Kind: HintNarrationTarget, Target: &copy}
+}
+
+func narrationDigit(value int) HintNarrationChunk {
+	return HintNarrationChunk{Kind: HintNarrationDigit, Value: value}
 }
 
 func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Move) *HintPlan {
@@ -256,8 +287,8 @@ func nakedSingleSteps(move *solver.Move) []HintStep {
 	}
 	observeMarks := append(units, HintMark{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, HintMark{Target: candidateTarget(ref), Role: HintRolePremise})
 	return []HintStep{
-		{ID: "inspect-" + compactCellName(move.Cell.Position), Kind: HintStepObserve, Message: fmt.Sprintf("Look at %s. It has only one candidate: %d.", cellName(move.Cell.Position), move.Cell.Value), Marks: observeMarks},
-		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Message: fmt.Sprintf("Because no other digit can go in %s, place %d there. This is called a Naked Single.", cellName(move.Cell.Position), move.Cell.Value), Marks: []HintMark{{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
+		{ID: "inspect-" + compactCellName(move.Cell.Position), Kind: HintStepObserve, Message: fmt.Sprintf("Look at %s. It has only one candidate: %d.", cellName(move.Cell.Position), move.Cell.Value), Narration: []HintNarrationChunk{narrationText("Look at "), narrationTarget(cellTarget(move.Cell.Position)), narrationText(". It has only one candidate: "), narrationDigit(move.Cell.Value), narrationText(".")}, Marks: observeMarks},
+		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Message: fmt.Sprintf("Because no other digit can go in %s, place %d there. This is called a Naked Single.", cellName(move.Cell.Position), move.Cell.Value), Narration: []HintNarrationChunk{narrationText("Because no other digit can go in "), narrationTarget(cellTarget(move.Cell.Position)), narrationText(", place "), narrationDigit(move.Cell.Value), narrationText(" there. This is called a Naked Single.")}, Marks: []HintMark{{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
 	}
 }
 
@@ -271,9 +302,9 @@ func hiddenSingleSteps(move *solver.Move) []HintStep {
 	}
 	unitName := fmt.Sprintf("%s %d", move.Evidence.Unit.Kind, move.Evidence.Unit.Index+1)
 	return []HintStep{
-		{ID: fmt.Sprintf("scan-%s-for-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepObserve, Message: fmt.Sprintf("In %s, consider where %d can appear.", unitName, move.Cell.Value), Marks: marks},
-		{ID: fmt.Sprintf("compare-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepCompare, Message: fmt.Sprintf("Every other empty cell in %s cannot contain %d, leaving only %s.", unitName, move.Cell.Value, cellName(move.Cell.Position)), Marks: compare},
-		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Message: fmt.Sprintf("Because %s still needs %d and %s is the only possible cell, place %d there. This is called a Hidden Single.", unitName, move.Cell.Value, cellName(move.Cell.Position), move.Cell.Value), Marks: []HintMark{{Target: unit, Role: HintRoleFocus}, {Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
+		{ID: fmt.Sprintf("scan-%s-for-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepObserve, Message: fmt.Sprintf("In %s, consider where %d can appear.", unitName, move.Cell.Value), Narration: []HintNarrationChunk{narrationText("In "), narrationTarget(unit), narrationText(", consider where "), narrationDigit(move.Cell.Value), narrationText(" can appear.")}, Marks: marks},
+		{ID: fmt.Sprintf("compare-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepCompare, Message: fmt.Sprintf("Every other empty cell in %s cannot contain %d, leaving only %s.", unitName, move.Cell.Value, cellName(move.Cell.Position)), Narration: []HintNarrationChunk{narrationText("Every other empty cell in "), narrationTarget(unit), narrationText(" cannot contain "), narrationDigit(move.Cell.Value), narrationText(", leaving only "), narrationTarget(cellTarget(move.Cell.Position)), narrationText(".")}, Marks: compare},
+		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Message: fmt.Sprintf("Because %s still needs %d and %s is the only possible cell, place %d there. This is called a Hidden Single.", unitName, move.Cell.Value, cellName(move.Cell.Position), move.Cell.Value), Narration: []HintNarrationChunk{narrationText("Because "), narrationTarget(unit), narrationText(" still needs "), narrationDigit(move.Cell.Value), narrationText(" and "), narrationTarget(cellTarget(move.Cell.Position)), narrationText(" is the only possible cell, place "), narrationDigit(move.Cell.Value), narrationText(" there. This is called a Hidden Single.")}, Marks: []HintMark{{Target: unit, Role: HintRoleFocus}, {Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
 	}
 }
 
@@ -532,6 +563,20 @@ func xCycleSteps(move *solver.Move, display string) []HintStep {
 	}
 }
 
+func conclusionNarration(conclusion HintConclusion) []HintNarrationChunk {
+	if conclusion.Placement != nil {
+		return []HintNarrationChunk{narrationText("place "), narrationDigit(conclusion.Placement.Value), narrationText(" in "), narrationTarget(cellTarget(conclusion.Placement.Position))}
+	}
+	chunks := []HintNarrationChunk{narrationText("remove candidate ")}
+	for index, ref := range conclusion.Eliminations {
+		if index > 0 {
+			chunks = append(chunks, narrationText(", "))
+		}
+		chunks = append(chunks, narrationDigit(ref.Value), narrationText(" from "), narrationTarget(cellTarget(ref.Position)))
+	}
+	return chunks
+}
+
 func xyChainSteps(move *solver.Move, display string) []HintStep {
 	evidence := move.Evidence
 	if evidence == nil {
@@ -546,10 +591,13 @@ func xyChainSteps(move *solver.Move, display string) []HintStep {
 	firstNodes, firstLinks := visualPrefix(nodes, links)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	endpoint := sharedCandidate(evidence.Chain[0].Values, evidence.Chain[len(evidence.Chain)-1].Values)
+	finalNarration := []HintNarrationChunk{narrationText("Because every highlighted target sees both endpoints, it cannot contain "), narrationDigit(endpoint), narrationText("; ")}
+	finalNarration = append(finalNarration, conclusionNarration(conclusion)...)
+	finalNarration = append(finalNarration, narrationText(". This pattern is called an "+display+"."))
 	return []HintStep{
-		{ID: "find-xy-chain", Kind: HintStepObserve, Message: "Start with the first two-candidate cells. The numbered arrow introduces the first implication.", Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-xy-chain", Kind: HintStepCompare, Message: fmt.Sprintf("If the first endpoint does not contain %d, its other candidate forces the shared candidate in the next cell. That implication continues through the numbered chain until the last endpoint must contain %d, so at least one endpoint contains %d.", endpoint, endpoint, endpoint), Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because every highlighted target sees both endpoints, it cannot contain %d; %s This pattern is called an %s.", endpoint, deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+		{ID: "find-xy-chain", Kind: HintStepObserve, Message: "Start with the first two-candidate cells. The numbered arrow introduces the first implication.", Narration: []HintNarrationChunk{narrationText("Start with "), narrationTarget(cellTarget(evidence.Chain[0].Position)), narrationText(" and "), narrationTarget(cellTarget(evidence.Chain[1].Position)), narrationText(". The numbered arrow introduces the first implication.")}, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
+		{ID: "compare-xy-chain", Kind: HintStepCompare, Message: fmt.Sprintf("If the first endpoint does not contain %d, its other candidate forces the shared candidate in the next cell. That implication continues through the numbered chain until the last endpoint must contain %d, so at least one endpoint contains %d.", endpoint, endpoint, endpoint), Narration: []HintNarrationChunk{narrationText("If the first endpoint does not contain "), narrationDigit(endpoint), narrationText(", its other candidate forces the shared candidate in the next highlighted cell. That implication continues through the numbered chain until the last endpoint must contain "), narrationDigit(endpoint), narrationText(", so at least one endpoint contains "), narrationDigit(endpoint), narrationText(".")}, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because every highlighted target sees both endpoints, it cannot contain %d; %s This pattern is called an %s.", endpoint, deductionPhrase(conclusion), display), Narration: finalNarration, Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
 

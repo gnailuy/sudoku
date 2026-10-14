@@ -25,6 +25,11 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	if first.Strategy.ID != "naked-single" || len(first.Steps) != 2 || first.Conclusion.Placement == nil {
 		t.Fatalf("unexpected naked-single plan: %+v", first)
 	}
+	for _, step := range first.Steps {
+		if len(step.Narration) == 0 {
+			t.Fatalf("naked-single step lacks structured narration: %+v", step)
+		}
+	}
 	if strings.Contains(first.Steps[0].Message, "Naked Single") || !strings.Contains(first.Steps[0].Message, "row ") || !strings.Contains(first.Steps[0].Message, ", column ") {
 		t.Fatalf("naked-single observation is not beginner-first: %q", first.Steps[0].Message)
 	}
@@ -48,6 +53,11 @@ func TestHiddenSingleHintPlanHasUnitEvidence(t *testing.T) {
 	plan := game.Hint()
 	if plan == nil || plan.Strategy.ID != "hidden-single" || len(plan.Steps) != 3 {
 		t.Fatalf("unexpected hidden-single plan: %+v", plan)
+	}
+	for _, step := range plan.Steps {
+		if len(step.Narration) == 0 {
+			t.Fatalf("hidden-single step lacks structured narration: %+v", step)
+		}
 	}
 	if plan.Steps[0].Kind != HintStepObserve || plan.Steps[1].Kind != HintStepCompare || plan.Steps[2].Kind != HintStepConclude {
 		t.Fatalf("unexpected step order: %+v", plan.Steps)
@@ -422,6 +432,11 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatalf("cycle plan does not teach alternating links: %+v", plan.Steps)
 				}
 			case "xy-chain":
+				for _, step := range plan.Steps {
+					if len(step.Narration) == 0 {
+						t.Fatalf("XY-chain step lacks structured narration: %+v", step)
+					}
+				}
 				if !strings.Contains(plan.Steps[0].Message, "first two-candidate cells") || !strings.Contains(plan.Steps[1].Message, "implication continues") || !strings.Contains(plan.Steps[1].Message, "at least one endpoint") || len(plan.Steps[1].Links) == 0 || plan.Steps[1].Links[0].Kind != solver.LinkImplication {
 					t.Fatalf("XY-chain plan does not teach the endpoint implication: %+v", plan.Steps)
 				}
