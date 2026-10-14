@@ -255,6 +255,9 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		plan.Steps = evidenceSteps(move, plan.Conclusion)
 	}
 	for index := range plan.Steps {
+		if !plan.Steps[index].HasValidNarration() {
+			plan.Steps[index].Narration = completeStepNarration(plan.Steps[index], display)
+		}
 		if plan.Steps[index].Marks == nil {
 			plan.Steps[index].Marks = []HintMark{}
 		}
@@ -268,6 +271,25 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 	plan.Summary = hintSummary(plan.Steps)
 	plan.PlanID = deterministicPlanID(snapshot, *plan)
 	return plan
+}
+
+// completeStepNarration guarantees that every strategy exposes a closed,
+// renderer-neutral narration stream. Teaching steps without specialized
+// wording retain their complete authored message as one text token; final
+// deductions additionally expose typed digits and targets so clients can
+// render the result without parsing prose.
+func completeStepNarration(step HintStep, display string) []HintNarrationChunk {
+	if step.Effect == nil {
+		return []HintNarrationChunk{narrationText(step.Message)}
+	}
+	conclusion := HintConclusion{
+		Placement:    step.Effect.Placement,
+		Eliminations: step.Effect.Eliminations,
+	}
+	chunks := []HintNarrationChunk{narrationText("Apply the deduction: ")}
+	chunks = append(chunks, conclusionNarration(conclusion)...)
+	chunks = append(chunks, narrationText(". This is the "+display+" result."))
+	return chunks
 }
 
 func hintSummary(steps []HintStep) string {
