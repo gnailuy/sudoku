@@ -85,6 +85,11 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 				if len(first.Steps) < 2 {
 					t.Fatalf("steps = %d, want an ordered teaching sequence", len(first.Steps))
 				}
+				for index, step := range first.Steps {
+					if !step.HasValidNarration() {
+						t.Fatalf("step %d has no complete valid narration: %+v", index+1, step)
+					}
+				}
 				if !planHasRole(*first, HintRolePremise) {
 					t.Fatal("plan has no typed candidate premise")
 				}
@@ -98,6 +103,9 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 				last := first.Steps[len(first.Steps)-1]
 				if last.Effect == nil {
 					t.Fatal("final step has no exact effect")
+				}
+				if !narrationHasKind(last.Narration, HintNarrationDigit) || !narrationHasKind(last.Narration, HintNarrationTarget) {
+					t.Fatal("final narration has no typed digit and target")
 				}
 				if first.Conclusion.Placement == nil && len(first.Conclusion.Eliminations) == 0 {
 					t.Fatal("plan has no placement or elimination conclusion")
@@ -114,6 +122,15 @@ func boardFromPuzzle(t *testing.T, puzzle string) core.Board {
 	board := core.NewEmptyBoard()
 	board.FromString(puzzle)
 	return board
+}
+
+func narrationHasKind(chunks []HintNarrationChunk, kind HintNarrationKind) bool {
+	for _, chunk := range chunks {
+		if chunk.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func planHasUnit(plan HintPlan) bool {

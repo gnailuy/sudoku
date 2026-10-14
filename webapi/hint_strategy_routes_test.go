@@ -78,11 +78,9 @@ func TestGuestHTTPRoutesPreviewAndApplyEveryRegisteredHintStrategy(t *testing.T)
 					if marks == 0 {
 						t.Fatal("API hint exposed no typed semantic marks")
 					}
-					if testCase.Strategy == "naked-single" || testCase.Strategy == "hidden-single" || testCase.Strategy == "xy-chain" {
-						for _, step := range hint.Hint.Steps {
-							if step.Narration == nil || len(*step.Narration) == 0 {
-								t.Fatalf("structured narration missing from HTTP step: %+v", step)
-							}
+					for _, step := range hint.Hint.Steps {
+						if step.Narration == nil || len(*step.Narration) == 0 {
+							t.Fatalf("structured narration missing from HTTP step: %+v", step)
 						}
 					}
 				}
