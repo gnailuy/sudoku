@@ -437,12 +437,37 @@ func (m *Model) apply(action game.Action) tea.Cmd {
 	return m.scheduleRecovery()
 }
 
+func formatTUIHintNarration(step game.HintStep) string {
+	if !step.HasValidNarration() {
+		return step.Message
+	}
+	var result strings.Builder
+	for _, chunk := range step.Narration {
+		switch chunk.Kind {
+		case game.HintNarrationText:
+			result.WriteString(chunk.Text)
+		case game.HintNarrationTarget:
+			if chunk.Target == nil {
+				continue
+			}
+			if chunk.Target.Position != nil {
+				fmt.Fprintf(&result, "r%dc%d", chunk.Target.Position.Row+1, chunk.Target.Position.Column+1)
+			} else {
+				fmt.Fprintf(&result, "%s %d", chunk.Target.Kind, chunk.Target.Index+1)
+			}
+		case game.HintNarrationDigit:
+			fmt.Fprint(&result, chunk.Value)
+		}
+	}
+	return result.String()
+}
+
 func hintStepMessage(plan game.HintPlan, index int) string {
 	if len(plan.Steps) == 0 {
 		return "Hint preview: " + plan.Summary
 	}
 	step := plan.Steps[index]
-	return fmt.Sprintf("Hint — %s (%s)  •  Step %d of %d [%s]: %s", plan.Strategy.DisplayName, plan.Strategy.Grade, index+1, len(plan.Steps), step.Kind, step.Message)
+	return fmt.Sprintf("Hint — %s (%s)  •  Step %d of %d [%s]: %s", plan.Strategy.DisplayName, plan.Strategy.Grade, index+1, len(plan.Steps), step.Kind, formatTUIHintNarration(step))
 }
 
 func (m *Model) scheduleRecovery() tea.Cmd {

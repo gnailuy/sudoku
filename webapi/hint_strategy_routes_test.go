@@ -78,6 +78,13 @@ func TestGuestHTTPRoutesPreviewAndApplyEveryRegisteredHintStrategy(t *testing.T)
 					if marks == 0 {
 						t.Fatal("API hint exposed no typed semantic marks")
 					}
+					if testCase.Strategy == "naked-single" || testCase.Strategy == "hidden-single" || testCase.Strategy == "xy-chain" {
+						for _, step := range hint.Hint.Steps {
+							if step.Narration == nil || len(*step.Narration) == 0 {
+								t.Fatalf("structured narration missing from HTTP step: %+v", step)
+							}
+						}
+					}
 				}
 				body := fmt.Sprintf(`{"document":%q,"action":{"kind":"apply-hint","expected_revision":%d,"plan_id":%q}}`, current.Document, current.Revision, hint.Hint.PlanId)
 				applied := request(t, handler, http.MethodPost, "/api/v1/guest/games/actions", "application/json", body, nil)

@@ -16,6 +16,33 @@ func gameWithStrategies(t *testing.T, board core.Board, keys ...string) Game {
 	return NewGame(board, options)
 }
 
+func TestHintStepHasValidNarrationRequiresOnePayloadPerKind(t *testing.T) {
+	position := core.NewPosition(3, 6)
+	validTarget := HintTarget{Kind: HintTargetCell, Position: &position}
+	tests := []struct {
+		name  string
+		chunk HintNarrationChunk
+		valid bool
+	}{
+		{name: "text", chunk: narrationText("Look at "), valid: true},
+		{name: "target", chunk: narrationTarget(validTarget), valid: true},
+		{name: "digit", chunk: narrationDigit(7), valid: true},
+		{name: "empty text", chunk: HintNarrationChunk{Kind: HintNarrationText}, valid: false},
+		{name: "conflicting target payload", chunk: HintNarrationChunk{Kind: HintNarrationTarget, Text: "wrong", Target: &validTarget}, valid: false},
+		{name: "missing target", chunk: HintNarrationChunk{Kind: HintNarrationTarget}, valid: false},
+		{name: "invalid digit", chunk: HintNarrationChunk{Kind: HintNarrationDigit, Value: 10}, valid: false},
+		{name: "unknown kind", chunk: HintNarrationChunk{Kind: "future"}, valid: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			step := HintStep{Narration: []HintNarrationChunk{test.chunk}}
+			if got := step.HasValidNarration(); got != test.valid {
+				t.Fatalf("HasValidNarration() = %v, want %v", got, test.valid)
+			}
+		})
+	}
+}
+
 func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	game := gameWithStrategies(t, testProblem(), "naked-single")
 	first, second := game.Hint(), game.Hint()
@@ -24,6 +51,11 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	}
 	if first.Strategy.ID != "naked-single" || len(first.Steps) != 2 || first.Conclusion.Placement == nil {
 		t.Fatalf("unexpected naked-single plan: %+v", first)
+	}
+	for _, step := range first.Steps {
+		if len(step.Narration) == 0 {
+			t.Fatalf("naked-single step lacks structured narration: %+v", step)
+		}
 	}
 	if strings.Contains(first.Steps[0].Message, "Naked Single") || !strings.Contains(first.Steps[0].Message, "row ") || !strings.Contains(first.Steps[0].Message, ", column ") {
 		t.Fatalf("naked-single observation is not beginner-first: %q", first.Steps[0].Message)
@@ -48,6 +80,11 @@ func TestHiddenSingleHintPlanHasUnitEvidence(t *testing.T) {
 	plan := game.Hint()
 	if plan == nil || plan.Strategy.ID != "hidden-single" || len(plan.Steps) != 3 {
 		t.Fatalf("unexpected hidden-single plan: %+v", plan)
+	}
+	for _, step := range plan.Steps {
+		if len(step.Narration) == 0 {
+			t.Fatalf("hidden-single step lacks structured narration: %+v", step)
+		}
 	}
 	if plan.Steps[0].Kind != HintStepObserve || plan.Steps[1].Kind != HintStepCompare || plan.Steps[2].Kind != HintStepConclude {
 		t.Fatalf("unexpected step order: %+v", plan.Steps)
@@ -422,6 +459,11 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatalf("cycle plan does not teach alternating links: %+v", plan.Steps)
 				}
 			case "xy-chain":
+				for _, step := range plan.Steps {
+					if len(step.Narration) == 0 {
+						t.Fatalf("XY-chain step lacks structured narration: %+v", step)
+					}
+				}
 				if !strings.Contains(plan.Steps[0].Message, "first two-candidate cells") || !strings.Contains(plan.Steps[1].Message, "implication continues") || !strings.Contains(plan.Steps[1].Message, "at least one endpoint") || len(plan.Steps[1].Links) == 0 || plan.Steps[1].Links[0].Kind != solver.LinkImplication {
 					t.Fatalf("XY-chain plan does not teach the endpoint implication: %+v", plan.Steps)
 				}

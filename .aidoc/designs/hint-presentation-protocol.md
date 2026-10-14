@@ -41,7 +41,7 @@ A strategy produces typed evidence for one deduction: examined units, candidate 
 
 A shared engine composer converts typed evidence into one `HintPlan`. The composer owns default teaching order and wording so 23 strategies do not duplicate client choreography. Naked Single and Hidden Single establish direct and unit-scoped placement teaching. Naked/Hidden Pair–Quad and Pointing Pair/Box-Line Reduction establish subset and intersection teaching. Fish and wing families identify their typed lines, intersections, pivots, wings, and candidate links before explaining the consequence. BUG+1 and Unique Rectangle Types 1–4 identify their candidate exceptions and uniqueness relationships. Simple Coloring records alternating candidate partitions and must-contain links; X-Cycles records an ordered loop of must-contain and cannot-both links; XY-Chain records ordered bivalue cells and their shared-candidate implications. Every family reveals formal strategy vocabulary only in the concluding because-clause.
 
-A renderer consumes a complete plan and never infers Sudoku reasoning from technique names or fallback prose. Renderers preserve the ordered text and logical conclusion, and full teaching renderers defer strategy name and grade until the final step so vocabulary reinforces reasoning instead of preceding it. Limited renderers receive the same messages joined in order as `summary`.
+A renderer consumes a complete plan and never infers Sudoku reasoning from technique names or fallback prose. The hint narration IR is a renderer-neutral token stream that separates literal text, digits, and typed semantic targets, allowing each interface to name the same cell, candidate, or unit naturally without parsing a message. Each token is one closed discriminated-union variant with exactly one required payload; invalid or unknown variants invalidate the whole stream for that step so the renderer uses the complete fallback message instead of guessing. The initial validated slice covers Naked Single, Hidden Single, and XY-Chain; every step retains its complete plain-text message while the remaining strategies continue using that fallback until their narration is migrated. Limited renderers receive the same fallback messages joined in order as `summary`.
 
 ## HintPlan Contract
 
@@ -55,7 +55,7 @@ Every plan contains:
 | `steps` | Ordered, independently renderable teaching steps |
 | `conclusion` | Machine-readable placement or candidate eliminations |
 
-Every step contains a stable ID, a semantic kind, a complete fallback message, a declarative scene, and an optional logical effect. Scenes carry `marks`, stable candidate `nodes`, and typed `links`; each step sends complete arrays, including empty arrays, so a renderer never retains stale visual state. Initial step kinds are `observe`, `compare`, `eliminate`, and `conclude`; changing their meaning requires a coordinated contract replacement across the engine and clients.
+Every step contains a stable ID, a semantic kind, a complete fallback message, optional structured narration, a declarative scene, and an optional logical effect. Structured narration never replaces the fallback: every emitted stream contains only valid text, target, or digit variants; every referenced target is valid in the source plan; and an unsupported stream is discarded as a whole. Scenes carry `marks`, stable candidate `nodes`, and typed `links`; each step sends complete arrays, including empty arrays, so a renderer never retains stale visual state. Initial step kinds are `observe`, `compare`, `eliminate`, and `conclude`; changing their meaning requires a coordinated contract replacement across the engine and clients.
 
 Every scene is a complete snapshot for that step rather than a delta from the previous scene. A client can therefore move forward or backward, render one step, skip unsupported visual reinforcement, or recover after interruption without retaining hidden highlight state.
 
@@ -104,11 +104,13 @@ Elimination application never places a value, even when the remaining notes form
 
 ## Graceful Degradation and Accessibility
 
-A fully capable renderer presents each scene and its message in order, withholding formal strategy metadata until the concluding step. A limited renderer presents the same ordered messages and conclusion while ignoring unsupported marks or target types. The simplest renderer may present `summary`, which joins those messages in teaching order, and the conclusion, but must not invent omitted reasoning.
+A fully capable renderer presents each scene and renders available narration chunks in order, withholding formal strategy metadata until the concluding step. The line CLI expands targets as row-and-column prose, the TUI uses compact `rNcN` locators, and the browser uses direct highlighted references with a visible secondary locator plus a fully expanded accessible name. Renderers fall back to `message` when narration is absent. A limited renderer presents the same ordered messages and conclusion while ignoring unsupported marks or target types. The simplest renderer may present `summary`, which joins those messages in teaching order, and the conclusion, but must not invent omitted reasoning.
 
 Step order, messages, roles, and explicit effects carry the meaning independently of color, position, or motion. Renderers expose the active step and step count to assistive technology, preserve user-controlled pacing, and avoid automatic animation that blocks reading or input.
 
 Unsupported semantic data is ignored visibly rather than guessed. A renderer may report reduced presentation capability, but protocol consumption remains successful when fallback text and conclusion are supported.
+
+Localization is a required later evolution, not a reason to duplicate translated token arrays now. When a second locale is introduced, the literal text layer becomes locale message IDs plus typed digit and target arguments, using ICU MessageFormat 2 or Fluent semantics for translator-controlled ordering and grammar; the Sudoku target, scene, teaching-order, fallback, and effect contracts remain unchanged.
 
 ## Reference Teaching Plans
 
