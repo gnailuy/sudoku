@@ -78,9 +78,23 @@ func TestGuestHTTPRoutesPreviewAndApplyEveryRegisteredHintStrategy(t *testing.T)
 					if marks == 0 {
 						t.Fatal("API hint exposed no typed semantic marks")
 					}
-					for _, step := range hint.Hint.Steps {
+					for index, step := range hint.Hint.Steps {
 						if step.Narration == nil || len(*step.Narration) == 0 {
 							t.Fatalf("structured narration missing from HTTP step: %+v", step)
+						}
+						switch testCase.Strategy {
+						case "xy-wing":
+							wantLinks := 2
+							if index == 0 {
+								wantLinks = 1
+							}
+							if len(step.Links) != wantLinks || step.Links[0].Kind != Implication {
+								t.Fatalf("XY-Wing HTTP links at step %d = %+v, want %d implications", index+1, step.Links, wantLinks)
+							}
+						case "w-wing":
+							if len(step.Links) != 1 || step.Links[0].Kind != Strong {
+								t.Fatalf("W-Wing HTTP links at step %d = %+v, want one strong link", index+1, step.Links)
+							}
 						}
 					}
 				}

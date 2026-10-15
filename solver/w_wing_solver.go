@@ -199,7 +199,11 @@ func (s *WWingSolver) tryWWing(board *core.Board, cellA, cellB core.Position, li
 				{Position: cellB, Values: append([]int(nil), pairValues...)},
 				{Position: aEnd, Values: []int{linkDigit}},
 				{Position: bEnd, Values: []int{linkDigit}},
-			}}
+			}, Links: []CandidateLink{{
+				From: CandidateRef{Position: aEnd, Value: linkDigit},
+				To:   CandidateRef{Position: bEnd, Value: linkDigit},
+				Kind: LinkStrong,
+			}}}
 			if move != nil {
 				move.Evidence = evidence
 				return move

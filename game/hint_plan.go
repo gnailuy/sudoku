@@ -479,25 +479,41 @@ func relationalSteps(move *solver.Move, display string) []HintStep {
 	marks := unitAndPremiseMarks(evidence)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	var observe, compare string
+	var firstNodes, nodes []HintNode
+	var firstLinks, links []HintLink
 	switch move.Technique {
 	case "xy-wing":
 		shared := sharedCandidate(premises[1].Values, premises[2].Values)
 		observe = fmt.Sprintf("Look at pivot %s with candidates %s and its two wings, %s with %s and %s with %s.", cellName(premises[0].Position), intsText(premises[0].Values), cellName(premises[1].Position), intsText(premises[1].Values), cellName(premises[2].Position), intsText(premises[2].Values))
 		compare = fmt.Sprintf("Whichever value the pivot takes, one wing must contain %d, so any cell that sees both wings cannot contain %d.", shared, shared)
+		if len(evidence.Links) == 2 {
+			nodes = visualNodes(evidence, false)
+			links = visualLinks(evidence)
+			firstNodes, firstLinks = visualPrefix(nodes, links)
+		}
 	case "w-wing":
 		link := premises[2].Values[0]
 		pair := intsText(premises[0].Values)
 		observe = fmt.Sprintf("Look at %s and %s. Both contain only %s, and candidate %d has a strong link between %s and %s.", cellName(premises[0].Position), cellName(premises[1].Position), pair, link, cellName(premises[2].Position), cellName(premises[3].Position))
 		compare = "The strong link guarantees that one of the two outer cells takes the other candidate, so a cell that sees both outer cells cannot use it."
+		if len(evidence.Links) == 1 {
+			nodes = visualNodes(evidence, false)
+			links = visualLinks(evidence)
+			firstNodes, firstLinks = nodes, links
+		}
 	case "xyz-wing":
 		shared := sharedCandidate(premises[0].Values, premises[1].Values, premises[2].Values)
 		observe = fmt.Sprintf("Look at pivot %s with candidates %s and its two wings, %s with %s and %s with %s.", cellName(premises[0].Position), intsText(premises[0].Values), cellName(premises[1].Position), intsText(premises[1].Values), cellName(premises[2].Position), intsText(premises[2].Values))
 		compare = fmt.Sprintf("One of those three cells must contain %d, so any cell that sees the pivot and both wings cannot contain %d.", shared, shared)
 	}
+	observeMarks := marks
+	if len(firstNodes) > 0 {
+		observeMarks = marksForNodes(firstNodes)
+	}
 	return []HintStep{
-		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: observe, Marks: marks},
-		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: compare, Marks: marks},
-		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because that candidate relationship holds, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: observe, Marks: observeMarks, Nodes: firstNodes, Links: firstLinks},
+		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: compare, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because that candidate relationship holds, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
 
