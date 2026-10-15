@@ -351,13 +351,20 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 			} else if !strings.Contains(plan.Steps[0].Message, "pivot") && !strings.Contains(plan.Steps[0].Message, "strong link") {
 				t.Fatalf("relational plan does not identify its cells and link: %+v", plan.Steps)
 			}
-			if key == "xy-wing" {
+			switch key {
+			case "xy-wing":
 				if len(plan.Steps[0].Links) != 1 || len(plan.Steps[1].Links) != 2 || len(plan.Steps[2].Links) != 2 {
 					t.Fatalf("XY-Wing implication scene is not progressive and persistent: %+v", plan.Steps)
 				}
 				for _, step := range plan.Steps {
 					if len(step.Nodes) == 0 || step.Links[0].Kind != solver.LinkImplication {
 						t.Fatalf("XY-Wing step lacks implication nodes and arrows: %+v", step)
+					}
+				}
+			case "w-wing":
+				for _, step := range plan.Steps {
+					if len(step.Nodes) == 0 || len(step.Links) != 1 || step.Links[0].Kind != solver.LinkStrong {
+						t.Fatalf("W-Wing step lacks its persistent strong-link scene: %+v", step)
 					}
 				}
 			}

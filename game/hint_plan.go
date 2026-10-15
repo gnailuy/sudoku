@@ -496,6 +496,11 @@ func relationalSteps(move *solver.Move, display string) []HintStep {
 		pair := intsText(premises[0].Values)
 		observe = fmt.Sprintf("Look at %s and %s. Both contain only %s, and candidate %d has a strong link between %s and %s.", cellName(premises[0].Position), cellName(premises[1].Position), pair, link, cellName(premises[2].Position), cellName(premises[3].Position))
 		compare = "The strong link guarantees that one of the two outer cells takes the other candidate, so a cell that sees both outer cells cannot use it."
+		if len(evidence.Links) == 1 {
+			nodes = visualNodes(evidence, false)
+			links = visualLinks(evidence)
+			firstNodes, firstLinks = nodes, links
+		}
 	case "xyz-wing":
 		shared := sharedCandidate(premises[0].Values, premises[1].Values, premises[2].Values)
 		observe = fmt.Sprintf("Look at pivot %s with candidates %s and its two wings, %s with %s and %s with %s.", cellName(premises[0].Position), intsText(premises[0].Values), cellName(premises[1].Position), intsText(premises[1].Values), cellName(premises[2].Position), intsText(premises[2].Values))

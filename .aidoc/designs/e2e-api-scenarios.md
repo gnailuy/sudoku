@@ -51,7 +51,7 @@ OpenAPI validation cannot prove listener safety, generated routing, middleware o
 
 **Action:** Create a sealed guest game, preview a hint, apply revisioned note/value/hint actions, and replace the document after each accepted mutation. Repeat preview and exact apply over the maintained complete-game manifest until each of the 23 registered strategies crosses the HTTP handler boundary.
 
-**Expected:** Guest state creates no user, application-session, account-game, claim, or recovery row. Revisions advance once, stale or wrong hint plans fail, and every replacement document opens to the authoritative snapshot. Every strategy exposes its public identifier, name, grade, ordered teaching steps, and typed semantic marks before the exact `plan_id` advances the sealed document by one revision.
+**Expected:** Guest state creates no user, application-session, account-game, claim, or recovery row. Revisions advance once, stale or wrong hint plans fail, and every replacement document opens to the authoritative snapshot. Every strategy exposes its public identifier, name, grade, ordered teaching steps, and typed semantic marks before the exact `plan_id` advances the sealed document by one revision. XY-Wing transports one then two implication links, and W-Wing transports one strong link through every step.
 
 **Action:** Complete deterministic local OIDC login, use the application-session cookie and request proof, create an account game, claim a guest game twice, mutate/list/delete owned games, revoke sessions, and delete the account.
 
