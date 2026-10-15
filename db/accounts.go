@@ -453,6 +453,21 @@ func (db *DB) UpdateAccountGame(userID, accountGameID string, expectedRevision i
 	return rows == 1, err
 }
 
+// RestartAccountGame atomically persists a fresh same-puzzle attempt and
+// clears its presentation time at the same optimistic revision boundary.
+func (db *DB) RestartAccountGame(userID, accountGameID string, expectedRevision int64, engineState []byte, status string) (bool, error) {
+	if expectedRevision < 0 || len(engineState) == 0 || !validAccountGameStatus(status) {
+		return false, errors.New("expected revision, engine state, and status are required")
+	}
+	result, err := db.conn.Exec(`UPDATE account_games SET engine_state = ?, status = ?, elapsed_seconds = 0, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+		WHERE account_game_id = ? AND user_id = ? AND revision = ?`, engineState, status, accountGameID, userID, expectedRevision)
+	if err != nil {
+		return false, fmt.Errorf("restart account game: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
+}
+
 func (db *DB) UpdateAccountGameElapsed(userID, accountGameID string, elapsedSeconds int64) (bool, error) {
 	if userID == "" || accountGameID == "" || elapsedSeconds < 0 {
 		return false, errors.New("owner, account game, and non-negative elapsed time are required")

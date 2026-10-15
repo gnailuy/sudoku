@@ -59,6 +59,7 @@ const (
 	ActionSetValue               ActionKind = "set-value"
 	ActionClearValue             ActionKind = "clear-value"
 	ActionReset                  ActionKind = "reset"
+	ActionRestart                ActionKind = "restart"
 	ActionUndo                   ActionKind = "undo"
 	ActionRedo                   ActionKind = "redo"
 	ActionApplyHint              ActionKind = "apply-hint"
@@ -91,6 +92,12 @@ func (ClearValue) actionKind() ActionKind { return ActionClearValue }
 type Reset struct{}
 
 func (Reset) actionKind() ActionKind { return ActionReset }
+
+// Restart begins a fresh attempt on the same puzzle. Unlike Reset, it also
+// clears attempt-scoped counters.
+type Restart struct{}
+
+func (Restart) actionKind() ActionKind { return ActionRestart }
 
 // Undo reverses the most recent recorded action.
 type Undo struct{}
@@ -262,6 +269,8 @@ func (game *Game) Apply(action Action) (Result, error) {
 		err = game.addInputAndRecordHistory(core.Cell{Position: typed.Position, Value: 0})
 	case Reset:
 		game.reset()
+	case Restart:
+		game.restart()
 	case Undo:
 		err = game.undo()
 	case Redo:
