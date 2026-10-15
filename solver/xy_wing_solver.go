@@ -150,6 +150,17 @@ func (s *XYWingSolver) Apply(board *core.Board) *Move {
 						{Position: pivot.pos, Values: []int{x, y}},
 						{Position: w1.pos, Values: []int{x, z}},
 						{Position: w2.pos, Values: []int{y, z}},
+					}, Links: []CandidateLink{
+						{
+							From: CandidateRef{Position: pivot.pos, Value: x},
+							To:   CandidateRef{Position: w2.pos, Value: z},
+							Kind: LinkImplication,
+						},
+						{
+							From: CandidateRef{Position: pivot.pos, Value: y},
+							To:   CandidateRef{Position: w1.pos, Value: z},
+							Kind: LinkImplication,
+						},
 					}}
 					if move != nil {
 						move.Evidence = evidence

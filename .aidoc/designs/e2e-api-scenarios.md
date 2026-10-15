@@ -57,9 +57,9 @@ OpenAPI validation cannot prove listener safety, generated routing, middleware o
 
 **Expected:** Login rotates digest-only application sessions. Cookie mutations reject missing request proof. Same-owner claim retries return one game; cross-owner attempts reveal no owner. Owner predicates hide foreign IDs, and account deletion preserves catalog/cohort evidence.
 
-**Action:** Exercise hint plans, complete note replacement, candidate adoption, invalid-value mistake counting, Undo/Redo, elapsed-time synchronization, and revision conflict in guest and account modes.
+**Action:** Exercise hint plans, complete note replacement, candidate adoption, invalid-value mistake counting, repeated Undo/Redo, a manual mutation from a historical point, elapsed-time synchronization, and revision conflict in guest and account modes.
 
-**Expected:** Both ownership modes expose identical game-engine semantics. Read-only hints do not mutate state; an elimination hint applied to an empty note map materializes the candidate grid, removes and persists the taught candidates in one undoable revision, and the next hint does not repeat the consumed deduction after document replacement. A later value or placement hint checks validity on a detached board, preserves every prior strategy elimination across account-game restore/mutate/serialize requests, and cannot make an already-consumed elimination reappear. Accepted actions advance once; stale writes never overwrite authoritative state.
+**Expected:** Both ownership modes expose identical game-engine semantics. Read-only hints do not mutate state; an elimination hint applied to an empty note map materializes the candidate grid, removes and persists the taught candidates in one undoable revision, and the next hint does not repeat the consumed deduction after document replacement. A later value or placement hint checks validity on a detached board, preserves every prior strategy elimination across account-game restore/mutate/serialize requests, and cannot make an already-consumed elimination reappear. Each persisted Undo restores the exact prior board and note snapshot, Redo follows the original path, and a manual mutation from that historical point truncates the abandoned Redo branch. Accepted actions advance once; stale writes never overwrite authoritative state.
 
 ## Cross-Repository Browser Harness
 

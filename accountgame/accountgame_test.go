@@ -42,6 +42,53 @@ func TestServiceAuthorizesOwnerAndPersistsRevisionedActions(t *testing.T) {
 	}
 }
 
+func TestServicePersistsHistoricalTraversalAndTruncatesRedoBranch(t *testing.T) {
+	service, database, _ := newTestService(t)
+	defer database.Close()
+
+	first := core.NewPosition(0, 0)
+	second := core.NewPosition(0, 1)
+	revision := int64(0)
+	apply := func(action game.Action) State {
+		t.Helper()
+		transition, err := service.Apply("user-a", "game-a", revision, action)
+		if err != nil {
+			t.Fatalf("Apply(%T) at revision %d: %v", action, revision, err)
+		}
+		revision = transition.Game.Revision
+		return transition.State
+	}
+
+	apply(game.SetNotes{Position: first, Values: []int{4}})
+	apply(game.SetNotes{Position: second, Values: []int{5}})
+	state := apply(game.Undo{})
+	if !state.Snapshot.Notes[first.Row][first.Column].Has(4) || !state.Snapshot.Notes[second.Row][second.Column].IsEmpty() || !state.Snapshot.CanRedo {
+		t.Fatalf("first persisted undo did not restore the exact previous state: %+v", state.Snapshot)
+	}
+	state = apply(game.Undo{})
+	if !state.Snapshot.Notes[first.Row][first.Column].IsEmpty() || !state.Snapshot.CanRedo {
+		t.Fatalf("second persisted undo did not restore the initial state: %+v", state.Snapshot)
+	}
+	state = apply(game.Redo{})
+	if !state.Snapshot.Notes[first.Row][first.Column].Has(4) || !state.Snapshot.Notes[second.Row][second.Column].IsEmpty() || !state.Snapshot.CanRedo {
+		t.Fatalf("persisted redo did not follow the original path: %+v", state.Snapshot)
+	}
+	state = apply(game.SetNotes{Position: first, Values: []int{4, 6}})
+	if state.Snapshot.CanRedo || !state.Snapshot.Notes[first.Row][first.Column].Has(6) {
+		t.Fatalf("manual action did not replace the historical branch: %+v", state.Snapshot)
+	}
+	if _, err := service.Apply("user-a", "game-a", revision, game.Redo{}); !errors.Is(err, &game.EngineError{Code: game.ErrorNoRedo}) {
+		t.Fatalf("redo after a manual historical action = %v, want no-redo", err)
+	}
+	restored, err := service.Get("user-a", "game-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.Game.Revision != revision || restored.Snapshot != state.Snapshot {
+		t.Fatalf("restored branched game differs from the persisted state: %+v", restored)
+	}
+}
+
 func TestServicePreservesHintEliminationsAcrossPlayerPlacement(t *testing.T) {
 	const puzzle = "................21..3..8.97..2..6.....7..4568.65.319....9..31...2..8..34.34.65..."
 	store := solver.NewStore()
