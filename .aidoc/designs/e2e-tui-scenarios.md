@@ -38,13 +38,13 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 **Action:** Start `sudoku tui --input <known puzzle>` in a terminal of at least 72×40, then resize below the minimum and back.
 **Expected:** The centered board uses clean digits, fixed-position notes, strong 3×3 boundaries, a strong focus background, and subtle peer backgrounds. A small terminal displays only the minimum-size instruction; resizing restores the unchanged game.
 
-### 9.2 Values, Notes, and History
-**Action:** Move with arrows or `h`/`j`/`k`/`l`, enter a value, toggle note mode with `n`, enter a note, then use `u` and `r`.
-**Expected:** Focus stops at board edges. Keys submit engine actions, note cleanup follows peer rules, and undo/redo restore whole transitions.
+### 9.2 Values, Candidates, and History
+**Action:** Move with arrows or `h`/`j`/`k`/`l`, enter a value, toggle candidate-edit mode with `n`, edit a candidate, then use `u` and `r`.
+**Expected:** Focus stops at board edges. Keys submit value or complete candidate actions against one grid, peer cleanup follows accepted values, and Undo/Redo restore whole transitions.
 
 ### 9.3 Help, Every-Strategy Hint Navigation, and Apply
-**Action:** Press `?`, inspect and close the keyboard-help overlay, press `i`, navigate Back and Next with Left/Right or `h`/`l`, then press Enter; separately cancel a preview with Esc. Run `scripts/e2e_tui_hint_strategies.py` against the built binary to repeat preview, local step navigation, and apply over the maintained complete-game manifest until each of the 23 registered strategies is reached.
-**Expected:** Help and local step navigation do not mutate the board, history, or dirty state. The active step shows `Step X of Y`, its teaching message, and color-independent focus, premise, elimination, or conclusion marks. Enter submits the retained `plan_id` once through `game.ApplyHint`; Esc discards it without mutation. The strategy matrix observes, navigates, and applies all 23 public strategy names and grades through the real pseudo-terminal frontend.
+**Action:** Start with automatic candidates hidden, press `?`, inspect and close the keyboard-help overlay, press `i`, navigate Back and Next with Left/Right or `h`/`l`, then press Enter; separately cancel a preview with Esc. Run `scripts/e2e_tui_hint_strategies.py` against the built binary to repeat preview, local step navigation, and apply over the maintained complete-game manifest until each of the 23 registered strategies is reached.
+**Expected:** A successful preview changes the presentation to `AUTO ON` before Step 1 without changing puzzle state, history, or serialized session, and candidates remain visible after cancel or apply until explicitly hidden. Help and local step navigation do not mutate the game. Wrong values and inconsistent candidate cells appear as correction plans before any strategy; correction scenes point to the exact cell and candidate differences. Enter submits the retained `plan_id` once; Esc discards it without mutation. The strategy matrix still observes and applies all 23 public strategy names and grades after validation passes.
 
 ### 9.4 Explicit Save and Safe Quit
 **Action:** Change a cell, press `q` and decline, press `S`, enter a path, then quit. Resume with `sudoku tui --resume <path>`.
@@ -66,21 +66,21 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 **Action:** With candidates enabled, set and clear a value, undo and redo, apply a hint, repair an invalid entry, solve, and reset.
 **Expected:** Every displayed candidate set follows the accepted solver-safe board without an independent candidate action or history entry.
 
-### 9.9 Automatic and Manual Coexistence
-**Action:** Add legal and stale manual notes with candidates enabled under dark, light, and `NO_COLOR` themes.
-**Expected:** Manual styling wins at overlapping positions, stale manual notes remain visible, and automatic candidates remain distinguishable without color alone.
+### 9.9 Candidate Editing and Accessibility
+**Action:** Edit legal, impossible, and missing candidates under dark, light, and `NO_COLOR` themes, then request a hint.
+**Expected:** One grid is rendered in fixed positions. The correction plan distinguishes the problem cell, extra digits, missing digit, and complete replacement without relying on color.
 
 ### 9.10 Candidate Save and Resume
-**Action:** Save with candidates enabled, then resume the session.
-**Expected:** Session bytes contain no candidate preference or derived data, and the resumed TUI starts with `AUTO OFF`.
+**Action:** Edit candidates, save, then resume the session.
+**Expected:** Session bytes preserve the authoritative grid but not the visibility preference; the resumed TUI starts with `AUTO OFF` and reveals the saved grid when requested.
 
 ### 9.11 Invalid-Entry Handling
 **Action:** Enter an invalid value with candidates enabled, then clear or repair it.
 **Expected:** The invalid cell shows its visible value, its peers ignore that value during candidate calculation, and candidates reappear in the cell after clear or repair.
 
-### 9.12 Candidate Adoption
-**Action:** Enable automatic candidates and note mode, then enter a digit in an editable empty cell and use Undo followed by Redo.
-**Expected:** The first edit copies the complete candidate grid, applies the initiating digit toggle, switches the display to `AUTO OFF`, and remains in note mode without confirmation. One Undo restores the complete prior note map, and one Redo reapplies the replacement.
+### 9.12 Correction Priority
+**Action:** Enter a wrong value, request and apply a hint, corrupt one candidate cell, request and apply another hint, then request a third hint.
+**Expected:** The first plan clears the exact wrong value, the second replaces the exact inconsistent candidate set, and only the third plan names and teaches a Sudoku strategy. Each application is one Undo step.
 
 ### 9.13 Mistake Count
 **Action:** Start a new TUI game, enter a confirmed invalid value, then use Undo.

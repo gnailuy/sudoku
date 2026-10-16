@@ -58,7 +58,7 @@ func TestSnapshotIsDetached(t *testing.T) {
 	}
 }
 
-func TestSnapshotCandidatesFollowSolverSafeBoard(t *testing.T) {
+func TestSnapshotCarriesOneAuthoritativeCandidateGrid(t *testing.T) {
 	game := newTestGame()
 	target := core.NewPosition(0, 2)
 	initial := game.Snapshot()
@@ -69,34 +69,37 @@ func TestSnapshotCandidatesFollowSolverSafeBoard(t *testing.T) {
 			break
 		}
 	}
-
 	if initial.Candidates[0][0] != 0 || initial.Candidates[target.Row][target.Column].IsEmpty() {
-		t.Fatal("snapshot should expose candidates only for empty cells")
-	}
-	playBoard := game.PlayBoard()
-	if got, want := initial.Candidates[target.Row][target.Column], playBoard.Candidates(target); got != want {
-		t.Fatalf("target candidates=%v, want %v", got.Values(), want.Values())
+		t.Fatal("new game should initialize candidates only for empty cells")
 	}
 	if !peer.IsValid() {
 		t.Fatal("test board needs a row peer that initially allows 4")
 	}
 
-	if _, err := game.Apply(SetNotes{Position: target, Values: []int{9}}); err != nil {
+	if _, err := game.Apply(SetCandidates{Position: target, Values: []int{9}}); err != nil {
 		t.Fatal(err)
 	}
-	if got := game.Snapshot().Candidates; got != initial.Candidates {
-		t.Fatal("manual notes changed derived candidates")
+	if got := game.Snapshot().Candidates[target.Row][target.Column].Values(); !slices.Equal(got, []int{9}) {
+		t.Fatalf("candidate edit was not authoritative: %v", got)
 	}
 
+	beforeInvalid := game.Snapshot()
 	if _, err := game.Apply(SetValue{Position: target, Value: 9}); err != nil {
 		t.Fatal(err)
 	}
 	invalid := game.Snapshot()
-	if !invalid.Invalid[0][2] || invalid.Values[0][2] != 9 {
-		t.Fatal("test value should be visible and invalid")
+	if !invalid.Invalid[0][2] || invalid.Values[0][2] != 9 || invalid.Candidates[target.Row][target.Column] != 0 {
+		t.Fatal("wrong value should occupy only its own visible cell")
 	}
-	if invalid.Candidates != initial.Candidates {
-		t.Fatal("an invalid visible entry constrained solver-safe candidates")
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			if row == target.Row && column == target.Column {
+				continue
+			}
+			if invalid.Candidates[row][column] != beforeInvalid.Candidates[row][column] {
+				t.Fatal("wrong value changed peer candidates")
+			}
+		}
 	}
 
 	if _, err := game.Apply(SetValue{Position: target, Value: 4}); err != nil {
@@ -104,7 +107,7 @@ func TestSnapshotCandidatesFollowSolverSafeBoard(t *testing.T) {
 	}
 	accepted := game.Snapshot()
 	if accepted.Candidates[0][2] != 0 || accepted.Candidates[peer.Row][peer.Column].Has(4) {
-		t.Fatal("accepted value did not refresh target and peer candidates")
+		t.Fatal("accepted value did not clear target and peer candidates")
 	}
 	if _, err := game.Apply(Undo{}); err != nil {
 		t.Fatal(err)
@@ -173,129 +176,34 @@ func TestApplyValueActionsAndHistory(t *testing.T) {
 	assertSingleChange(t, result, position, 4, 0)
 }
 
-func TestApplySetNotesIsAtomicAndUndoable(t *testing.T) {
+func TestApplySetCandidatesIsAtomicAndUndoable(t *testing.T) {
 	game := newTestGame()
 	position := core.NewPosition(0, 2)
 
-	result, err := game.Apply(SetNotes{Position: position, Values: []int{1, 3, 9}})
+	beforeInitial := game.Snapshot()
+	result, err := game.Apply(SetCandidates{Position: position, Values: []int{1, 3, 9}})
 	if err != nil {
-		t.Fatalf("Apply(SetNotes) returned error: %v", err)
+		t.Fatalf("Apply(SetCandidates) returned error: %v", err)
 	}
-	if result.Action != ActionSetNotes || len(result.Changes) != 1 {
-		t.Fatalf("unexpected set-notes result: %+v", result)
+	if result.Action != ActionSetCandidates || len(result.Changes) != 1 {
+		t.Fatalf("unexpected set-candidates result: %+v", result)
 	}
-	if got, want := result.Changes[0].NotesAfter.Values(), []int{1, 3, 9}; !slices.Equal(got, want) {
+	if got, want := result.Changes[0].CandidatesAfter.Values(), []int{1, 3, 9}; !slices.Equal(got, want) {
 		t.Fatalf("notes=%v, want %v", got, want)
 	}
 	if _, err := game.Apply(Undo{}); err != nil {
 		t.Fatal(err)
 	}
-	if !game.Snapshot().Notes[0][2].IsEmpty() {
-		t.Fatal("undo did not restore notes")
+	if game.Snapshot().Candidates != beforeInitial.Candidates {
+		t.Fatal("undo did not restore candidates")
 	}
 
 	before := game.Snapshot()
-	if _, err := game.Apply(SetNotes{Position: position, Values: []int{2, 2}}); !errors.Is(err, &EngineError{Code: ErrorInvalidCell}) {
+	if _, err := game.Apply(SetCandidates{Position: position, Values: []int{2, 2}}); !errors.Is(err, &EngineError{Code: ErrorInvalidCell}) {
 		t.Fatalf("duplicate notes returned %v", err)
 	}
 	if after := game.Snapshot(); after != before {
-		t.Fatal("invalid set-notes action mutated the game")
-	}
-}
-
-func TestAdoptCandidatesAsNotesIsWholeBoardAtomicAndUndoable(t *testing.T) {
-	game := newTestGame()
-	target := core.NewPosition(0, 2)
-	hiddenNotePosition := core.NewPosition(0, 3)
-	if _, err := game.Apply(SetNotes{Position: hiddenNotePosition, Values: []int{9}}); err != nil {
-		t.Fatal(err)
-	}
-	before := game.Snapshot()
-	toggle := before.Candidates[target.Row][target.Column].Values()[0]
-
-	result, err := game.Apply(AdoptCandidatesAsNotes{Position: target, Value: toggle})
-	if err != nil {
-		t.Fatalf("Apply(AdoptCandidatesAsNotes) returned error: %v", err)
-	}
-	if result.Action != ActionAdoptCandidatesAsNotes || len(result.Changes) < 2 {
-		t.Fatalf("unexpected adoption result: %+v", result)
-	}
-
-	adopted := game.Snapshot()
-	for row := 0; row < 9; row++ {
-		for column := 0; column < 9; column++ {
-			position := core.NewPosition(row, column)
-			want := before.Candidates[row][column]
-			if position == target {
-				want.Remove(toggle)
-			}
-			if got := adopted.Notes[row][column]; got != want {
-				t.Fatalf("notes at %v=%v, want candidates %v", position, got.Values(), want.Values())
-			}
-		}
-	}
-
-	if _, err := game.Apply(Undo{}); err != nil {
-		t.Fatal(err)
-	}
-	if got := game.Snapshot().Notes; got != before.Notes {
-		t.Fatal("undo did not restore the complete prior manual-note map")
-	}
-	if _, err := game.Apply(Redo{}); err != nil {
-		t.Fatal(err)
-	}
-	if got := game.Snapshot().Notes; got != adopted.Notes {
-		t.Fatal("redo did not restore the complete adopted candidate map")
-	}
-}
-
-func TestAdoptCandidatesAsNotesRejectsInvalidInitiatingEditWithoutMutation(t *testing.T) {
-	game := newTestGame()
-	before := game.Snapshot()
-	_, err := game.Apply(AdoptCandidatesAsNotes{Position: core.NewPosition(0, 2), Value: 10})
-	if !errors.Is(err, &EngineError{Code: ErrorInvalidCell}) {
-		t.Fatalf("expected invalid-cell error, got %v", err)
-	}
-	if after := game.Snapshot(); after != before {
-		t.Fatal("invalid adoption mutated the game")
-	}
-}
-
-func TestAdoptCandidatesAsNotesRejectsUneditableCellsWithoutMutation(t *testing.T) {
-	tests := []struct {
-		name     string
-		prepare  func(*Game)
-		position core.Position
-		code     ErrorCode
-	}{
-		{name: "given", position: core.NewPosition(0, 0), code: ErrorImmutableCell},
-		{
-			name: "filled editable cell",
-			prepare: func(game *Game) {
-				if _, err := game.Apply(SetValue{Position: core.NewPosition(0, 2), Value: 4}); err != nil {
-					t.Fatal(err)
-				}
-			},
-			position: core.NewPosition(0, 2),
-			code:     ErrorNoteNotAllowed,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			game := newTestGame()
-			if test.prepare != nil {
-				test.prepare(&game)
-			}
-			before := game.Snapshot()
-			_, err := game.Apply(AdoptCandidatesAsNotes{Position: test.position, Value: 1})
-			if !errors.Is(err, &EngineError{Code: test.code}) {
-				t.Fatalf("expected %s error, got %v", test.code, err)
-			}
-			if after := game.Snapshot(); after != before {
-				t.Fatal("rejected adoption mutated the game")
-			}
-		})
+		t.Fatal("invalid set-candidates action mutated the game")
 	}
 }
 
@@ -338,7 +246,7 @@ func TestApplyHintAndReset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Apply(ApplyHint) returned error: %v", err)
 	}
-	if result.Action != ActionApplyHint || len(result.Changes) != 1 || !result.CanUndo || result.Hint == nil {
+	if result.Action != ActionApplyHint || len(result.Changes) == 0 || !result.CanUndo || result.Hint == nil {
 		t.Fatalf("unexpected hint result: %+v", result)
 	}
 	if result.Hint.PlanID != plan.PlanID || result.Hint.Summary == "" || result.Hint.Conclusion.Placement == nil {
@@ -373,7 +281,7 @@ func TestMistakeCountTracksConfirmedInvalidValuesOutsideHistory(t *testing.T) {
 	if snapshot := game.Snapshot(); snapshot.Mistakes != 1 || !snapshot.Invalid[0][2] {
 		t.Fatalf("invalid value snapshot = %+v", snapshot)
 	}
-	for _, action := range []Action{Undo{}, Redo{}, ClearValue{Position: position}, SetNotes{Position: position, Values: []int{4}}} {
+	for _, action := range []Action{Undo{}, Redo{}, ClearValue{Position: position}, SetCandidates{Position: position, Values: []int{4}}} {
 		if _, err := game.Apply(action); err != nil {
 			t.Fatalf("Apply(%T) returned error: %v", action, err)
 		}
@@ -405,7 +313,7 @@ func TestRestartBeginsCleanAttemptOnSamePuzzle(t *testing.T) {
 	if _, err := game.Apply(SetValue{Position: core.NewPosition(0, 2), Value: 9}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := game.Apply(SetNotes{Position: core.NewPosition(0, 3), Values: []int{2, 4}}); err != nil {
+	if _, err := game.Apply(SetCandidates{Position: core.NewPosition(0, 3), Values: []int{2, 4}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -417,8 +325,8 @@ func TestRestartBeginsCleanAttemptOnSamePuzzle(t *testing.T) {
 	if result.Action != ActionRestart || snapshot.Status != StatusInProgress || snapshot.Mistakes != 0 || snapshot.CanUndo || snapshot.CanRedo {
 		t.Fatalf("restart result = %+v, snapshot = %+v", result, snapshot)
 	}
-	if snapshot.Values != snapshot.Givens || snapshot.Invalid != [9][9]bool{} || snapshot.Notes != [9][9]core.CandidateSet{} {
-		t.Fatal("restart did not restore the original clean board")
+	if snapshot.Values != snapshot.Givens || snapshot.Invalid != [9][9]bool{} || snapshot.Candidates != legalCandidateGrid(&game.playBoard) {
+		t.Fatal("restart did not restore the board and initial legal candidates")
 	}
 }
 
@@ -464,34 +372,37 @@ func TestApplyNilAction(t *testing.T) {
 
 func assertSingleChange(t *testing.T, result Result, position core.Position, before, after int) {
 	t.Helper()
-	if len(result.Changes) != 1 {
-		t.Fatalf("expected one cell change, got %+v", result.Changes)
+	for _, change := range result.Changes {
+		if change.Position == position {
+			if change.Before != before || change.After != after {
+				t.Fatalf("unexpected target change: %+v", change)
+			}
+			return
+		}
 	}
-	change := result.Changes[0]
-	if change.Position != position || change.Before != before || change.After != after {
-		t.Fatalf("unexpected cell change: %+v", change)
-	}
+	t.Fatalf("missing target change at %+v: %+v", position, result.Changes)
 }
 
-func TestNoteActionsAndUnifiedHistory(t *testing.T) {
+func TestCandidateActionsAndUnifiedHistory(t *testing.T) {
 	game := newTestGame()
 	position := core.NewPosition(0, 2)
+	initial := game.Snapshot()
 
-	result, err := game.Apply(SetNotes{Position: position, Values: []int{4}})
+	result, err := game.Apply(SetCandidates{Position: position, Values: []int{4}})
 	if err != nil {
-		t.Fatalf("Apply(SetNotes) returned error: %v", err)
+		t.Fatalf("Apply(SetCandidates) returned error: %v", err)
 	}
-	if result.Action != ActionSetNotes || !result.Changes[0].NotesAfter.Has(4) {
+	if result.Action != ActionSetCandidates || !result.Changes[0].CandidatesAfter.Has(4) {
 		t.Fatalf("unexpected toggle result: %+v", result)
 	}
-	if !game.Snapshot().Notes[0][2].Has(4) {
+	if !game.Snapshot().Candidates[0][2].Has(4) {
 		t.Fatal("note was not stored in snapshot")
 	}
 
 	if _, err = game.Apply(SetValue{Position: position, Value: 4}); err != nil {
 		t.Fatalf("Apply(SetValue) returned error: %v", err)
 	}
-	if !game.Snapshot().Notes[0][2].IsEmpty() {
+	if !game.Snapshot().Candidates[0][2].IsEmpty() {
 		t.Fatal("setting a value should clear notes in that cell")
 	}
 
@@ -499,21 +410,21 @@ func TestNoteActionsAndUnifiedHistory(t *testing.T) {
 		t.Fatalf("undo value returned error: %v", err)
 	}
 	snapshot := game.Snapshot()
-	if snapshot.Values[0][2] != 0 || !snapshot.Notes[0][2].Has(4) {
+	if snapshot.Values[0][2] != 0 || !snapshot.Candidates[0][2].Has(4) {
 		t.Fatalf("undo did not restore value and notes atomically: %+v", snapshot)
 	}
 
 	if _, err = game.Apply(Undo{}); err != nil {
 		t.Fatalf("undo note returned error: %v", err)
 	}
-	if !game.Snapshot().Notes[0][2].IsEmpty() {
-		t.Fatal("second undo should remove the note")
+	if game.Snapshot().Candidates != initial.Candidates {
+		t.Fatal("second undo should restore the initial candidates")
 	}
 
 	if _, err = game.Apply(Redo{}); err != nil {
 		t.Fatalf("redo note returned error: %v", err)
 	}
-	if !game.Snapshot().Notes[0][2].Has(4) {
+	if !game.Snapshot().Candidates[0][2].Has(4) {
 		t.Fatal("redo should restore the note")
 	}
 }
@@ -528,7 +439,7 @@ func TestSetValueCleansPeerNotesAtomically(t *testing.T) {
 	nonPeer := core.NewPosition(4, 1)
 
 	for _, position := range append(peers, target, nonPeer) {
-		if _, err := game.Apply(SetNotes{Position: position, Values: []int{4}}); err != nil {
+		if _, err := game.Apply(SetCandidates{Position: position, Values: []int{4}}); err != nil {
 			t.Fatalf("add note at %v: %v", position, err)
 		}
 	}
@@ -537,15 +448,15 @@ func TestSetValueCleansPeerNotesAtomically(t *testing.T) {
 		t.Fatalf("set value: %v", err)
 	}
 	snapshot := game.Snapshot()
-	if !snapshot.Notes[target.Row][target.Column].IsEmpty() {
+	if !snapshot.Candidates[target.Row][target.Column].IsEmpty() {
 		t.Fatal("target notes were not cleared")
 	}
 	for _, position := range peers {
-		if snapshot.Notes[position.Row][position.Column].Has(4) {
+		if snapshot.Candidates[position.Row][position.Column].Has(4) {
 			t.Fatalf("peer note was not removed at %v", position)
 		}
 	}
-	if !snapshot.Notes[nonPeer.Row][nonPeer.Column].Has(4) {
+	if !snapshot.Candidates[nonPeer.Row][nonPeer.Column].Has(4) {
 		t.Fatal("non-peer note should be preserved")
 	}
 
@@ -554,7 +465,7 @@ func TestSetValueCleansPeerNotesAtomically(t *testing.T) {
 	}
 	snapshot = game.Snapshot()
 	for _, position := range append(peers, target, nonPeer) {
-		if !snapshot.Notes[position.Row][position.Column].Has(4) {
+		if !snapshot.Candidates[position.Row][position.Column].Has(4) {
 			t.Fatalf("undo did not restore note at %v", position)
 		}
 	}
@@ -566,7 +477,7 @@ func TestInvalidValuePreservesPeerNotesAndCandidates(t *testing.T) {
 	peer := core.NewPosition(0, 3)
 
 	for _, position := range []core.Position{target, peer} {
-		if _, err := game.Apply(SetNotes{Position: position, Values: []int{9}}); err != nil {
+		if _, err := game.Apply(SetCandidates{Position: position, Values: []int{9}}); err != nil {
 			t.Fatalf("add note at %v: %v", position, err)
 		}
 	}
@@ -579,44 +490,51 @@ func TestInvalidValuePreservesPeerNotesAndCandidates(t *testing.T) {
 	if !snapshot.Invalid[target.Row][target.Column] {
 		t.Fatal("test value should be visible and invalid")
 	}
-	if !snapshot.Notes[target.Row][target.Column].IsEmpty() {
+	if !snapshot.Candidates[target.Row][target.Column].IsEmpty() {
 		t.Fatal("the occupied target should clear its own notes")
 	}
-	if !snapshot.Notes[peer.Row][peer.Column].Has(9) {
+	if !snapshot.Candidates[peer.Row][peer.Column].Has(9) {
 		t.Fatal("an invalid value should not remove a peer note")
 	}
-	if snapshot.Candidates != beforeCandidates {
-		t.Fatal("an invalid value should not change solver-safe candidates")
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			if row == target.Row && column == target.Column {
+				continue
+			}
+			if snapshot.Candidates[row][column] != beforeCandidates[row][column] {
+				t.Fatal("an invalid value changed peer candidates")
+			}
+		}
 	}
 
 	if _, err := game.Apply(Undo{}); err != nil {
 		t.Fatalf("undo invalid value: %v", err)
 	}
 	snapshot = game.Snapshot()
-	if !snapshot.Notes[target.Row][target.Column].Has(9) || !snapshot.Notes[peer.Row][peer.Column].Has(9) {
+	if !snapshot.Candidates[target.Row][target.Column].Has(9) || !snapshot.Candidates[peer.Row][peer.Column].Has(9) {
 		t.Fatal("undo should restore the exact note state")
 	}
 }
 
-func TestSetNotesAndRedoTruncation(t *testing.T) {
+func TestSetCandidatesAndRedoTruncation(t *testing.T) {
 	game := newTestGame()
 	position := core.NewPosition(0, 2)
-	if _, err := game.Apply(SetNotes{Position: position, Values: []int{3}}); err != nil {
+	if _, err := game.Apply(SetCandidates{Position: position, Values: []int{3}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := game.Apply(SetNotes{Position: position, Values: []int{3, 4}}); err != nil {
+	if _, err := game.Apply(SetCandidates{Position: position, Values: []int{3, 4}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := game.Apply(SetNotes{Position: position}); err != nil {
+	if _, err := game.Apply(SetCandidates{Position: position}); err != nil {
 		t.Fatal(err)
 	}
-	if !game.Snapshot().Notes[0][2].IsEmpty() {
+	if !game.Snapshot().Candidates[0][2].IsEmpty() {
 		t.Fatal("clear notes did not clear all notes")
 	}
 	if _, err := game.Apply(Undo{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := game.Apply(SetNotes{Position: position, Values: []int{3, 4, 5}}); err != nil {
+	if _, err := game.Apply(SetCandidates{Position: position, Values: []int{3, 4, 5}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := game.Apply(Redo{}); !errors.Is(err, &EngineError{Code: ErrorNoRedo}) {
@@ -636,10 +554,10 @@ func TestNoteErrorsDoNotMutateGame(t *testing.T) {
 		action Action
 		code   ErrorCode
 	}{
-		{SetNotes{Position: core.NewPosition(0, 0), Values: []int{4}}, ErrorImmutableCell},
-		{SetNotes{Position: filled, Values: []int{4}}, ErrorNoteNotAllowed},
-		{SetNotes{Position: core.NewPosition(0, 3), Values: []int{0}}, ErrorInvalidCell},
-		{SetNotes{Position: core.Position{Row: 9, Column: 0}}, ErrorInvalidCell},
+		{SetCandidates{Position: core.NewPosition(0, 0), Values: []int{4}}, ErrorImmutableCell},
+		{SetCandidates{Position: filled, Values: []int{4}}, ErrorNoteNotAllowed},
+		{SetCandidates{Position: core.NewPosition(0, 3), Values: []int{0}}, ErrorInvalidCell},
+		{SetCandidates{Position: core.Position{Row: 9, Column: 0}}, ErrorInvalidCell},
 	}
 	for _, test := range tests {
 		if _, err := game.Apply(test.action); !errors.Is(err, &EngineError{Code: test.code}) {

@@ -81,4 +81,3 @@ func TestWWingSolver_Construction(t *testing.T) {
 		t.Errorf("Expected nil on empty board, got %v", move)
 	}
 }
-

@@ -112,15 +112,15 @@ func TestPointingPairSolver_FindsPointingPairInColumn(t *testing.T) {
 	// Actually, I need digit 1 eliminated from box 0 except col 0.
 	// Place 1 in rows 0,1,2 at cols 1 or 2 (outside box 0) to eliminate from those cells.
 	// No — placing in those rows would eliminate from row, not just column.
-	
+
 	// Better: place 1 in cols 1 and 2 somewhere in rows 0-2 but outside box 0.
 	// But cols 1,2 rows 0-2 IS box 0. That's impossible.
-	
+
 	// Alternative: place 1 in the two rows that share box 0 cols 1 and 2.
 	// Actually, the simplest way: place 1 somewhere that eliminates it from
 	// (0,1), (0,2), (1,1), (1,2), (2,1), (2,2) but not from (0,0), (1,0), (2,0).
 	// Place 1 in row 0 outside box 0 → (0,0) loses 1 by row. That's wrong.
-	
+
 	// For column pointing pair: place 1 to eliminate from cols 1 and 2 only.
 	board = core.NewEmptyBoard()
 	_ = board.Set(core.NewPosition(4, 1), 1) // 1 in col 1
@@ -150,7 +150,7 @@ func TestPointingPairSolver_FindsPointingPairInColumn(t *testing.T) {
 
 	// The problem is that wherever I place 1 to eliminate it from cols 1,2 of box 0,
 	// it also appears in the box of my target cell.
-	
+
 	// Solution: use a target further away. (6,0) is box 6 (rows 6-8, cols 0-2).
 	// (6,0)=3 already. Use (8,0) = empty instead.
 	board = core.NewEmptyBoard()

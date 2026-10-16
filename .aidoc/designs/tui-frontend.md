@@ -38,7 +38,7 @@ The following global actions remain available when no modal is open:
 - `n` toggles value and note modes; the first digit edit while automatic candidates are visible atomically adopts the candidate grid, applies that digit toggle, and hides the automatic preview without confirmation;
 - `a` toggles derived legal-candidate display without mutating or dirtying the session;
 - `u` and `r` submit undo and redo;
-- `i` requests a hint preview; Left/Right or `h`/`l` navigate its retained steps locally, Enter applies the exact plan, and Esc cancels it;
+- `i` requests a hint preview and reveals automatic candidates before its first step; Left/Right or `h`/`l` navigate the retained steps locally, Enter applies the exact plan, and Esc cancels it while leaving candidates visible;
 - `?` opens a compact keyboard-help overlay;
 - `c` checks the current status without mutating the game;
 - `R` resets after confirmation;
@@ -59,7 +59,7 @@ The filesystem transport lives in the presentation-neutral `sessionfile` package
 
 The TUI supports terminals large enough to show a 9×9 board, status, messages, and help. A too-small terminal renders a resize instruction and accepts only resize and quit events until the minimum layout fits.
 
-Given cells, player values, invalid entries, the focused cell, and peer cells remain semantically distinct without punctuation around digits. Focus uses a strong background, peers use a quieter background, 3×3 boundaries are heavier than cell boundaries, and manual notes and opt-in automatic candidates share fixed candidate positions without placeholder dots. During a hint preview, marked candidates remain visible even when automatic candidates are off; bold focus, underlined premises, struck eliminations, and reversed conclusions preserve meaning without color. Manual styling wins outside the active hint mark. The title, status, board, messages, and one-line key guide center within the available width.
+Given cells, player values, invalid entries, the focused cell, and peer cells remain semantically distinct without punctuation around digits. Focus uses a strong background, peers use a quieter background, 3×3 boundaries are heavier than cell boundaries, and manual notes and opt-in automatic candidates share fixed candidate positions without placeholder dots. A successful hint preview turns automatic candidates on as presentation state and leaves them visible after close or apply; bold focus, underlined premises, struck eliminations, and reversed conclusions preserve meaning without color. Manual styling wins outside the active hint mark. The title, status, board, messages, and one-line key guide center within the available width.
 
 Dark and light palettes are deterministic and selected with `SUDOKU_THEME`; `NO_COLOR` or the `no-color` theme retains bold, underline, reverse-video, and faint attributes while removing color distinctions. The renderer must produce deterministic output from model state so package tests can verify layouts without a live terminal.
 

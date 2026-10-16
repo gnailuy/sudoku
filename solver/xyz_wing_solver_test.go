@@ -76,4 +76,3 @@ func TestXYZWingSolver_EmptyBoard(t *testing.T) {
 		t.Errorf("Expected nil on empty board, got %v", move)
 	}
 }
-

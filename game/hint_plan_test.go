@@ -43,6 +43,137 @@ func TestHintStepHasValidNarrationRequiresOnePayloadPerKind(t *testing.T) {
 	}
 }
 
+func TestHintRepairsWrongValueBeforeStrategy(t *testing.T) {
+	game := newTestGame()
+	position := core.NewPosition(0, 2)
+	if _, err := game.Apply(SetValue{Position: position, Value: 9}); err != nil {
+		t.Fatal(err)
+	}
+	plan := game.Hint()
+	if plan == nil || plan.Kind != HintKindValueCorrection || plan.Conclusion.ClearValue == nil || *plan.Conclusion.ClearValue != position {
+		t.Fatalf("unexpected value correction plan: %+v", plan)
+	}
+	if _, err := game.Apply(ApplyHint{PlanID: plan.PlanID}); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot := game.Snapshot(); snapshot.Values[position.Row][position.Column] != 0 || snapshot.Invalid[position.Row][position.Column] {
+		t.Fatalf("value correction did not clear the wrong value: %+v", snapshot)
+	}
+}
+
+func TestHintRepairsCandidateCellBeforeStrategy(t *testing.T) {
+	game := newTestGame()
+	solution := game.PlayBoard()
+	if !game.completeSolver.Solve(&solution) {
+		t.Fatal("test puzzle has no solution")
+	}
+	position := core.NewPosition(0, 2)
+	board := game.PlayBoard()
+	legal := board.Candidates(position)
+	required := solution.Get(position)
+	broken := legal
+	broken.Remove(required)
+	for value := 1; value <= 9; value++ {
+		if !legal.Has(value) {
+			broken.Add(value)
+			break
+		}
+	}
+	if broken == legal || broken.Has(required) || (broken &^ legal).IsEmpty() {
+		t.Fatalf("test setup did not create both correction classes: legal=%v broken=%v", legal.Values(), broken.Values())
+	}
+	if _, err := game.Apply(SetCandidates{Position: position, Values: broken.Values()}); err != nil {
+		t.Fatal(err)
+	}
+	beforeCorrection := game.Snapshot()
+	plan := game.Hint()
+	if plan == nil || plan.Kind != HintKindCandidateCorrection || plan.Conclusion.SetCandidates == nil || plan.Conclusion.SetCandidates.Position != position || plan.Conclusion.SetCandidates.Values != legal {
+		t.Fatalf("unexpected candidate correction plan: %+v", plan)
+	}
+	if _, err := game.Apply(ApplyHint{PlanID: plan.PlanID}); err != nil {
+		t.Fatal(err)
+	}
+	if got := game.Snapshot().Candidates[position.Row][position.Column]; got != plan.Conclusion.SetCandidates.Values {
+		t.Fatalf("candidate correction = %v, want %v", got.Values(), plan.Conclusion.SetCandidates.Values.Values())
+	}
+	if _, err := game.Apply(Undo{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := game.Snapshot(); got.Candidates != beforeCorrection.Candidates {
+		t.Fatal("one undo did not restore the complete pre-correction candidate grid")
+	}
+}
+
+func TestReportedSimpleColoringUsesReducedAuthoritativeCandidates(t *testing.T) {
+	store := solver.NewStore()
+	options := NewDefaultOptions(store)
+	options.StrategySolverKeys = store.GetAllStrategySolverKeys()
+	current := NewGame(boardFromPuzzle(t, realGamesForHintStrategies(t)["simple-coloring"]), options)
+
+	var coloring *HintPlan
+	for hintNumber := 1; hintNumber <= 128; hintNumber++ {
+		coloring = current.Hint()
+		if coloring == nil {
+			t.Fatal("exhausted hints before Simple Coloring")
+		}
+		if coloring.Kind == HintKindStrategy && coloring.Strategy.ID == "simple-coloring" {
+			break
+		}
+		if _, err := current.Apply(ApplyHint{PlanID: coloring.PlanID}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if coloring == nil || coloring.Strategy.ID != "simple-coloring" || len(coloring.Steps) < 3 {
+		t.Fatalf("did not reach the reported strategy shape: %+v", coloring)
+	}
+
+	solution := current.PlayBoard()
+	if !current.completeSolver.Solve(&solution) {
+		t.Fatal("fixture has no solution")
+	}
+	removed := make([]solver.CandidateRef, 0, 2)
+	seen := map[solver.CandidateRef]bool{}
+	for _, node := range coloring.Steps[2].Nodes {
+		if node.Target.Position == nil || node.Target.Kind != HintTargetCandidate {
+			continue
+		}
+		ref := solver.CandidateRef{Position: *node.Target.Position, Value: node.Target.Value}
+		if seen[ref] || solution.Get(ref.Position) == ref.Value {
+			continue
+		}
+		seen[ref] = true
+		values := current.Snapshot().Candidates[ref.Position.Row][ref.Position.Column]
+		values.Remove(ref.Value)
+		if _, err := current.Apply(SetCandidates{Position: ref.Position, Values: values.Values()}); err != nil {
+			t.Fatal(err)
+		}
+		removed = append(removed, ref)
+		if len(removed) == 2 {
+			break
+		}
+	}
+	if len(removed) != 2 {
+		t.Fatalf("Simple Coloring fixture provided only %d removable non-solution nodes", len(removed))
+	}
+
+	after := current.Hint()
+	if after == nil || after.Kind != HintKindStrategy {
+		t.Fatalf("valid reduced candidates did not proceed to a strategy hint: %+v", after)
+	}
+	for _, step := range after.Steps {
+		for _, node := range step.Nodes {
+			if node.Target.Position == nil {
+				continue
+			}
+			for _, ref := range removed {
+				if *node.Target.Position == ref.Position && node.Target.Value == ref.Value {
+					t.Fatalf("removed candidate reappeared as a hint node: %+v", ref)
+				}
+			}
+		}
+	}
+}
+
 func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	game := gameWithStrategies(t, testProblem(), "naked-single")
 	first, second := game.Hint(), game.Hint()
@@ -70,7 +201,7 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 		t.Fatalf("wrong plan id error = %v", err)
 	}
 	result, err := game.Apply(ApplyHint{PlanID: first.PlanID})
-	if err != nil || len(result.Changes) != 1 || result.Hint == nil || result.Hint.PlanID != first.PlanID {
+	if err != nil || len(result.Changes) == 0 || result.Hint == nil || result.Hint.PlanID != first.PlanID {
 		t.Fatalf("apply plan = %+v, %v", result, err)
 	}
 }
@@ -136,8 +267,8 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	for _, elimination := range plan.Conclusion.Eliminations {
 		expectedNotes[elimination.Position.Row][elimination.Position.Column].Remove(elimination.Value)
 	}
-	if after := game.Snapshot(); after.Notes != expectedNotes || after.Candidates != expectedNotes {
-		t.Fatalf("elimination did not persist candidate progress: expected=%v notes=%v candidates=%v", expectedNotes, after.Notes, after.Candidates)
+	if after := game.Snapshot(); after.Candidates != expectedNotes {
+		t.Fatalf("elimination did not persist candidate progress: expected=%v candidates=%v", expectedNotes, after.Candidates)
 	}
 	next := game.Hint()
 	if next != nil && sameEliminations(next.Conclusion.Eliminations, plan.Conclusion.Eliminations) {
@@ -160,8 +291,8 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	if _, err := game.Apply(Undo{}); err != nil {
 		t.Fatal(err)
 	}
-	if after := game.Snapshot(); after.Notes != before.Notes {
-		t.Fatalf("undo did not restore notes: before=%v after=%v", before.Notes, after.Notes)
+	if after := game.Snapshot(); after.Candidates != before.Candidates {
+		t.Fatalf("undo did not restore notes: before=%v after=%v", before.Candidates, after.Candidates)
 	}
 }
 

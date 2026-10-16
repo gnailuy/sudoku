@@ -44,7 +44,7 @@ Guest create returns one authenticated encrypted document, authoritative revisio
 
 Account-game create, list, read, action, hint, presentation-time synchronization, and deletion derive ownership from the authenticated application session. Mutations require the session-bound request proof, include the expected gameplay revision when applicable, and never accept a user identifier from the client.
 
-Action requests use the existing typed engine actions. `set-notes` replaces one complete note set, `adopt-candidates-as-notes` performs one whole-board transition, and `apply-hint` accepts only the deterministic `plan_id` from the current read-only preview. `restart` begins a revision-checked fresh attempt on the same puzzle; account games persist the clean engine state and zero elapsed presentation time atomically. Guest presentation time remains browser-owned and resets only after the replacement sealed document is accepted. Presentation preferences remain client-owned.
+Action requests use the typed engine boundary. `set-candidates` replaces one complete cell set, and `apply-hint` accepts only the deterministic `plan_id` from the current read-only preview. Snapshots expose one candidate grid and no parallel notes field. Hint plans identify correction or strategy kind, use an optional strategy descriptor, and carry a typed clear, candidate replacement, placement, or elimination conclusion. `restart` begins a revision-checked fresh attempt on the same puzzle; account games persist the clean engine state and zero elapsed presentation time atomically. Guest presentation time remains browser-owned and resets only after the replacement sealed document is accepted. Presentation preferences remain client-owned.
 
 ## Security and Failure Policy
 

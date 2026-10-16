@@ -107,7 +107,7 @@ func TestGuestHTTPRoutesPreviewAndApplyEveryRegisteredHintStrategy(t *testing.T)
 				if err := json.Unmarshal(applied.Body.Bytes(), &response); err != nil {
 					t.Fatal(err)
 				}
-				if response.Revision != current.Revision+1 || response.Result.Action != ApplyHint {
+				if response.Revision != current.Revision+1 || response.Result.Action != ActionKindApplyHint {
 					t.Fatalf("apply result revision/action = %d/%s", response.Revision, response.Result.Action)
 				}
 				if matched {

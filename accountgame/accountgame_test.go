@@ -82,22 +82,27 @@ func TestServicePersistsHistoricalTraversalAndTruncatesRedoBranch(t *testing.T) 
 		return transition.State
 	}
 
-	apply(game.SetNotes{Position: first, Values: []int{4}})
-	apply(game.SetNotes{Position: second, Values: []int{5}})
+	initialState, err := service.Get("user-a", "game-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := initialState.Snapshot
+	firstState := apply(game.SetCandidates{Position: first, Values: []int{4}})
+	apply(game.SetCandidates{Position: second, Values: []int{5}})
 	state := apply(game.Undo{})
-	if !state.Snapshot.Notes[first.Row][first.Column].Has(4) || !state.Snapshot.Notes[second.Row][second.Column].IsEmpty() || !state.Snapshot.CanRedo {
+	if state.Snapshot.Candidates != firstState.Snapshot.Candidates || !state.Snapshot.CanRedo {
 		t.Fatalf("first persisted undo did not restore the exact previous state: %+v", state.Snapshot)
 	}
 	state = apply(game.Undo{})
-	if !state.Snapshot.Notes[first.Row][first.Column].IsEmpty() || !state.Snapshot.CanRedo {
+	if state.Snapshot.Candidates != initial.Candidates || !state.Snapshot.CanRedo {
 		t.Fatalf("second persisted undo did not restore the initial state: %+v", state.Snapshot)
 	}
 	state = apply(game.Redo{})
-	if !state.Snapshot.Notes[first.Row][first.Column].Has(4) || !state.Snapshot.Notes[second.Row][second.Column].IsEmpty() || !state.Snapshot.CanRedo {
+	if state.Snapshot.Candidates != firstState.Snapshot.Candidates || !state.Snapshot.CanRedo {
 		t.Fatalf("persisted redo did not follow the original path: %+v", state.Snapshot)
 	}
-	state = apply(game.SetNotes{Position: first, Values: []int{4, 6}})
-	if state.Snapshot.CanRedo || !state.Snapshot.Notes[first.Row][first.Column].Has(6) {
+	state = apply(game.SetCandidates{Position: first, Values: []int{4, 6}})
+	if state.Snapshot.CanRedo || !state.Snapshot.Candidates[first.Row][first.Column].Has(6) {
 		t.Fatalf("manual action did not replace the historical branch: %+v", state.Snapshot)
 	}
 	if _, err := service.Apply("user-a", "game-a", revision, game.Redo{}); !errors.Is(err, &game.EngineError{Code: game.ErrorNoRedo}) {

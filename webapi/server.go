@@ -12,7 +12,6 @@ import (
 
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
-	"github.com/gnailuy/sudoku/solver"
 )
 
 const MaxRequestBytes = 1 << 20
@@ -167,8 +166,8 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 			return nil, 0, e
 		}
 		return game.ClearValue{Position: p}, v.ExpectedRevision, nil
-	case "set-notes":
-		v, e := body.AsSetNotesAction()
+	case "set-candidates":
+		v, e := body.AsSetCandidatesAction()
 		if e != nil {
 			return nil, 0, e
 		}
@@ -179,20 +178,7 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 		if e = validRevision(v.ExpectedRevision); e != nil {
 			return nil, 0, e
 		}
-		return game.SetNotes{Position: p, Values: append([]int(nil), v.Values...)}, v.ExpectedRevision, nil
-	case "adopt-candidates-as-notes":
-		v, e := body.AsAdoptCandidatesAsNotesAction()
-		if e != nil {
-			return nil, 0, e
-		}
-		p, e := position(v.Row, v.Column)
-		if e != nil || v.Value < 1 || v.Value > 9 {
-			return nil, 0, errors.New("invalid adopt-candidates-as-notes action")
-		}
-		if e = validRevision(v.ExpectedRevision); e != nil {
-			return nil, 0, e
-		}
-		return game.AdoptCandidatesAsNotes{Position: p, Value: v.Value}, v.ExpectedRevision, nil
+		return game.SetCandidates{Position: p, Values: append([]int(nil), v.Values...)}, v.ExpectedRevision, nil
 	case "reset":
 		v, e := body.AsResetAction()
 		if e != nil {
@@ -264,18 +250,16 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 func apiStatus(v game.Status) GameStatus { return GameStatus(v) }
 func digits(set core.CandidateSet) []int { return set.Values() }
 func apiSnapshot(v game.Snapshot) Snapshot {
-	o := Snapshot{Status: apiStatus(v.Status), Mistakes: v.Mistakes, CanUndo: v.CanUndo, CanRedo: v.CanRedo, Givens: make(ValueGrid, 9), Values: make(ValueGrid, 9), Invalid: make(BooleanGrid, 9), Notes: make(DigitSetGrid, 9), Candidates: make(DigitSetGrid, 9)}
+	o := Snapshot{Status: apiStatus(v.Status), Mistakes: v.Mistakes, CanUndo: v.CanUndo, CanRedo: v.CanRedo, Givens: make(ValueGrid, 9), Values: make(ValueGrid, 9), Invalid: make(BooleanGrid, 9), Candidates: make(DigitSetGrid, 9)}
 	for r := 0; r < 9; r++ {
 		o.Givens[r] = make(ValueRow, 9)
 		o.Values[r] = make(ValueRow, 9)
 		o.Invalid[r] = make(BooleanRow, 9)
-		o.Notes[r] = make(DigitSetRow, 9)
 		o.Candidates[r] = make(DigitSetRow, 9)
 		for c := 0; c < 9; c++ {
 			o.Givens[r][c] = v.Givens[r][c]
 			o.Values[r][c] = v.Values[r][c]
 			o.Invalid[r][c] = v.Invalid[r][c]
-			o.Notes[r][c] = digits(v.Notes[r][c])
 			o.Candidates[r][c] = digits(v.Candidates[r][c])
 		}
 	}
@@ -284,7 +268,7 @@ func apiSnapshot(v game.Snapshot) Snapshot {
 func apiResult(v game.Result) ActionResult {
 	o := ActionResult{Action: ActionKind(v.Action), Status: apiStatus(v.Status), CanUndo: v.CanUndo, CanRedo: v.CanRedo, Changes: make([]CellChange, len(v.Changes))}
 	for i, c := range v.Changes {
-		o.Changes[i] = CellChange{Row: c.Position.Row + 1, Column: c.Position.Column + 1, Before: c.Before, After: c.After, InvalidBefore: c.InvalidBefore, InvalidAfter: c.InvalidAfter, NotesBefore: digits(c.NotesBefore), NotesAfter: digits(c.NotesAfter)}
+		o.Changes[i] = CellChange{Row: c.Position.Row + 1, Column: c.Position.Column + 1, Before: c.Before, After: c.After, InvalidBefore: c.InvalidBefore, InvalidAfter: c.InvalidAfter, CandidatesBefore: digits(c.CandidatesBefore), CandidatesAfter: digits(c.CandidatesAfter)}
 	}
 	if v.Hint != nil {
 		hint := apiHintPlan(v.Hint)
@@ -333,21 +317,22 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 			}
 		}
 		if step.Effect != nil {
-			effect := apiHintEffect(step.Effect.Placement, step.Effect.Eliminations)
+			effect := apiHintEffect(*step.Effect)
 			steps[i].Effect = &effect
 		}
 	}
-	return HintPlan{
-		PlanId: plan.PlanID,
-		Strategy: HintStrategy{
-			Id:          plan.Strategy.ID,
-			DisplayName: plan.Strategy.DisplayName,
-			Grade:       plan.Strategy.Grade,
-		},
+	out := HintPlan{
+		PlanId:     plan.PlanID,
+		Kind:       HintPlanKind(plan.Kind),
+		Title:      plan.Title,
 		Summary:    plan.Summary,
 		Steps:      steps,
-		Conclusion: apiHintEffect(plan.Conclusion.Placement, plan.Conclusion.Eliminations),
+		Conclusion: apiHintEffect(game.HintEffect{Placement: plan.Conclusion.Placement, Eliminations: plan.Conclusion.Eliminations, ClearValue: plan.Conclusion.ClearValue, SetCandidates: plan.Conclusion.SetCandidates}),
 	}
+	if plan.Strategy.ID != "" {
+		out.Strategy = &HintStrategy{Id: plan.Strategy.ID, DisplayName: plan.Strategy.DisplayName, Grade: plan.Strategy.Grade}
+	}
+	return out
 }
 
 func apiHintNarrationChunk(chunk game.HintNarrationChunk) (HintNarrationChunk, bool) {
@@ -383,13 +368,29 @@ func apiHintTarget(target game.HintTarget) HintTarget {
 	return out
 }
 
-func apiHintEffect(placement *core.Cell, eliminations []solver.CandidateRef) HintEffect {
-	out := HintEffect{Eliminations: make([]HintElimination, len(eliminations))}
-	if placement != nil {
-		out.Placement = &HintPlacement{Row: placement.Position.Row + 1, Column: placement.Position.Column + 1, Value: placement.Value}
-	}
-	for i, elimination := range eliminations {
-		out.Eliminations[i] = HintElimination{Row: elimination.Position.Row + 1, Column: elimination.Position.Column + 1, Value: elimination.Value}
+func apiHintEffect(effect game.HintEffect) HintEffect {
+	out := HintEffect{}
+	switch {
+	case effect.ClearValue != nil:
+		out.Kind = HintEffectKindClearValue
+		out.ClearValue = &CellPosition{Row: effect.ClearValue.Row + 1, Column: effect.ClearValue.Column + 1}
+	case effect.SetCandidates != nil:
+		out.Kind = HintEffectKindSetCandidates
+		out.SetCandidates = &struct {
+			Column int      `json:"column"`
+			Row    int      `json:"row"`
+			Values DigitSet `json:"values"`
+		}{Column: effect.SetCandidates.Position.Column + 1, Row: effect.SetCandidates.Position.Row + 1, Values: digits(effect.SetCandidates.Values)}
+	case effect.Placement != nil:
+		out.Kind = HintEffectKindPlaceValue
+		out.Placement = &HintPlacement{Row: effect.Placement.Position.Row + 1, Column: effect.Placement.Position.Column + 1, Value: effect.Placement.Value}
+	default:
+		out.Kind = HintEffectKindEliminateCandidates
+		eliminations := make([]HintElimination, len(effect.Eliminations))
+		for i, elimination := range effect.Eliminations {
+			eliminations[i] = HintElimination{Row: elimination.Position.Row + 1, Column: elimination.Position.Column + 1, Value: elimination.Value}
+		}
+		out.Eliminations = &eliminations
 	}
 	return out
 }
@@ -475,9 +476,9 @@ func validateActionObject(object map[string]json.RawMessage) error {
 	}
 	keys := []string{"kind", "expected_revision"}
 	switch kind {
-	case "set-value", "adopt-candidates-as-notes":
+	case "set-value":
 		keys = append(keys, "row", "column", "value")
-	case "set-notes":
+	case "set-candidates":
 		keys = append(keys, "row", "column", "values")
 	case "clear-value":
 		keys = append(keys, "row", "column")

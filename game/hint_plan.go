@@ -28,6 +28,9 @@ const (
 	HintRolePremise    HintRole = "premise"
 	HintRoleEliminated HintRole = "eliminated"
 	HintRoleConclusion HintRole = "conclusion"
+	HintRoleProblem    HintRole = "problem"
+	HintRoleMissing    HintRole = "missing"
+	HintRoleExtra      HintRole = "extra"
 )
 
 type HintTargetKind string
@@ -125,8 +128,10 @@ type HintLink struct {
 }
 
 type HintEffect struct {
-	Placement    *core.Cell
-	Eliminations []solver.CandidateRef
+	Placement     *core.Cell
+	Eliminations  []solver.CandidateRef
+	ClearValue    *core.Position
+	SetCandidates *CandidateReplacement
 }
 
 type HintStep struct {
@@ -146,13 +151,30 @@ type HintStrategy struct {
 	Grade       string
 }
 
-type HintConclusion struct {
-	Placement    *core.Cell
-	Eliminations []solver.CandidateRef
+type CandidateReplacement struct {
+	Position core.Position
+	Values   core.CandidateSet
 }
+
+type HintConclusion struct {
+	Placement     *core.Cell
+	Eliminations  []solver.CandidateRef
+	ClearValue    *core.Position
+	SetCandidates *CandidateReplacement
+}
+
+type HintKind string
+
+const (
+	HintKindValueCorrection     HintKind = "value-correction"
+	HintKindCandidateCorrection HintKind = "candidate-correction"
+	HintKindStrategy            HintKind = "strategy"
+)
 
 type HintPlan struct {
 	PlanID     string
+	Kind       HintKind
+	Title      string
 	Strategy   HintStrategy
 	Summary    string
 	Steps      []HintStep
@@ -206,6 +228,58 @@ func narrationDigit(value int) HintNarrationChunk {
 	return HintNarrationChunk{Kind: HintNarrationDigit, Value: value}
 }
 
+func composeValueCorrectionPlan(snapshot Snapshot, position core.Position) *HintPlan {
+	positionCopy := position
+	conclusion := HintConclusion{ClearValue: &positionCopy}
+	plan := &HintPlan{
+		Kind:    HintKindValueCorrection,
+		Title:   "Fix this value",
+		Summary: fmt.Sprintf("The value at %s conflicts with the puzzle. Clear it before continuing.", cellName(position)),
+		Steps: []HintStep{
+			{ID: "find-wrong-value", Kind: HintStepObserve, Message: fmt.Sprintf("Look at %s. Its entered value conflicts with the puzzle.", cellName(position)), Narration: []HintNarrationChunk{narrationText("Look at "), narrationTarget(cellTarget(position)), narrationText(". Its entered value conflicts with the puzzle.")}, Marks: []HintMark{{Target: cellTarget(position), Role: HintRoleProblem}}, Nodes: []HintNode{}, Links: []HintLink{}},
+			{ID: "clear-wrong-value", Kind: HintStepConclude, Message: "Clear this value so the candidate grid can be checked next.", Narration: []HintNarrationChunk{narrationText("Clear the value at "), narrationTarget(cellTarget(position)), narrationText(" so the candidate grid can be checked next.")}, Marks: []HintMark{{Target: cellTarget(position), Role: HintRoleConclusion}}, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{ClearValue: &positionCopy}},
+		},
+		Conclusion: conclusion,
+	}
+	plan.PlanID = deterministicPlanID(snapshot, *plan)
+	return plan
+}
+
+func composeCandidateCorrectionPlan(snapshot Snapshot, position core.Position, current, corrected, legal core.CandidateSet) *HintPlan {
+	replacement := &CandidateReplacement{Position: position, Values: corrected}
+	var problemMarks, correctionMarks []HintMark
+	for _, value := range (current &^ legal).Values() {
+		problemMarks = append(problemMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: position, Value: value}), Role: HintRoleExtra})
+	}
+	for _, value := range (corrected &^ current).Values() {
+		problemMarks = append(problemMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: position, Value: value}), Role: HintRoleMissing})
+	}
+	for _, value := range corrected.Values() {
+		correctionMarks = append(correctionMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: position, Value: value}), Role: HintRoleConclusion})
+	}
+	var problemText string
+	if len((current&^legal).Values()) > 0 && len((corrected&^current).Values()) > 0 {
+		problemText = "It contains impossible candidates and is missing the candidate required by the solution."
+	} else if len((current &^ legal).Values()) > 0 {
+		problemText = "It contains candidates ruled out by the accepted values."
+	} else {
+		problemText = "It is missing the candidate required by the solution."
+	}
+	plan := &HintPlan{
+		Kind:    HintKindCandidateCorrection,
+		Title:   "Fix this candidate cell",
+		Summary: fmt.Sprintf("Correct the complete candidate set at %s before continuing.", cellName(position)),
+		Steps: []HintStep{
+			{ID: "find-candidate-problem", Kind: HintStepObserve, Message: fmt.Sprintf("Look at %s. %s", cellName(position), problemText), Narration: []HintNarrationChunk{narrationText("Look at "), narrationTarget(cellTarget(position)), narrationText(". " + problemText)}, Marks: append([]HintMark{{Target: cellTarget(position), Role: HintRoleProblem}}, problemMarks...), Nodes: []HintNode{}, Links: []HintLink{}},
+			{ID: "compare-candidate-cell", Kind: HintStepCompare, Message: "Keep every valid deduction already made, remove all impossible candidates, and restore the required candidate.", Narration: []HintNarrationChunk{narrationText("Keep every valid deduction already made, remove all impossible candidates, and restore the required candidate.")}, Marks: problemMarks, Nodes: []HintNode{}, Links: []HintLink{}},
+			{ID: "set-candidate-cell", Kind: HintStepConclude, Message: fmt.Sprintf("Replace the candidate set at %s with %v.", cellName(position), corrected.Values()), Narration: []HintNarrationChunk{narrationText("Replace the candidate set at "), narrationTarget(cellTarget(position)), narrationText(" with the highlighted candidates.")}, Marks: correctionMarks, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{SetCandidates: replacement}},
+		},
+		Conclusion: HintConclusion{SetCandidates: replacement},
+	}
+	plan.PlanID = deterministicPlanID(snapshot, *plan)
+	return plan
+}
+
 func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Move) *HintPlan {
 	if move == nil {
 		return nil
@@ -216,6 +290,8 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		display = strategy.GetDisplayName()
 	}
 	plan := &HintPlan{
+		Kind:     HintKindStrategy,
+		Title:    display,
 		Strategy: HintStrategy{ID: move.Technique, DisplayName: display, Grade: grade},
 		Summary:  move.Reason,
 	}

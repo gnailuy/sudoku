@@ -114,9 +114,9 @@ func renderBoard(snapshot game.Snapshot) string {
 }
 
 func snapshotHasNotes(snapshot game.Snapshot) bool {
-	for row := range snapshot.Notes {
-		for column := range snapshot.Notes[row] {
-			if !snapshot.Notes[row][column].IsEmpty() {
+	for row := range snapshot.Candidates {
+		for column := range snapshot.Candidates[row] {
+			if !snapshot.Candidates[row][column].IsEmpty() {
 				return true
 			}
 		}
@@ -169,7 +169,7 @@ func noteCellLine(snapshot game.Snapshot, row, column, candidateRow int) string 
 	result := [3]byte{' ', ' ', ' '}
 	for candidateColumn := 0; candidateColumn < 3; candidateColumn++ {
 		candidate := candidateRow*3 + candidateColumn + 1
-		if snapshot.Notes[row][column].Has(candidate) {
+		if snapshot.Candidates[row][column].Has(candidate) {
 			result[candidateColumn] = byte('0' + candidate)
 		}
 	}
@@ -263,13 +263,13 @@ func (ctrl *Controller) runNoteCommand(arguments string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("error in the input position: %w", err)
 	}
-	notes := ctrl.game.Snapshot().Notes[position.Row][position.Column]
+	notes := ctrl.game.Snapshot().Candidates[position.Row][position.Column]
 	if notes.Has(values[2]) {
 		notes.Remove(values[2])
 	} else {
 		notes.Add(values[2])
 	}
-	_, err = ctrl.apply(game.SetNotes{Position: *position, Values: notes.Values()})
+	_, err = ctrl.apply(game.SetCandidates{Position: *position, Values: notes.Values()})
 	return err == nil, err
 }
 
@@ -282,7 +282,7 @@ func (ctrl *Controller) runClearNotesCommand(arguments string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("error in the input position: %w", err)
 	}
-	_, err = ctrl.apply(game.SetNotes{Position: *position})
+	_, err = ctrl.apply(game.SetCandidates{Position: *position})
 	return err == nil, err
 }
 

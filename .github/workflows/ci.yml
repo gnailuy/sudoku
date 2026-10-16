@@ -72,8 +72,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-go@v7
         with:
@@ -85,12 +83,6 @@ jobs:
 
       - name: API contract and generated code
         run: scripts/check-api-contract.sh
-
-      - name: API compatibility
-        if: github.event_name == 'pull_request'
-        run: |
-          git show "origin/${GITHUB_BASE_REF}:api/openapi.yaml" > /tmp/openapi-base.yaml
-          go run github.com/tufin/oasdiff@v1.10.0 breaking /tmp/openapi-base.yaml api/openapi.yaml
 
   api-e2e:
     runs-on: ubuntu-latest

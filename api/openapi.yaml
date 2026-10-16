@@ -751,8 +751,7 @@ components:
         - undo
         - redo
         - apply-hint
-        - set-notes
-        - adopt-candidates-as-notes
+        - set-candidates
         - repair
         - solve
 
@@ -867,7 +866,6 @@ components:
         - givens
         - values
         - invalid
-        - notes
         - candidates
         - mistakes
         - status
@@ -880,8 +878,6 @@ components:
           $ref: "#/components/schemas/ValueGrid"
         invalid:
           $ref: "#/components/schemas/BooleanGrid"
-        notes:
-          $ref: "#/components/schemas/DigitSetGrid"
         candidates:
           $ref: "#/components/schemas/DigitSetGrid"
         mistakes:
@@ -939,11 +935,18 @@ components:
     HintPlan:
       type: object
       additionalProperties: false
-      required: [plan_id, strategy, summary, steps, conclusion]
+      required: [plan_id, kind, title, summary, steps, conclusion]
       properties:
         plan_id:
           type: string
           pattern: ^[0-9a-f]{64}$
+        kind:
+          type: string
+          enum: [value-correction, candidate-correction, strategy]
+        title:
+          type: string
+          minLength: 1
+          maxLength: 100
         strategy:
           $ref: "#/components/schemas/HintStrategy"
         summary:
@@ -982,7 +985,7 @@ components:
 
     HintRole:
       type: string
-      enum: [focus, premise, eliminated, conclusion]
+      enum: [focus, premise, eliminated, conclusion, problem, missing, extra]
 
     HintNarrationChunk:
       oneOf:
@@ -1138,8 +1141,11 @@ components:
     HintEffect:
       type: object
       additionalProperties: false
-      required: [eliminations]
+      required: [kind]
       properties:
+        kind:
+          type: string
+          enum: [clear-value, set-candidates, place-value, eliminate-candidates]
         placement:
           $ref: "#/components/schemas/HintPlacement"
         eliminations:
@@ -1147,6 +1153,23 @@ components:
           maxItems: 729
           items:
             $ref: "#/components/schemas/HintElimination"
+        clear_value:
+          $ref: "#/components/schemas/CellPosition"
+        set_candidates:
+          type: object
+          additionalProperties: false
+          required: [row, column, values]
+          properties:
+            row:
+              type: integer
+              minimum: 1
+              maximum: 9
+            column:
+              type: integer
+              minimum: 1
+              maximum: 9
+            values:
+              $ref: "#/components/schemas/DigitSet"
 
     HintStep:
       type: object
@@ -1206,8 +1229,7 @@ components:
         - $ref: "#/components/schemas/UndoAction"
         - $ref: "#/components/schemas/RedoAction"
         - $ref: "#/components/schemas/ApplyHintAction"
-        - $ref: "#/components/schemas/SetNotesAction"
-        - $ref: "#/components/schemas/AdoptCandidatesAsNotesAction"
+        - $ref: "#/components/schemas/SetCandidatesAction"
         - $ref: "#/components/schemas/RepairAction"
         - $ref: "#/components/schemas/SolveAction"
       discriminator:
@@ -1220,8 +1242,7 @@ components:
           undo: "#/components/schemas/UndoAction"
           redo: "#/components/schemas/RedoAction"
           apply-hint: "#/components/schemas/ApplyHintAction"
-          set-notes: "#/components/schemas/SetNotesAction"
-          adopt-candidates-as-notes: "#/components/schemas/AdoptCandidatesAsNotesAction"
+          set-candidates: "#/components/schemas/SetCandidatesAction"
           repair: "#/components/schemas/RepairAction"
           solve: "#/components/schemas/SolveAction"
 
@@ -1265,7 +1286,7 @@ components:
           minimum: 1
           maximum: 9
 
-    SetNotesAction:
+    SetCandidatesAction:
       type: object
       additionalProperties: false
       required: [expected_revision, kind, row, column, values]
@@ -1274,7 +1295,7 @@ components:
           $ref: "#/components/schemas/Revision"
         kind:
           type: string
-          const: set-notes
+          const: set-candidates
         row:
           type: integer
           minimum: 1
@@ -1285,27 +1306,6 @@ components:
           maximum: 9
         values:
           $ref: "#/components/schemas/DigitSet"
-
-    AdoptCandidatesAsNotesAction:
-      type: object
-      additionalProperties: false
-      required: [expected_revision, kind, row, column, value]
-      properties:
-        expected_revision:
-          $ref: "#/components/schemas/Revision"
-        kind:
-          type: string
-          const: adopt-candidates-as-notes
-        row:
-          type: integer
-          minimum: 1
-          maximum: 9
-        column:
-          type: integer
-          minimum: 1
-          maximum: 9
-        value:
-          $ref: "#/components/schemas/Digit"
 
     ResetAction:
       $ref: "#/components/schemas/NoArgumentResetAction"
@@ -1404,8 +1404,8 @@ components:
         - after
         - invalid_before
         - invalid_after
-        - notes_before
-        - notes_after
+        - candidates_before
+        - candidates_after
       properties:
         row:
           type: integer
@@ -1423,9 +1423,9 @@ components:
           type: boolean
         invalid_after:
           type: boolean
-        notes_before:
+        candidates_before:
           $ref: "#/components/schemas/DigitSet"
-        notes_after:
+        candidates_after:
           $ref: "#/components/schemas/DigitSet"
 
     ActionResult:
