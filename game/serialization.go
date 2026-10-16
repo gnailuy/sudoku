@@ -12,7 +12,7 @@ import (
 )
 
 // StateVersion is the current serialized game-state schema version.
-const StateVersion = 2
+const StateVersion = 3
 
 // StateErrorCode identifies a serialized-state validation failure.
 type StateErrorCode string
@@ -58,19 +58,12 @@ type serializedGame struct {
 }
 
 type serializedSessionState struct {
-	Values       string                  `json:"values"`
-	Invalid      string                  `json:"invalid"`
-	Notes        []serializedNote        `json:"notes"`
-	Eliminations []serializedElimination `json:"eliminations"`
+	Values     string                `json:"values"`
+	Invalid    string                `json:"invalid"`
+	Candidates []serializedCandidate `json:"candidates"`
 }
 
-type serializedNote struct {
-	Row    int   `json:"row"`
-	Column int   `json:"column"`
-	Values []int `json:"values"`
-}
-
-type serializedElimination struct {
+type serializedCandidate struct {
 	Row    int   `json:"row"`
 	Column int   `json:"column"`
 	Values []int `json:"values"`
@@ -162,8 +155,7 @@ func Restore(data []byte, options Options) (Game, error) {
 func serializeSessionState(problem core.Board, state sessionState) serializedSessionState {
 	values := core.NewEmptyBoard()
 	invalid := core.NewEmptyBoard()
-	notes := make([]serializedNote, 0)
-	eliminations := make([]serializedElimination, 0)
+	candidates := make([]serializedCandidate, 0)
 	for row := 0; row < 9; row++ {
 		for column := 0; column < 9; column++ {
 			position := core.NewPosition(row, column)
@@ -175,20 +167,15 @@ func serializeSessionState(problem core.Board, state sessionState) serializedSes
 					_ = invalid.Set(position, value)
 				}
 			}
-			if !state.notes[row][column].IsEmpty() {
-				notes = append(notes, serializedNote{
-					Row: row, Column: column, Values: state.notes[row][column].Values(),
-				})
-			}
-			if eliminated := state.playBoard.Eliminations(position); !eliminated.IsEmpty() {
-				eliminations = append(eliminations, serializedElimination{
-					Row: row, Column: column, Values: eliminated.Values(),
+			if !state.candidates[row][column].IsEmpty() {
+				candidates = append(candidates, serializedCandidate{
+					Row: row, Column: column, Values: state.candidates[row][column].Values(),
 				})
 			}
 		}
 	}
 	return serializedSessionState{
-		Values: values.ToString(), Invalid: invalid.ToString(), Notes: notes, Eliminations: eliminations,
+		Values: values.ToString(), Invalid: invalid.ToString(), Candidates: candidates,
 	}
 }
 
@@ -223,54 +210,32 @@ func deserializeSessionState(problem core.Board, payload serializedSessionState,
 		return sessionState{}, stateError(StateErrorInvalidSession, "session values violate Sudoku constraints", nil)
 	}
 
-	seenEliminations := make(map[core.Position]struct{}, len(payload.Eliminations))
-	for _, elimination := range payload.Eliminations {
-		position := core.Position{Row: elimination.Row, Column: elimination.Column}
+	var candidates [9][9]core.CandidateSet
+	seen := make(map[core.Position]struct{}, len(payload.Candidates))
+	for _, candidate := range payload.Candidates {
+		position := core.Position{Row: candidate.Row, Column: candidate.Column}
 		if !position.IsValid() {
-			return sessionState{}, stateError(StateErrorInvalidSession, "session elimination position is invalid", nil)
-		}
-		if _, exists := seenEliminations[position]; exists {
-			return sessionState{}, stateError(StateErrorInvalidSession, fmt.Sprintf("session has duplicate eliminations at row %d, column %d", elimination.Row, elimination.Column), nil)
-		}
-		seenEliminations[position] = struct{}{}
-		if len(elimination.Values) == 0 || problem.Get(position) != 0 || values.Get(position) != 0 {
-			return sessionState{}, stateError(StateErrorInvalidSession, "session eliminations require an empty editable cell", nil)
-		}
-		seenValues := core.CandidateSet(0)
-		for _, value := range elimination.Values {
-			if value < 1 || value > 9 || seenValues.Has(value) || !playBoard.EliminateCandidate(position, value) {
-				return sessionState{}, stateError(StateErrorInvalidSession, "session elimination values are invalid", nil)
-			}
-			seenValues.Add(value)
-		}
-	}
-
-	var notes [9][9]core.CandidateSet
-	seen := make(map[core.Position]struct{}, len(payload.Notes))
-	for _, note := range payload.Notes {
-		position := core.Position{Row: note.Row, Column: note.Column}
-		if !position.IsValid() {
-			return sessionState{}, stateError(StateErrorInvalidSession, "session note position is invalid", nil)
+			return sessionState{}, stateError(StateErrorInvalidSession, "session candidate position is invalid", nil)
 		}
 		if _, exists := seen[position]; exists {
-			return sessionState{}, stateError(StateErrorInvalidSession, fmt.Sprintf("session has duplicate notes at row %d, column %d", note.Row, note.Column), nil)
+			return sessionState{}, stateError(StateErrorInvalidSession, fmt.Sprintf("session has duplicate candidates at row %d, column %d", candidate.Row, candidate.Column), nil)
 		}
 		seen[position] = struct{}{}
-		if len(note.Values) == 0 {
-			return sessionState{}, stateError(StateErrorInvalidSession, "session contains an empty note record", nil)
+		if len(candidate.Values) == 0 {
+			return sessionState{}, stateError(StateErrorInvalidSession, "session contains an empty candidate record", nil)
 		}
 		if problem.Get(position) != 0 || values.Get(position) != 0 || invalid.Get(position) != 0 {
-			return sessionState{}, stateError(StateErrorInvalidSession, fmt.Sprintf("session notes occupy a filled cell at row %d, column %d", note.Row, note.Column), nil)
+			return sessionState{}, stateError(StateErrorInvalidSession, fmt.Sprintf("session candidates occupy a filled cell at row %d, column %d", candidate.Row, candidate.Column), nil)
 		}
-		for _, value := range note.Values {
-			if value < 1 || value > 9 || notes[note.Row][note.Column].Has(value) {
-				return sessionState{}, stateError(StateErrorInvalidSession, "session note values are invalid", nil)
+		for _, value := range candidate.Values {
+			if value < 1 || value > 9 || candidates[candidate.Row][candidate.Column].Has(value) {
+				return sessionState{}, stateError(StateErrorInvalidSession, "session candidate values are invalid", nil)
 			}
-			notes[note.Row][note.Column].Add(value)
+			candidates[candidate.Row][candidate.Column].Add(value)
 		}
 	}
 
-	state := sessionState{playBoard: playBoard, invalidInput: invalid, notes: notes}
+	state := sessionState{playBoard: playBoard, invalidInput: invalid, candidates: candidates}
 	if err := validateSessionSemantics(state, completeSolver); err != nil {
 		return sessionState{}, err
 	}

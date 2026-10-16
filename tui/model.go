@@ -282,7 +282,7 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "0", "backspace", "delete":
 		position := core.NewPosition(m.row, m.column)
 		if m.mode == noteMode {
-			command = m.apply(game.SetNotes{Position: position})
+			command = m.apply(game.SetCandidates{Position: position})
 		} else {
 			command = m.apply(game.ClearValue{Position: position})
 		}
@@ -291,22 +291,13 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			value := int(key.Runes[0] - '0')
 			position := core.NewPosition(m.row, m.column)
 			if m.mode == noteMode {
-				if m.autoCandidates {
-					before := m.snapshot
-					command = m.apply(game.AdoptCandidatesAsNotes{Position: position, Value: value})
-					if m.snapshot != before {
-						m.autoCandidates = false
-						m.message = "Candidates copied. Notes on."
-					}
+				candidates := m.snapshot.Candidates[m.row][m.column]
+				if candidates.Has(value) {
+					candidates.Remove(value)
 				} else {
-					notes := m.snapshot.Notes[m.row][m.column]
-					if notes.Has(value) {
-						notes.Remove(value)
-					} else {
-						notes.Add(value)
-					}
-					command = m.apply(game.SetNotes{Position: position, Values: notes.Values()})
+					candidates.Add(value)
 				}
+				command = m.apply(game.SetCandidates{Position: position, Values: candidates.Values()})
 			} else {
 				command = m.apply(game.SetValue{Position: position, Value: value})
 			}

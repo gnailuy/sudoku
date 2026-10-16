@@ -111,15 +111,22 @@ func wirePlan(plan *game.HintPlan) map[string]any {
 			steps[i]["narration"] = narration
 		}
 		if step.Effect != nil {
-			steps[i]["effect"] = wireEffect(step.Effect.Placement, step.Effect.Eliminations)
+			steps[i]["effect"] = wireEffect(*step.Effect)
 		}
 	}
 	return map[string]any{
-		"plan_id":    plan.PlanID,
-		"strategy":   map[string]any{"id": plan.Strategy.ID, "display_name": plan.Strategy.DisplayName, "grade": plan.Strategy.Grade},
-		"summary":    plan.Summary,
-		"steps":      steps,
-		"conclusion": wireEffect(plan.Conclusion.Placement, plan.Conclusion.Eliminations),
+		"plan_id":  plan.PlanID,
+		"kind":     plan.Kind,
+		"title":    plan.Title,
+		"strategy": map[string]any{"id": plan.Strategy.ID, "display_name": plan.Strategy.DisplayName, "grade": plan.Strategy.Grade},
+		"summary":  plan.Summary,
+		"steps":    steps,
+		"conclusion": wireEffect(game.HintEffect{
+			Placement:     plan.Conclusion.Placement,
+			Eliminations:  plan.Conclusion.Eliminations,
+			ClearValue:    plan.Conclusion.ClearValue,
+			SetCandidates: plan.Conclusion.SetCandidates,
+		}),
 	}
 }
 
@@ -137,16 +144,21 @@ func wireTarget(target game.HintTarget) map[string]any {
 	return out
 }
 
-func wireEffect(placement *core.Cell, eliminations []solver.CandidateRef) map[string]any {
-	out := map[string]any{"eliminations": make([]map[string]int, len(eliminations))}
-	if placement != nil {
-		out["placement"] = map[string]int{"row": placement.Position.Row + 1, "column": placement.Position.Column + 1, "value": placement.Value}
+func wireEffect(effect game.HintEffect) map[string]any {
+	switch {
+	case effect.ClearValue != nil:
+		return map[string]any{"kind": "clear-value", "clear_value": map[string]int{"row": effect.ClearValue.Row + 1, "column": effect.ClearValue.Column + 1}}
+	case effect.SetCandidates != nil:
+		return map[string]any{"kind": "set-candidates", "set_candidates": map[string]any{"row": effect.SetCandidates.Position.Row + 1, "column": effect.SetCandidates.Position.Column + 1, "values": effect.SetCandidates.Values.Values()}}
+	case effect.Placement != nil:
+		return map[string]any{"kind": "place-value", "placement": map[string]int{"row": effect.Placement.Position.Row + 1, "column": effect.Placement.Position.Column + 1, "value": effect.Placement.Value}}
+	default:
+		items := make([]map[string]int, len(effect.Eliminations))
+		for i, ref := range effect.Eliminations {
+			items[i] = map[string]int{"row": ref.Position.Row + 1, "column": ref.Position.Column + 1, "value": ref.Value}
+		}
+		return map[string]any{"kind": "eliminate-candidates", "eliminations": items}
 	}
-	items := out["eliminations"].([]map[string]int)
-	for i, ref := range eliminations {
-		items[i] = map[string]int{"row": ref.Position.Row + 1, "column": ref.Position.Column + 1, "value": ref.Value}
-	}
-	return out
 }
 
 func must(err error) {

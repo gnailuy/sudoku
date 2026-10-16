@@ -8,11 +8,11 @@ import (
 )
 
 // sessionState is the complete player-controlled state restored by undo and
-// redo. Boards and note arrays are values, so history entries are detached.
+// redo. Boards and candidate arrays are values, so history entries are detached.
 type sessionState struct {
 	playBoard    core.Board
 	invalidInput core.Board
-	notes        [9][9]core.CandidateSet
+	candidates   [9][9]core.CandidateSet
 }
 
 type historyRecord struct {
@@ -25,7 +25,7 @@ type Game struct {
 	problemBoard    core.Board
 	playBoard       core.Board
 	invalidInput    core.Board              // Put the invalid input in another board to keep the play board solvable.
-	notes           [9][9]core.CandidateSet // Manual player notes, independent of solver candidates.
+	candidates      [9][9]core.CandidateSet // The one authoritative candidate grid.
 	mistakes        int                     // Confirmed invalid value submissions; deliberately outside undo/redo history.
 	inputSequence   []historyRecord         // Atomic value and note transitions.
 	inputCursor     int                     // The cursor of the current transition.
@@ -39,7 +39,7 @@ func NewGame(problem core.Board, options Options) Game {
 		panic("Bug: Invalid problem board when creating a new Sudoku game")
 	}
 
-	return Game{
+	game := Game{
 		problemBoard:    problem,
 		playBoard:       problem.Copy(),
 		invalidInput:    core.NewEmptyBoard(),
@@ -48,6 +48,8 @@ func NewGame(problem core.Board, options Options) Game {
 		completeSolver:  options.solverStore.GetDefaultSolver(),
 		strategySolvers: options.GetStrategySolvers(),
 	}
+	game.candidates = legalCandidateGrid(&game.playBoard)
+	return game
 }
 
 // countSolutions uses a detached board because complete solvers may mutate their input while searching.
@@ -70,7 +72,6 @@ func (game *Game) addNonZeroInput(input core.Cell) {
 		return
 	}
 
-	nextBoard.PruneRedundantEliminations()
 	game.playBoard = nextBoard
 }
 
@@ -141,7 +142,7 @@ func (game *Game) addInputAndRecordHistory(input core.Cell) (err error) {
 	if err != nil {
 		return
 	}
-	game.applyValueNoteCleanup(input)
+	game.applyValueCandidateCleanup(input)
 	game.recordTransition(before)
 
 	return
@@ -187,7 +188,7 @@ func (game *Game) repair() (undoSteps int) {
 func (game *Game) reset() {
 	game.playBoard = game.problemBoard.Copy()
 	game.invalidInput = core.NewEmptyBoard()
-	game.notes = [9][9]core.CandidateSet{}
+	game.candidates = legalCandidateGrid(&game.playBoard)
 	game.inputSequence = []historyRecord{}
 	game.inputCursor = -1
 }
@@ -202,14 +203,14 @@ func (game *Game) captureState() sessionState {
 	return sessionState{
 		playBoard:    game.playBoard.Copy(),
 		invalidInput: game.invalidInput.Copy(),
-		notes:        game.notes,
+		candidates:   game.candidates,
 	}
 }
 
 func (game *Game) restoreState(state sessionState) {
 	game.playBoard = state.playBoard.Copy()
 	game.invalidInput = state.invalidInput.Copy()
-	game.notes = state.notes
+	game.candidates = state.candidates
 }
 
 func (game *Game) recordTransition(before sessionState) {
@@ -223,20 +224,24 @@ func (game *Game) recordTransition(before sessionState) {
 	game.inputCursor++
 }
 
-func (game *Game) applyValueNoteCleanup(input core.Cell) {
+func (game *Game) applyValueCandidateCleanup(input core.Cell) {
 	row, column := input.Position.Row, input.Position.Column
-	game.notes[row][column] = 0
-	if input.Value == 0 || game.playBoard.Get(input.Position) != input.Value {
+	if input.Value == 0 {
+		game.candidates[row][column] = game.playBoard.Candidates(input.Position)
+		return
+	}
+	game.candidates[row][column] = 0
+	if game.playBoard.Get(input.Position) != input.Value {
 		return
 	}
 	for index := 0; index < 9; index++ {
-		game.notes[row][index].Remove(input.Value)
-		game.notes[index][column].Remove(input.Value)
+		game.candidates[row][index].Remove(input.Value)
+		game.candidates[index][column].Remove(input.Value)
 	}
 	boxRow, boxColumn := row-row%3, column-column%3
 	for r := boxRow; r < boxRow+3; r++ {
 		for c := boxColumn; c < boxColumn+3; c++ {
-			game.notes[r][c].Remove(input.Value)
+			game.candidates[r][c].Remove(input.Value)
 		}
 	}
 }
@@ -245,14 +250,32 @@ func (game *Game) applyValueNoteCleanup(input core.Cell) {
 func (game *Game) solve() {
 	game.completeSolver.Solve(&game.playBoard)
 	game.invalidInput = core.NewEmptyBoard()
-	game.notes = [9][9]core.CandidateSet{}
+	game.candidates = [9][9]core.CandidateSet{}
 }
 
 // Hint returns one complete renderer-neutral teaching plan without mutation.
 // Interactive hint selection stops at the first meaningful deduction,
 // including elimination-only progress.
 func (game *Game) Hint() *HintPlan {
+	if plan := game.valueCorrectionHint(); plan != nil {
+		return plan
+	}
+	if plan := game.candidateCorrectionHint(); plan != nil {
+		return plan
+	}
+
 	hintBoard := game.playBoard.Copy()
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			position := core.NewPosition(row, column)
+			legal := hintBoard.Candidates(position)
+			for _, value := range legal.Values() {
+				if !game.candidates[row][column].Has(value) {
+					hintBoard.EliminateCandidate(position, value)
+				}
+			}
+		}
+	}
 	for _, strategy := range game.strategySolvers {
 		before := candidateGrid(&hintBoard)
 		var move *solver.Move
@@ -281,6 +304,41 @@ func (game *Game) Hint() *HintPlan {
 		}
 		completeTeachingEvidence(&hintBoard, candidateGrid(&hintBoard), move)
 		return composeHintPlan(game.Snapshot(), game.completeSolver, move)
+	}
+	return nil
+}
+
+func (game *Game) valueCorrectionHint() *HintPlan {
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			position := core.NewPosition(row, column)
+			if game.invalidInput.Get(position) != 0 {
+				return composeValueCorrectionPlan(game.Snapshot(), position)
+			}
+		}
+	}
+	return nil
+}
+
+func (game *Game) candidateCorrectionHint() *HintPlan {
+	solution := game.playBoard.Copy()
+	if !game.completeSolver.Solve(&solution) {
+		return nil
+	}
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			position := core.NewPosition(row, column)
+			if game.problemBoard.Get(position) != 0 || game.Get(position) != 0 {
+				continue
+			}
+			current := game.candidates[row][column]
+			legal := game.playBoard.Candidates(position)
+			corrected := current & legal
+			corrected.Add(solution.Get(position))
+			if corrected != current {
+				return composeCandidateCorrectionPlan(game.Snapshot(), position, current, corrected, legal)
+			}
+		}
 	}
 	return nil
 }
@@ -396,6 +454,10 @@ func candidateGrid(board *core.Board) [9][9]core.CandidateSet {
 		}
 	}
 	return candidates
+}
+
+func legalCandidateGrid(board *core.Board) [9][9]core.CandidateSet {
+	return candidateGrid(board)
 }
 
 func candidateEliminations(before, after [9][9]core.CandidateSet) []solver.CandidateRef {

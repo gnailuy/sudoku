@@ -56,17 +56,16 @@ func (err *EngineError) Is(target error) bool {
 type ActionKind string
 
 const (
-	ActionSetValue               ActionKind = "set-value"
-	ActionClearValue             ActionKind = "clear-value"
-	ActionReset                  ActionKind = "reset"
-	ActionRestart                ActionKind = "restart"
-	ActionUndo                   ActionKind = "undo"
-	ActionRedo                   ActionKind = "redo"
-	ActionApplyHint              ActionKind = "apply-hint"
-	ActionSetNotes               ActionKind = "set-notes"
-	ActionAdoptCandidatesAsNotes ActionKind = "adopt-candidates-as-notes"
-	ActionRepair                 ActionKind = "repair"
-	ActionSolve                  ActionKind = "solve"
+	ActionSetValue      ActionKind = "set-value"
+	ActionClearValue    ActionKind = "clear-value"
+	ActionReset         ActionKind = "reset"
+	ActionRestart       ActionKind = "restart"
+	ActionUndo          ActionKind = "undo"
+	ActionRedo          ActionKind = "redo"
+	ActionApplyHint     ActionKind = "apply-hint"
+	ActionSetCandidates ActionKind = "set-candidates"
+	ActionRepair        ActionKind = "repair"
+	ActionSolve         ActionKind = "solve"
 )
 
 // Action is a typed player intent. Its unexported method keeps the set of
@@ -114,25 +113,13 @@ type ApplyHint struct{ PlanID string }
 
 func (ApplyHint) actionKind() ActionKind { return ActionApplyHint }
 
-// SetNotes atomically replaces all manual notes on an editable empty cell.
-type SetNotes struct {
+// SetCandidates atomically replaces the authoritative candidates on one editable empty cell.
+type SetCandidates struct {
 	Position core.Position
 	Values   []int
 }
 
-func (SetNotes) actionKind() ActionKind { return ActionSetNotes }
-
-// AdoptCandidatesAsNotes replaces every editable empty cell's manual notes
-// with its current legal candidates, then toggles one initiating note. The
-// complete adoption is recorded as one atomic history transition.
-type AdoptCandidatesAsNotes struct {
-	Position core.Position
-	Value    int
-}
-
-func (AdoptCandidatesAsNotes) actionKind() ActionKind {
-	return ActionAdoptCandidatesAsNotes
-}
+func (SetCandidates) actionKind() ActionKind { return ActionSetCandidates }
 
 // Repair removes invalid player entries by returning to the most recent
 // valid history state.
@@ -151,7 +138,6 @@ type Snapshot struct {
 	Givens     [9][9]int
 	Values     [9][9]int
 	Invalid    [9][9]bool
-	Notes      [9][9]core.CandidateSet
 	Candidates [9][9]core.CandidateSet
 	Mistakes   int
 	Status     Status
@@ -197,13 +183,13 @@ func writeSnapshotValues(result *strings.Builder, values [9][9]int) {
 
 // CellChange describes one visible cell changed by an accepted action.
 type CellChange struct {
-	Position      core.Position
-	Before        int
-	After         int
-	InvalidBefore bool
-	InvalidAfter  bool
-	NotesBefore   core.CandidateSet
-	NotesAfter    core.CandidateSet
+	Position         core.Position
+	Before           int
+	After            int
+	InvalidBefore    bool
+	InvalidAfter     bool
+	CandidatesBefore core.CandidateSet
+	CandidatesAfter  core.CandidateSet
 }
 
 // Result describes an accepted transition.
@@ -225,8 +211,7 @@ func (game *Game) Snapshot() Snapshot {
 			snapshot.Givens[row][column] = game.problemBoard.Get(position)
 			snapshot.Values[row][column] = game.Get(position)
 			snapshot.Invalid[row][column] = game.invalidInput.Get(position) != 0
-			snapshot.Notes[row][column] = game.notes[row][column]
-			snapshot.Candidates[row][column] = game.playBoard.Candidates(position)
+			snapshot.Candidates[row][column] = game.candidates[row][column]
 		}
 	}
 	snapshot.Status = game.status()
@@ -285,10 +270,8 @@ func (game *Game) Apply(action Action) (Result, error) {
 			err = game.applyHintPlan(hint)
 			appliedHint = hint
 		}
-	case SetNotes:
-		err = game.setNotes(typed.Position, typed.Values)
-	case AdoptCandidatesAsNotes:
-		err = game.adoptCandidatesAsNotes(typed.Position, typed.Value)
+	case SetCandidates:
+		err = game.setCandidates(typed.Position, typed.Values)
 	case Repair:
 		if game.repair() == 0 {
 			err = &EngineError{Code: ErrorInvalidAction, Detail: "no invalid input to repair"}
@@ -309,6 +292,13 @@ func (game *Game) Apply(action Action) (Result, error) {
 }
 
 func (game *Game) applyHintPlan(plan *HintPlan) error {
+	if plan.Conclusion.ClearValue != nil {
+		return game.addInputAndRecordHistory(core.NewCell(*plan.Conclusion.ClearValue, 0))
+	}
+	if plan.Conclusion.SetCandidates != nil {
+		replacement := plan.Conclusion.SetCandidates
+		return game.setCandidates(replacement.Position, replacement.Values.Values())
+	}
 	if plan.Conclusion.Placement != nil {
 		return game.addInputAndRecordHistory(*plan.Conclusion.Placement)
 	}
@@ -316,28 +306,18 @@ func (game *Game) applyHintPlan(plan *HintPlan) error {
 		return &EngineError{Code: ErrorNoHint, Detail: "hint plan has no applicable conclusion"}
 	}
 
-	nextBoard := game.playBoard.Copy()
-	nextNotes := game.notes
-	if noteMapIsEmpty(nextNotes) {
-		nextNotes = game.candidatesAsNotes()
-	}
+	nextCandidates := game.candidates
 	changed := false
 	for _, elimination := range plan.Conclusion.Eliminations {
 		position := elimination.Position
 		if !position.IsValid() || elimination.Value < 1 || elimination.Value > 9 || game.Get(position) != 0 || game.problemBoard.Get(position) != 0 {
 			return &EngineError{Code: ErrorStaleHint, Position: &position, Detail: "hint elimination no longer applies"}
 		}
-		current := nextNotes[position.Row][position.Column]
-		if current.IsEmpty() {
-			current = game.playBoard.Candidates(position)
-		}
+		current := nextCandidates[position.Row][position.Column]
 		updated := current
 		updated.Remove(elimination.Value)
 		if updated != current {
-			nextNotes[position.Row][position.Column] = updated
-			changed = true
-		}
-		if nextBoard.EliminateCandidate(position, elimination.Value) {
+			nextCandidates[position.Row][position.Column] = updated
 			changed = true
 		}
 	}
@@ -345,34 +325,9 @@ func (game *Game) applyHintPlan(plan *HintPlan) error {
 		return &EngineError{Code: ErrorStaleHint, Detail: "hint conclusion is already consumed"}
 	}
 	before := game.captureState()
-	game.playBoard = nextBoard
-	game.notes = nextNotes
+	game.candidates = nextCandidates
 	game.recordTransition(before)
 	return nil
-}
-
-func noteMapIsEmpty(notes [9][9]core.CandidateSet) bool {
-	for row := range notes {
-		for column := range notes[row] {
-			if !notes[row][column].IsEmpty() {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func (game *Game) candidatesAsNotes() [9][9]core.CandidateSet {
-	var notes [9][9]core.CandidateSet
-	for row := range notes {
-		for column := range notes[row] {
-			position := core.NewPosition(row, column)
-			if game.Get(position) == 0 && game.problemBoard.Get(position) == 0 {
-				notes[row][column] = game.playBoard.Candidates(position)
-			}
-		}
-	}
-	return notes
 }
 
 func (game *Game) status() Status {
@@ -397,72 +352,50 @@ func resultFromSnapshots(kind ActionKind, before, after Snapshot) Result {
 		for column := 0; column < 9; column++ {
 			if before.Values[row][column] == after.Values[row][column] &&
 				before.Invalid[row][column] == after.Invalid[row][column] &&
-				before.Notes[row][column] == after.Notes[row][column] {
+				before.Candidates[row][column] == after.Candidates[row][column] {
 				continue
 			}
 			result.Changes = append(result.Changes, CellChange{
-				Position:      core.NewPosition(row, column),
-				Before:        before.Values[row][column],
-				After:         after.Values[row][column],
-				InvalidBefore: before.Invalid[row][column],
-				InvalidAfter:  after.Invalid[row][column],
-				NotesBefore:   before.Notes[row][column],
-				NotesAfter:    after.Notes[row][column],
+				Position:         core.NewPosition(row, column),
+				Before:           before.Values[row][column],
+				After:            after.Values[row][column],
+				InvalidBefore:    before.Invalid[row][column],
+				InvalidAfter:     after.Invalid[row][column],
+				CandidatesBefore: before.Candidates[row][column],
+				CandidatesAfter:  after.Candidates[row][column],
 			})
 		}
 	}
 	return result
 }
 
-func (game *Game) setNotes(position core.Position, values []int) error {
+func (game *Game) setCandidates(position core.Position, values []int) error {
 	if !position.IsValid() {
 		return invalidCellError(position, 0)
 	}
-	if err := game.validateNoteCell(position); err != nil {
+	if err := game.validateCandidateCell(position); err != nil {
 		return err
 	}
-	var notes core.CandidateSet
+	var candidates core.CandidateSet
 	for _, value := range values {
-		if value < 1 || value > 9 || notes.Has(value) {
+		if value < 1 || value > 9 || candidates.Has(value) {
 			return invalidCellError(position, value)
 		}
-		notes.Add(value)
+		candidates.Add(value)
 	}
 	before := game.captureState()
-	game.notes[position.Row][position.Column] = notes
+	game.candidates[position.Row][position.Column] = candidates
 	game.recordTransition(before)
 	return nil
 }
 
-func (game *Game) adoptCandidatesAsNotes(position core.Position, value int) error {
-	if !position.IsValid() || value < 1 || value > 9 {
-		return invalidCellError(position, value)
-	}
-	if err := game.validateNoteCell(position); err != nil {
-		return err
-	}
-
-	before := game.captureState()
-	game.notes = game.candidatesAsNotes()
-
-	notes := game.notes[position.Row][position.Column]
-	if notes.Has(value) {
-		notes.Remove(value)
-	} else {
-		notes.Add(value)
-	}
-	game.notes[position.Row][position.Column] = notes
-	game.recordTransition(before)
-	return nil
-}
-
-func (game *Game) validateNoteCell(position core.Position) error {
+func (game *Game) validateCandidateCell(position core.Position) error {
 	positionCopy := position
 	if game.problemBoard.Get(position) != 0 {
-		return &EngineError{Code: ErrorImmutableCell, Position: &positionCopy, Detail: "cannot add notes to a problem cell"}
+		return &EngineError{Code: ErrorImmutableCell, Position: &positionCopy, Detail: "cannot edit candidates on a problem cell"}
 	}
 	if game.Get(position) != 0 {
-		return &EngineError{Code: ErrorNoteNotAllowed, Position: &positionCopy, Detail: "notes are allowed only on empty cells"}
+		return &EngineError{Code: ErrorNoteNotAllowed, Position: &positionCopy, Detail: "candidates are allowed only on empty cells"}
 	}
 	return nil
 }

@@ -50,10 +50,12 @@ Every plan contains:
 | Field | Meaning |
 |-------|---------|
 | `plan_id` | Deterministic identity bound to the source game state and conclusion |
-| `strategy` | Stable strategy ID, display name, and strategy grade |
-| `summary` | Complete plain-text fallback for the deduction |
+| `kind` | `value-correction`, `candidate-correction`, or `strategy` |
+| `title` | Presentation title valid for corrections and strategies |
+| `strategy` | Optional strategy ID, display name, and grade; present only for strategy plans |
+| `summary` | Complete plain-text fallback |
 | `steps` | Ordered, independently renderable teaching steps |
-| `conclusion` | Machine-readable placement or candidate eliminations |
+| `conclusion` | Typed clear, candidate replacement, placement, or elimination effect |
 
 Every step contains a stable ID, a semantic kind, a complete fallback message, optional structured narration, a declarative scene, and an optional logical effect. Structured narration never replaces the fallback: every emitted stream contains only valid text, target, or digit variants; every referenced target is valid in the source plan; and an unsupported stream is discarded as a whole. Scenes carry `marks`, stable candidate `nodes`, and typed `links`; each step sends complete arrays, including empty arrays, so a renderer never retains stale visual state. Initial step kinds are `observe`, `compare`, `eliminate`, and `conclude`; changing their meaning requires a coordinated contract replacement across the engine and clients.
 
@@ -70,7 +72,10 @@ Scene marks pair one target with one semantic role:
 | `focus` | Region or item currently under examination |
 | `premise` | Fact already established and used by the deduction |
 | `eliminated` | Candidate proven impossible by this deduction |
-| `conclusion` | Placement or elimination that completes the teaching step |
+| `conclusion` | Applied change that completes the teaching step |
+| `problem` | Cell whose current value or candidate set is inconsistent |
+| `missing` | Required candidate absent from the player grid |
+| `extra` | Candidate ruled out by accepted values |
 
 Semantic roles carry no palette or animation requirement. Color cannot be the sole carrier of meaning, motion is optional, and the fallback message names every fact needed to understand the step.
 
@@ -78,15 +83,17 @@ Candidate nodes provide stable IDs and may carry an `A`/`B` alternating-group la
 
 Complex scenes progress from one bounded relation to the complete pattern. The first XY-Wing, coloring, cycle, or chain step introduces one link and its endpoints; the comparison step reveals the complete relationship graph; the conclusion preserves that graph while isolating the exact result. Backward navigation remains deterministic because each scene is complete.
 
-Logical effects are separate from marks. A mark explains presentation emphasis; an effect declares the verifiable placement or candidate eliminations produced by the step. The plan conclusion equals the combined final effect and must be valid against the source game state.
+Logical effects are separate from marks. A mark explains presentation emphasis; an effect declares the verifiable clear, complete candidate replacement, placement, or candidate elimination produced by the step. The plan conclusion equals the final effect and must be valid against the source game state.
 
-## Deduction Selection
+## Validation and Deduction Selection
 
-Interactive hint orchestration returns the first meaningful deduction from the configured strategy order, whether the deduction places a value or only eliminates candidates. The hint path never consumes elimination-only progress on a detached board merely to search for a later placement; doing so would hide the technique the player needs to learn.
+Interactive hint orchestration validates the authoritative player state before choosing a strategy. A visible invalid value returns a value-correction plan for that exact cell. The engine then checks each editable empty cell: candidates impossible under accepted values are marked extra, and a missing digit required by the solved continuation is marked missing. The first inconsistent cell returns a complete candidate replacement plan.
+
+Only a consistent board and candidate grid proceed to the configured strategy order. The engine applies the grid as eliminations on a detached solver board, so the selected technique and explanation use exactly the state the player sees. Strategy selection returns the first meaningful deduction, whether it places a value or only eliminates candidates; it never silently consumes elimination progress to search for a later placement.
 
 Full solving and difficulty classification may continue chaining eliminations on their private solving state until a placement or completed solve. The shared strategy implementation and evidence therefore serve teaching, solving, and classification even though those callers stop at different boundaries.
 
-Direct note hygiene is not a strategy conclusion. Removing a note that a placed value already makes illegal is deterministic validation owned by normal value and note handling; a teaching hint is reserved for a logical deduction that is not visible from row, column, or box legality alone.
+Candidate hygiene is a correction plan rather than a strategy conclusion. Corrections use the same teaching surface and application guarantees but are titled as fixes, not as Sudoku techniques.
 
 ## Query, Navigation, and Application
 
@@ -98,9 +105,9 @@ Applying the conclusion is a separate player intent because the player may inspe
 
 A client does not translate a preview into unrelated ordinary actions because that would discard exact-plan verification and could split a multi-cell elimination across history entries. The `apply-hint` kind exists for provenance, validation, and atomicity while remaining part of the ordinary action union.
 
-A placement conclusion records one value transition. An elimination conclusion records one atomic manual-note transition across every affected cell. When the manual-note map is empty, the engine first materializes the complete current legal-candidate grid and then removes the proven digits; clients can therefore move from automatic-candidate preview to the reduced player-owned notes without losing the rest of the grid. When any manual notes already exist, existing notes are preserved and only an affected empty note set uses its current legal candidates as the local baseline. The same action records the strategy-derived eliminations in the solver-safe board, so later hints and automatic candidates continue from the consumed deduction instead of rediscovering it.
+A value correction clears one invalid value. A candidate correction replaces one complete cell set. A placement conclusion records one value transition, and an elimination conclusion removes its proven digits from the authoritative grid across every affected cell. Each conclusion is one undoable history entry; an already-consumed conclusion is stale rather than an accepted no-op.
 
-Elimination application never places a value, even when the remaining notes form a single. The complete note delta is one undoable history entry, and a conclusion already absent from every affected note set is stale or consumed rather than an accepted no-op.
+Elimination application never places a value even when one candidate remains. Later hints read the reduced authoritative grid instead of rediscovering the same elimination.
 
 ## Graceful Degradation and Accessibility
 
@@ -118,7 +125,7 @@ Localization is a required later evolution, not a reason to duplicate translated
 
 ## Delivery Boundary
 
-`game.Game.Hint` returns the complete plan, `game.ApplyHint` requires its deterministic `plan_id`, and the engine applies either a placement or a multi-cell note elimination as one undoable transition. `game.completeTeachingEvidence` preserves strategy-authored evidence and completes missing typed candidate neighborhoods, affected units, ruled-out candidates, and exact elimination effects from the solver board transition. All 23 registered strategies therefore produce ordered semantic steps and a machine-readable conclusion; fallback prose remains presentation text rather than a client parsing contract.
+`game.Game.Hint` returns the complete plan, `game.ApplyHint` requires its deterministic `plan_id`, and the engine applies a value correction, candidate correction, placement, or multi-cell candidate elimination as one undoable transition. `game.completeTeachingEvidence` preserves strategy-authored evidence and completes missing typed candidate neighborhoods, affected units, ruled-out candidates, and exact elimination effects from the solver board transition. All 23 registered strategies therefore produce ordered semantic steps and a machine-readable conclusion; fallback prose remains presentation text rather than a client parsing contract.
 
 The line CLI prints and caches the complete plan without mutation, then requires `hint apply` or `hint cancel`; apply submits only the cached identity. Any successful non-hint CLI mutation explicitly discards the cached preview, while failed and no-op commands retain it. The TUI keeps the complete plan during preview, navigates its steps locally, uses color-independent semantic marks, and submits its identity on Enter. The HTTP contract returns the complete plan with one-based transport coordinates, requires its explicit `plan_id` on `apply-hint`, and returns the applied plan in the action result. Built-binary terminal and API acceptance proves read-only preview, exact-plan application, mutation-driven CLI discard, stale-plan rejection at engine boundaries, and one revision or undo record per accepted conclusion.
 

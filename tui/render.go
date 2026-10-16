@@ -169,9 +169,9 @@ func renderCell(m Model, styles renderStyles, row, column, noteRow int) string {
 		return contextualStyle(m, styles, row, column, style).Render(cellContent(m, row, column, noteRow))
 	}
 
-	notes := m.snapshot.Notes[row][column]
 	candidates := m.snapshot.Candidates[row][column]
-	if notes.IsEmpty() && (!m.autoCandidates || candidates.IsEmpty()) && !hasHintCandidate(m, row, column) {
+	showCandidates := m.autoCandidates || m.mode == noteMode
+	if (!showCandidates || candidates.IsEmpty()) && !hasHintCandidate(m, row, column) {
 		return contextualStyle(m, styles, row, column, hintCellStyle(m, styles, row, column, styles.empty)).Render("     ")
 	}
 
@@ -183,14 +183,15 @@ func renderCell(m Model, styles renderStyles, row, column, noteRow int) string {
 			digit := noteRow*3 + offset + 1
 			role, marked := hintCandidateRole(m, row, column, digit)
 			switch {
-			case marked:
+			case marked && (candidates.Has(digit) || role == game.HintRoleMissing):
 				style = hintRoleStyle(styles, role).Inherit(style)
 				content = string(rune('0' + digit))
-			case notes.Has(digit):
-				style = styles.note
-				content = string(rune('0' + digit))
-			case m.autoCandidates && candidates.Has(digit):
-				style = styles.candidate
+			case showCandidates && candidates.Has(digit):
+				if m.mode == noteMode {
+					style = styles.note
+				} else {
+					style = styles.candidate
+				}
 				content = string(rune('0' + digit))
 			}
 		}
@@ -260,6 +261,8 @@ func hintCellStyle(m Model, styles renderStyles, row, column int, base lipgloss.
 func hintRolePriority(role game.HintRole) int {
 	switch role {
 	case game.HintRoleConclusion:
+		return 5
+	case game.HintRoleProblem, game.HintRoleMissing, game.HintRoleExtra:
 		return 4
 	case game.HintRoleEliminated:
 		return 3
@@ -294,15 +297,15 @@ func cellContent(m Model, row, column, noteRow int) string {
 		return "     "
 	}
 
-	notes := m.snapshot.Notes[row][column]
 	candidates := m.snapshot.Candidates[row][column]
-	if notes.IsEmpty() && (!m.autoCandidates || candidates.IsEmpty()) {
+	showCandidates := m.autoCandidates || m.mode == noteMode
+	if !showCandidates || candidates.IsEmpty() {
 		return "     "
 	}
 	content := [5]byte{' ', ' ', ' ', ' ', ' '}
 	for offset := 0; offset < 3; offset++ {
 		candidate := noteRow*3 + offset + 1
-		if notes.Has(candidate) || (m.autoCandidates && candidates.Has(candidate)) {
+		if candidates.Has(candidate) {
 			content[offset+1] = byte('0' + candidate)
 		}
 	}

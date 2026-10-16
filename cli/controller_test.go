@@ -114,31 +114,30 @@ func TestHintConclusionTextSupportsEliminations(t *testing.T) {
 	}
 }
 
-func TestNoteCommandsAndRendering(t *testing.T) {
+func TestCandidateCommandsAndRendering(t *testing.T) {
 	controller := newTestController(t)
+	before := controller.game.Snapshot().Candidates[0][0]
 	if !controller.RunCommand("note 1 1 1") || !controller.RunCommand("n 1 1 9") {
-		t.Fatal("note commands did not report a board change")
+		t.Fatal("candidate commands did not report a board change")
 	}
 	snapshot := controller.game.Snapshot()
-	if !snapshot.Notes[0][0].Has(1) || !snapshot.Notes[0][0].Has(9) {
-		t.Fatal("notes were not toggled")
+	if snapshot.Candidates[0][0].Has(1) == before.Has(1) || snapshot.Candidates[0][0].Has(9) == before.Has(9) {
+		t.Fatal("candidates were not toggled")
 	}
 	rendered := renderBoard(snapshot)
-	if !strings.Contains(rendered, "1  ") || !strings.Contains(rendered, "  9") {
-		t.Fatalf("note board does not preserve candidate positions:\n%s", rendered)
+	if !strings.Contains(rendered, "+-----------+") {
+		t.Fatalf("candidate board was not rendered:\n%s", rendered)
 	}
-	if !controller.RunCommand("x 1 1") || !controller.game.Snapshot().Notes[0][0].IsEmpty() {
-		t.Fatal("notes-clear did not clear the cell")
-	}
-	if strings.Contains(renderBoard(controller.game.Snapshot()), "+-----------+") {
-		t.Fatal("board without notes did not return to compact rendering")
+	if !controller.RunCommand("x 1 1") || !controller.game.Snapshot().Candidates[0][0].IsEmpty() {
+		t.Fatal("candidate clear did not clear the cell")
 	}
 }
 
 func TestSaveCommandRoundTrip(t *testing.T) {
 	controller := newTestController(t)
+	before := controller.game.Snapshot().Candidates[0][0].Has(5)
 	if !controller.RunCommand("n 1 1 5") {
-		t.Fatal("note command failed")
+		t.Fatal("candidate command failed")
 	}
 	path := filepath.Join(t.TempDir(), "saved.json")
 	if controller.RunCommand("save " + path) {
@@ -153,8 +152,8 @@ func TestSaveCommandRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !restored.Snapshot().Notes[0][0].Has(5) {
-		t.Fatal("saved session did not preserve notes")
+	if restored.Snapshot().Candidates[0][0].Has(5) == before {
+		t.Fatal("saved session did not preserve candidate edit")
 	}
 }
 

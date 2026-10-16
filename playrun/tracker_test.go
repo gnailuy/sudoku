@@ -85,7 +85,7 @@ func TestTrackerWarnsAndRetriesCompletionPersistence(t *testing.T) {
 		t.Fatal("expected warning")
 	}
 	recorder.err = nil
-	if _, err := tracker.Apply(&current, game.SetNotes{Position: core.NewPosition(0, 0), Values: []int{1}}); err == nil {
+	if _, err := tracker.Apply(&current, game.SetCandidates{Position: core.NewPosition(0, 0), Values: []int{1}}); err == nil {
 		t.Fatal("expected immutable-cell action to fail")
 	}
 	if _, err := tracker.Apply(&current, game.Reset{}); err != nil {

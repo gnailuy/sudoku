@@ -88,7 +88,7 @@ func TestGuestKeyRotationDecryptsOldAndResealsWithActiveKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	rotated := newTestSealer(t, now, map[string][]byte{"old": testKey(1), "new": testKey(2)}, "new")
-	transition, err := rotated.Apply(token, 0, game.SetNotes{Position: core.NewPosition(0, 0), Values: []int{4, 5}}, options)
+	transition, err := rotated.Apply(token, 0, game.SetCandidates{Position: core.NewPosition(0, 0), Values: []int{4, 5}}, options)
 	if err != nil {
 		t.Fatal(err)
 	}

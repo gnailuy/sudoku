@@ -47,9 +47,10 @@ func TestNavigationAndValueNoteModes(t *testing.T) {
 	}
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyDown})
+	beforeCandidate := model.snapshot.Candidates[1][1].Has(4)
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'4'}})
-	if !model.snapshot.Notes[1][1].Has(4) {
-		t.Fatal("note was not applied")
+	if model.snapshot.Candidates[1][1].Has(4) == beforeCandidate {
+		t.Fatal("candidate toggle was not applied")
 	}
 }
 
@@ -99,7 +100,7 @@ func TestStatusDisplaysAuthoritativeMistakeCount(t *testing.T) {
 	}
 }
 
-func TestFirstNoteEditAdoptsAutomaticCandidatesAtomically(t *testing.T) {
+func TestCandidateEditIsAtomicAndUndoable(t *testing.T) {
 	model := testModel(t)
 	model.autoCandidates = true
 	model.mode = noteMode
@@ -109,27 +110,23 @@ func TestFirstNoteEditAdoptsAutomaticCandidatesAtomically(t *testing.T) {
 
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{rune('0' + value)}})
 
-	if model.autoCandidates || model.mode != noteMode {
-		t.Fatal("candidate adoption did not enter manual-note editing")
+	if !model.autoCandidates || model.mode != noteMode {
+		t.Fatal("candidate editing changed presentation mode")
 	}
-	if model.snapshot.Notes[target.Row][target.Column].Has(value) == before.Candidates[target.Row][target.Column].Has(value) {
-		t.Fatal("candidate adoption did not apply the initiating note toggle")
+	if model.snapshot.Candidates[target.Row][target.Column].Has(value) == before.Candidates[target.Row][target.Column].Has(value) {
+		t.Fatal("candidate edit did not apply the initiating toggle")
 	}
-	peer := core.NewPosition(0, 1)
-	if model.snapshot.Notes[peer.Row][peer.Column] != before.Candidates[peer.Row][peer.Column] {
-		t.Fatal("candidate adoption did not copy the complete candidate grid")
-	}
-	if !model.dirty || !strings.Contains(model.message, "Candidates copied") {
-		t.Fatalf("adoption dirty=%v message=%q", model.dirty, model.message)
+	if !model.dirty {
+		t.Fatal("candidate edit did not mark the session dirty")
 	}
 
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
-	if model.snapshot.Notes != before.Notes {
-		t.Fatal("one undo did not restore the complete prior note map")
+	if model.snapshot.Candidates != before.Candidates {
+		t.Fatal("one undo did not restore the candidate grid")
 	}
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	if model.snapshot.Notes[target.Row][target.Column].Has(value) == before.Candidates[target.Row][target.Column].Has(value) {
-		t.Fatal("one redo did not reapply candidate adoption")
+	if model.snapshot.Candidates[target.Row][target.Column].Has(value) == before.Candidates[target.Row][target.Column].Has(value) {
+		t.Fatal("one redo did not reapply candidate edit")
 	}
 }
 
@@ -138,8 +135,8 @@ func TestAutomaticCandidatesRefreshAndCoexistWithNotes(t *testing.T) {
 	model.autoCandidates = true
 	noteTarget := core.NewPosition(0, 0)
 	legalNote := model.snapshot.Candidates[noteTarget.Row][noteTarget.Column].Values()[0]
-	model.snapshot.Notes[noteTarget.Row][noteTarget.Column].Add(legalNote)
-	model.snapshot.Notes[noteTarget.Row][noteTarget.Column].Add(9)
+	model.snapshot.Candidates[noteTarget.Row][noteTarget.Column].Add(legalNote)
+	model.snapshot.Candidates[noteTarget.Row][noteTarget.Column].Add(9)
 	content := cellContent(model, noteTarget.Row, noteTarget.Column, 0) + cellContent(model, noteTarget.Row, noteTarget.Column, 1) + cellContent(model, noteTarget.Row, noteTarget.Column, 2)
 	if !strings.Contains(content, string(rune('0'+legalNote))) || !strings.Contains(content, "9") {
 		t.Fatalf("combined candidates omitted legal or stale manual note: %q", content)

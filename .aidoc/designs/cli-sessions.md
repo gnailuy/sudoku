@@ -34,8 +34,8 @@ Explicit persistence is the smallest reliable first workflow. A player chooses w
 
 Interactive commands extend the current vocabulary without changing existing aliases or bare three-digit value input:
 
-- `note`, `n <row><column><value>` computes the cell’s next complete note set and submits `game.SetNotes`.
-- `notes-clear`, `x <row><column>` submits an empty `game.SetNotes` value for the cell.
+- `note`, `n <row><column><value>` retains its command alias but toggles the authoritative candidate and submits the complete cell set through `game.SetCandidates`.
+- `notes-clear`, `x <row><column>` retains its alias but clears the authoritative candidates for that cell.
 - `hint` or `i` caches and prints one complete teaching plan without mutation; `hint apply` submits its exact `plan_id`, while `hint cancel` discards it. A successful non-hint mutation also discards the preview with a notice so stale plans do not remain in the CLI.
 - `save <path>` serializes the current game and atomically replaces the destination.
 - `quit`, `q` continues to exit without an implicit save.

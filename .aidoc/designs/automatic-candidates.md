@@ -7,68 +7,55 @@ entry_points:
   - tui/render.go
 dependencies:
   - .aidoc/designs/game-engine.md
-  - .aidoc/designs/tui-frontend.md
+  - .aidoc/designs/hint-presentation-protocol.md
   - .aidoc/designs/e2e-tui-scenarios.md
 ---
 
-# Automatic Candidates
+# Authoritative Candidates
 
-Automatic candidates provide opt-in legal-candidate assistance and an explicit atomic transition into editable manual notes. Candidate calculation belongs to the game engine, while each frontend owns whether the derived data is previewed and when a player gesture invokes adoption.
+The game owns one candidate grid. Players, strategies, persistence, and every frontend read and mutate that same state; there is no separate manual-note map, derived automatic grid, or adoption transition.
 
 ## Related Docs
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/game-engine.md` | Defines the detached snapshot and the distinction between engine state and derived queries |
-| `.aidoc/designs/tui-frontend.md` | Defines the keyboard, rendering, theme, and accessibility boundaries used by the first consumer |
-| `.aidoc/designs/e2e-tui-scenarios.md` | Defines the black-box behaviors that protect candidate assistance |
-| `.aidoc/designs/roadmap.md` | Defines approved project priorities |
+| `.aidoc/designs/game-engine.md` | Defines candidate state, actions, history, and validation |
+| `.aidoc/designs/hint-presentation-protocol.md` | Defines correction-first hint plans and strategy plans |
+| `.aidoc/designs/tui-frontend.md` | Defines candidate visibility and editing gestures |
+| `.aidoc/designs/e2e-tui-scenarios.md` | Protects the composed terminal behavior |
 
-## Why Automatic Candidates Are Derived
+## Why One Grid Exists
 
-Legal candidates answer which digits remain possible under the accepted Sudoku values. Manual notes record a player's own reasoning and may intentionally be incomplete or temporarily wrong. Treating automatic candidates as notes would erase that distinction, create surprising history changes, and require synchronization rules during every action.
+Separate notes and automatic candidates create two truths about the same empty cell. Hints then need adoption rules, applied eliminations must be copied between models, and a renderer can show a grid different from the state the solver uses. One authoritative grid removes that ambiguity.
 
-The engine therefore exposes candidates as detached snapshot data computed from the solver-safe play board. Merely displaying automatic candidates is not an action, history entry, or dirty-state change. A deliberate `AdoptCandidatesAsNotes` action materializes the current candidate grid as player-owned notes, applies the initiating digit toggle, and enters history. Strategy-derived hint eliminations are different: they are persisted with version 2 solver state so automatic candidates and later hints continue from an applied deduction; frontend display preferences remain outside serialization.
+A new or restarted game initializes every editable empty cell to its legal candidates under the givens. `SetCandidates` replaces one complete cell set as an atomic player action. Accepted value placement clears the target and removes that digit from candidate peers; invalid visible input clears only its occupied target and never constrains peers. Undo, Redo, reset, restart, save, and restore preserve the exact grid.
 
-## Engine Read Contract
+## Engine Contract
 
-`game.Snapshot` gains a candidate set for every board position. The implementation derives each set through `core.Board.Candidates` while constructing the snapshot; the engine does not add a second candidate algorithm or maintain a cache.
+`game.Snapshot.Candidates` is detached value data. Given and filled cells have empty sets. Candidate edits are allowed only on editable empty cells and contain distinct digits 1–9.
 
-A candidate set is non-empty only when the solver-safe board position is empty and editable. Given cells and accepted player values have empty sets. An invalid visible entry does not constrain peers because invalid entries are already excluded from the solver-safe board, but its occupied screen cell suppresses candidate rendering until the player clears or repairs it.
+Candidate state is serialized directly with the session and history. Schema version 3 stores sparse `candidates` records beside values and invalid entries. Restoring validates positions, digits, occupancy, history connectivity, and the accepted board before returning a game.
 
-Snapshot candidate arrays are value data and remain detached from `game.Game`. Mutating a returned set cannot change the session. Repeated snapshots of unchanged state produce identical candidate sets.
+All clients consume `Candidates` and `SetCandidates` directly. The candidate grid is the only persisted pencilmark state.
 
-## Update Semantics
+## Validation Before Strategy Hints
 
-Every new snapshot reflects the current accepted board. Candidate sets therefore update after value entry, clear, undo, redo, hint application, solve, repair, reset, and restore without a candidate-specific transition or event.
+A hint request validates player state before selecting a Sudoku strategy:
 
-Direct manual-note actions do not alter candidates. Accepted elimination hints do alter candidates atomically with their materialized note transition so a consumed deduction cannot recur. Automatic candidate changes do not appear in `game.Result.Changes`, because results describe accepted mutable-state transitions rather than recomputed read data. `AdoptCandidatesAsNotes` is the exception: the engine computes every legal candidate set, replaces notes on every editable visibly empty cell, toggles the initiating digit, and returns all changed notes in one result. Frontends refresh from the post-action snapshot and never reconstruct candidate rules.
+1. A visible invalid value produces a `value-correction` plan pointing to that exact cell and an undoable `clear-value` conclusion.
+2. For each editable empty cell, the engine compares the candidate set with accepted-value legality and a solved continuation. Impossible candidates are marked extra, and a missing candidate required by the solution is marked missing. The first inconsistency produces a `candidate-correction` plan with one complete replacement set.
+3. Only a consistent board and candidate grid proceed to strategy selection. Strategy solvers receive a detached board constrained by the authoritative candidate grid, so the explanation and application use the same state the player sees.
 
-## TUI Interaction
+Correction plans use the same deterministic `plan_id`, local step navigation, stale-plan rejection, application boundary, revision increment, and one-step Undo as strategy plans. Correction titles are not presented as Sudoku technique names.
 
-The full-screen TUI adds `a` as the automatic-candidate toggle when no modal or text prompt is active. Automatic candidates start off for every process, including resumed sessions, so the existing uncluttered board remains the default. Toggling the display does not mark the session dirty and does not create an undo entry.
+## Presentation
 
-The help overlay and one-line key guide expose the toggle. A successful hint request turns automatic candidates on before the first explanation step so every candidate referenced by the hint is visible; closing or applying the hint leaves the display on until the player hides it explicitly. This reveal is presentation-only and creates no dirty state or history entry. When note mode and the automatic preview are both active, the first digit edit submits `AdoptCandidatesAsNotes`, hides the preview after success, and remains in note mode. The transition needs no confirmation because the engine records the complete replacement as one Undo/Redo step. A rejected adoption leaves the preview visible and the prior note map unchanged. The line-oriented CLI has no candidate command: a dense candidate board would complicate its stable text format without improving scriptability, while the shared snapshot contract remains frontend-neutral.
+Frontends may hide or show the grid without changing game state. The TUI and web client start with candidates hidden, reveal them for candidate-edit mode or a successful hint preview, and retain the visibility preference until the player changes it. Visibility is presentation-only and is not serialized.
 
-## Rendering and Manual Notes
+A fixed 3×3 mini-grid renders each candidate. Correction scenes distinguish the problematic cell, impossible digits, missing required digits, and the corrected conclusion without relying on color alone. Filled, given, and invalid-visible cells render their value instead of candidates.
 
-Automatic candidates and manual notes share the existing fixed 3×3 digit positions. A legal candidate uses a dim neutral style; a manual note uses the existing note emphasis. When the same digit is both legal and manually noted, manual-note styling wins. A manual note that is no longer legal remains visible with manual-note styling because automatic assistance must never rewrite player reasoning.
+The line CLI uses the same authoritative candidate state and dense candidate renderer. Its existing `note` aliases remain command vocabulary for candidate toggles, but they submit `SetCandidates`; no second note model exists.
 
-Dark and light themes use palette roles rather than hard-coded colors. `NO_COLOR` distinguishes automatic candidates with faint text and manual notes with normal or bold text; focused-cell and peer attributes compose without removing that distinction. Filled, given, or invalid-visible cells render their value state instead of mini-grid candidates.
+## Verification
 
-The renderer must keep the current cell dimensions, board alignment, resize threshold, and heavy 3×3 boundaries. Turning automatic candidates on or off changes only mini-grid content and the toggle status shown near the mode indicator.
-
-## Failure and Compatibility Boundaries
-
-Candidate derivation has no recoverable runtime failure path: the engine operates on a validated 9×9 board and `core.Board.Candidates` already defines legal-candidate behavior. An empty candidate set on an editable cell is valid when the accepted board leaves no legal digit; the TUI renders the empty mini-grid and existing board status remains authoritative.
-
-Automatic candidates do not add candidate persistence, background computation, a new dependency, or a serialization version. Adoption changes manual notes only when a frontend explicitly submits the action. The TUI's first note edit while the preview is visible invokes it; the line CLI remains unchanged, as do root CLI output, save bytes, restore validation, hint selection, and solve behavior.
-
-## Delivery and Verification
-
-Automatic candidates use two implementation layers:
-
-1. Detached snapshots expose computed legal candidates, with contract tests for empty, filled, invalid-visible, changed, restored, and mutation-isolation cases.
-2. The TUI owns the toggle, combined note/candidate rendering, help text, theme tests, and pseudo-terminal black-box coverage.
-
-Package tests verify deterministic candidate derivation and rendering in dark, light, and no-color modes. Black-box tests verify toggle default and keyboard behavior, value and clear updates, undo/redo, hint application, reset, save/resume, invalid-entry suppression, resize, dirty-state neutrality, and coexistence with legal and stale manual notes.
+Engine tests prove initialization, direct edits, peer cleanup, invalid-value isolation, exact undo/redo, version-3 round trips, correction priority, deterministic correction identity, stale rejection, and strategy selection against the candidate grid. TUI, CLI, API, and browser tests prove the single wire/state shape, visibility-only toggles, correction rendering, exact application, and persistence across ownership modes.

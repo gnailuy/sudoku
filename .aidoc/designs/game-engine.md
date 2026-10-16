@@ -35,9 +35,9 @@ The engine extends the original `game` package rather than introducing a second 
 The engine owns:
 
 - immutable puzzle givens and the current player state;
-- accepted values, invalid player entries, and player notes;
+- accepted values, invalid player entries, and one authoritative candidate grid;
 - action validation and deterministic state transitions;
-- unified undo/redo history for value and note actions;
+- unified undo/redo history for value and candidate actions;
 - solved, valid, and conflict status;
 - hint calculation through the configured solver store;
 - versioned state serialization and restoration.
@@ -49,54 +49,54 @@ Frontends own presentation, command parsing, keyboard or pointer gestures, acces
 The stable contract is organized around four concepts:
 
 - `Game` is the authoritative mutable session owned by one caller at a time.
-- `Snapshot` is a detached read model containing givens, visible values, invalid markers, manual notes, derived legal candidates, a cumulative mistake count, status, and undo/redo availability. Mutating a snapshot cannot mutate the game.
-- `Action` is a typed player intent: set or clear a value, replace a cell’s complete note set, adopt the legal candidate grid as notes with one initiating toggle, reset, restart, repair, solve, undo, redo, or apply a hint. An empty, one-digit, or multi-digit `SetNotes` value remains the direct mutation for one cell; `AdoptCandidatesAsNotes` is the whole-board transition from derived assistance to player-owned notes.
+- `Snapshot` is a detached read model containing givens, visible values, invalid markers, the authoritative candidate grid, a cumulative mistake count, status, and undo/redo availability. Mutating a snapshot cannot mutate the game.
+- `Action` is a typed player intent: set or clear a value, replace one cell’s complete candidate set, reset, restart, repair, solve, undo, redo, or apply a hint. `SetCandidates` accepts an empty, one-digit, or multi-digit complete replacement.
 - `Result` describes the accepted transition, changed cells, current status, undo/redo availability, and the recommendation used by an applied hint. Invalid actions return typed errors and leave state unchanged.
 
-The hint query returns one complete renderer-neutral `HintPlan` without mutation. Step navigation remains client-local; accepting the preview submits `ApplyHint` with its deterministic `plan_id` through `Game.Apply`, so the engine verifies the taught conclusion and records its value or note transition as one history entry without creating a separate mutation boundary.
+The hint query returns one complete renderer-neutral `HintPlan` without mutation. It first returns an exact value or candidate correction when player state is inconsistent, and only then selects a strategy against a detached board constrained by the authoritative candidate grid. Step navigation remains client-local; accepting the preview submits `ApplyHint` with its deterministic `plan_id`, verifies the conclusion, and records one value or candidate transition.
 
 `cli.Controller` renders only `Game.Snapshot` values and performs game operations only through `Game.Apply`. Command-shaped mutation helpers are private engine implementation details; `Game.Apply` is the public mutation boundary. Public callers must not receive mutable references to the engine's internal boards or history.
 
-`Reset` remains the terminal-client board reset and preserves the cumulative mistake count. `Restart` begins a new attempt on the same immutable puzzle: it clears values, invalid entries, notes, strategy eliminations, history, solved state, and mistakes while preserving puzzle identity and givens. Undo and Redo cannot cross either boundary.
+`Reset` preserves the cumulative mistake count and restores the initial legal candidate grid. `Restart` also clears mistakes while preserving puzzle identity and givens. Both clear values, invalid entries, history, and solved state; Undo and Redo cannot cross either boundary.
 
 ## State and Validation Invariants
 
 - Puzzle givens never change after game creation or restoration.
-- Every accepted action is atomic: all value, note, status, and history changes succeed together or not at all.
+- Every accepted action is atomic: all value, candidate, status, and history changes succeed together or not at all.
 - New actions after an undo discard the redo tail.
-- Undo and redo restore the complete prior state, including invalid markers and all note changes caused by an action.
+- Undo and redo restore the complete prior state, including invalid markers and every candidate change caused by an action.
 - User mistakes remain observable for rendering but never contaminate the solver's valid board.
-- Each accepted `SetValue` that the engine confirms as invalid increments the session's cumulative mistake count. Notes, hints, erase, Undo, and Redo do not change it; undo history therefore cannot reduce or replay mistakes.
+- Each accepted `SetValue` that the engine confirms as invalid increments the session's cumulative mistake count. Candidate edits, hints, erase, Undo, and Redo do not change it; undo history therefore cannot reduce or replay mistakes.
 - Public input errors return typed errors; panics remain reserved for violated internal invariants.
 - Snapshots are self-consistent and safe for asynchronous rendering after the engine advances.
 - A `Game` is not concurrently mutable. Frontends serialize actions and may pass snapshots between goroutines.
 
-## Note-Taking Semantics
+## Candidate Semantics
 
-Notes are player annotations, distinct from `core.Board.Candidates`, which computes solver candidates from accepted values and strategy-derived eliminations. Notes use `core.CandidateSet` as a value representation but are stored separately by the game engine.
+The candidate grid is player-controlled engine state represented by `core.CandidateSet`. New and restarted games initialize editable empty cells from accepted-value legality. `SetCandidates` replaces one complete cell set and enters unified history.
 
-Notes are allowed only on editable empty cells and contain digits 1–9. Setting any visible value clears notes in that cell. Only a value accepted into the solver-safe board removes that value from notes in peer cells; a visible invalid entry does not constrain legal candidates and therefore must not prune peer notes. Clearing a value does not recreate notes. Every automatic note cleanup is part of the same action delta, so undo restores the exact previous notes.
+Setting any visible value clears the target candidates. Only a value accepted into the solver-safe board removes that digit from candidate peers; a visible invalid entry does not constrain peers. Clearing a value restores the target’s current legal set. Every cleanup belongs to the same action delta, so Undo restores the exact previous grid.
 
-`Game.Snapshot` derives candidates from the solver-safe play board through `core.Board.Candidates`. Derived candidates remain separate from manual notes and dirty state. `AdoptCandidatesAsNotes` replaces the complete manual-note map for every editable visibly empty cell, toggles the initiating digit, and records the result as one atomic history transition. An elimination hint against an empty note map likewise materializes the complete candidate grid before removing its conclusion, and records the same strategy-derived elimination in the solver-safe board. Later hints, automatic candidates, serialization, Undo, and Redo therefore continue from the consumed deduction while ordinary manual-note edits still cannot alter solver state.
+A hint validates wrong values first, then removes candidates ruled out by accepted values and restores a missing digit required by the solved continuation. Strategy selection starts only after validation and applies the authoritative grid as constraints on a detached solver board. Elimination conclusions mutate the same grid directly, so later hints, serialization, Undo, Redo, CLI, TUI, and HTTP clients all continue from one state.
 
 ## Serialization Contract
 
 `Game.Serialize()` returns the complete session as versioned JSON. `game.Restore(data, options)` validates that JSON and returns a newly constructed game. The host supplies `Options` during restoration because solver configuration is executable host policy, not persisted player state.
 
-Version 2 has these fields:
+Version 3 has these fields:
 
-- `version`: schema version, currently `2`;
+- `version`: schema version, currently `3`;
 - `puzzle`: the original 81-character puzzle string;
 - `mistakes`: the cumulative count of confirmed invalid value submissions;
 - `current`: the current player-controlled state;
 - `history`: ordered before/after state records;
 - `cursor`: the applied history record, or `-1` when no record is applied.
 
-Each player-controlled state stores separate 81-character `values` and `invalid` grids plus sparse `notes` and `eliminations` records containing a zero-based row, zero-based column, and digits. Eliminations are strategy-derived solver progress; manual notes remain player-owned annotations. `values` excludes puzzle givens. Separating invalid entries keeps player mistakes visible without contaminating the solver board. Before/after history records use the same complete state shape, so restoration preserves mixed value/note undo and redo exactly.
+Each player-controlled state stores separate 81-character `values` and `invalid` grids plus sparse `candidates` records containing a zero-based row, zero-based column, and digits. `values` excludes puzzle givens. Separating invalid entries keeps player mistakes visible without contaminating the solver board. Before/after history records use the same complete state shape, so restoration preserves mixed value/candidate Undo and Redo exactly.
 
-Restoration rejects malformed JSON, unknown fields, unsupported versions, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid note or elimination records, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Current state is stored independently from the cursor because temporary compatibility adapters may change state outside the stable action history; restoration preserves that state and the adapter's existing undo/redo behavior. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `unsupported-version`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
+Restoration rejects malformed JSON, unknown fields, unsupported versions, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid candidate records, candidates on occupied cells, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Current state is stored explicitly alongside the validated history and cursor. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `unsupported-version`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
 
-Unknown schema versions fail explicitly, and each supported migration is version-specific. `Game.ToString` remains diagnostic text and is not a persistence format.
+Only schema version 3 is accepted; earlier and unknown versions fail explicitly. `Game.ToString` remains diagnostic text and is not a persistence format.
 
 ## Compatibility and Failure Boundaries
 
@@ -106,6 +106,6 @@ Serialization failures, invalid actions, unavailable undo/redo, and attempts to 
 
 ## Verification
 
-Engine tests cover every action, typed error, atomic rollback, note cleanup, whole-board candidate adoption, deterministic hint identity, Naked Single and Hidden Single placement plans, Naked Pair elimination plans, exact-plan rejection, atomic elimination undo, mixed value/note undo-redo sequences, redo truncation, immutable snapshots, and serialization round trips. Restoration tests include malformed and unsupported versions.
+Engine tests cover every action, typed error, atomic rollback, candidate cleanup, correction-first hint priority, deterministic hint identity, placement and elimination plans, exact-plan rejection, atomic elimination Undo, mixed value/candidate history, redo truncation, immutable snapshots, and serialization round trips. Restoration tests include malformed and unsupported versions.
 
 The CLI boundary is verified against `.aidoc/designs/e2e-play-scenarios.md` by building the binary and exercising it as a black box. Package tests cover repair, solve, applied-hint metadata, typed errors, and snapshot isolation; package tests, `go vet`, golangci-lint, and CI must remain green.
