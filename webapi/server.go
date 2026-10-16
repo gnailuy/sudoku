@@ -202,6 +202,15 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 			return nil, 0, e
 		}
 		return game.Reset{}, v.ExpectedRevision, nil
+	case "restart":
+		v, e := body.AsRestartAction()
+		if e != nil {
+			return nil, 0, e
+		}
+		if e = validRevision(v.ExpectedRevision); e != nil {
+			return nil, 0, e
+		}
+		return game.Restart{}, v.ExpectedRevision, nil
 	case "undo":
 		v, e := body.AsUndoAction()
 		if e != nil {
@@ -474,7 +483,7 @@ func validateActionObject(object map[string]json.RawMessage) error {
 		keys = append(keys, "row", "column")
 	case "apply-hint":
 		keys = append(keys, "plan_id")
-	case "reset", "undo", "redo", "repair", "solve":
+	case "reset", "restart", "undo", "redo", "repair", "solve":
 	default:
 		return errors.New("unknown action kind")
 	}

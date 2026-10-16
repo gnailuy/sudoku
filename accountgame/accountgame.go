@@ -25,6 +25,7 @@ type store interface {
 	AccountGameByID(string, string) (*db.AccountGame, error)
 	AccountGamesByUser(string, int) ([]db.AccountGame, error)
 	UpdateAccountGame(string, string, int64, []byte, string) (bool, error)
+	RestartAccountGame(string, string, int64, []byte, string) (bool, error)
 	UpdateAccountGameElapsed(string, string, int64) (bool, error)
 	DeleteAccountGame(string, string) (bool, error)
 	DeleteAllAccountGames(string) (int64, error)
@@ -158,7 +159,12 @@ func (service *Service) Apply(userID, accountGameID string, expectedRevision int
 	if err != nil {
 		return Transition{}, fmt.Errorf("serialize account game: %w", err)
 	}
-	updated, err := service.store.UpdateAccountGame(userID, accountGameID, expectedRevision, serialized, string(current.Snapshot().Status))
+	var updated bool
+	if _, restarting := action.(game.Restart); restarting {
+		updated, err = service.store.RestartAccountGame(userID, accountGameID, expectedRevision, serialized, string(current.Snapshot().Status))
+	} else {
+		updated, err = service.store.UpdateAccountGame(userID, accountGameID, expectedRevision, serialized, string(current.Snapshot().Status))
+	}
 	if err != nil {
 		return Transition{}, err
 	}
@@ -175,6 +181,9 @@ func (service *Service) Apply(userID, accountGameID string, expectedRevision int
 	state.Game.EngineState = serialized
 	state.Game.Revision++
 	state.Game.Status = string(current.Snapshot().Status)
+	if _, restarting := action.(game.Restart); restarting {
+		state.Game.ElapsedSeconds = 0
+	}
 	state.Snapshot = current.Snapshot()
 	return Transition{State: state, Result: result}, nil
 }

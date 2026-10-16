@@ -42,6 +42,29 @@ func TestServiceAuthorizesOwnerAndPersistsRevisionedActions(t *testing.T) {
 	}
 }
 
+func TestServiceRestartClearsAttemptStateAndElapsedTime(t *testing.T) {
+	service, database, _ := newTestService(t)
+	defer database.Close()
+	if _, err := service.UpdateElapsed("user-a", "game-a", 125); err != nil {
+		t.Fatal(err)
+	}
+	first, err := service.Apply("user-a", "game-a", 0, game.SetValue{Position: core.NewPosition(0, 0), Value: 9})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transition, err := service.Apply("user-a", "game-a", first.Game.Revision, game.Restart{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if transition.Game.ElapsedSeconds != 0 || transition.Snapshot.Mistakes != 0 || transition.Snapshot.Status != game.StatusInProgress || transition.Snapshot.CanUndo || transition.Snapshot.CanRedo {
+		t.Fatalf("restart transition = %+v", transition)
+	}
+	stored, err := database.AccountGameByID("user-a", "game-a")
+	if err != nil || stored == nil || stored.ElapsedSeconds != 0 || stored.Status != string(game.StatusInProgress) {
+		t.Fatalf("stored restart = %+v, %v", stored, err)
+	}
+}
+
 func TestServicePersistsHistoricalTraversalAndTruncatesRedoBranch(t *testing.T) {
 	service, database, _ := newTestService(t)
 	defer database.Close()

@@ -192,6 +192,12 @@ func (game *Game) reset() {
 	game.inputCursor = -1
 }
 
+// restart begins a clean attempt on the same immutable puzzle.
+func (game *Game) restart() {
+	game.reset()
+	game.mistakes = 0
+}
+
 func (game *Game) captureState() sessionState {
 	return sessionState{
 		playBoard:    game.playBoard.Copy(),

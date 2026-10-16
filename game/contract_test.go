@@ -400,6 +400,28 @@ func TestMistakeCountTracksConfirmedInvalidValuesOutsideHistory(t *testing.T) {
 	}
 }
 
+func TestRestartBeginsCleanAttemptOnSamePuzzle(t *testing.T) {
+	game := newTestGame()
+	if _, err := game.Apply(SetValue{Position: core.NewPosition(0, 2), Value: 9}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := game.Apply(SetNotes{Position: core.NewPosition(0, 3), Values: []int{2, 4}}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := game.Apply(Restart{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := game.Snapshot()
+	if result.Action != ActionRestart || snapshot.Status != StatusInProgress || snapshot.Mistakes != 0 || snapshot.CanUndo || snapshot.CanRedo {
+		t.Fatalf("restart result = %+v, snapshot = %+v", result, snapshot)
+	}
+	if snapshot.Values != snapshot.Givens || snapshot.Invalid != [9][9]bool{} || snapshot.Notes != [9][9]core.CandidateSet{} {
+		t.Fatal("restart did not restore the original clean board")
+	}
+}
+
 func TestApplyRepairAndSolve(t *testing.T) {
 	game := newTestGame()
 	position := core.NewPosition(0, 2)

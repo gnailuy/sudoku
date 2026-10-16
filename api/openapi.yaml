@@ -747,6 +747,7 @@ components:
         - set-value
         - clear-value
         - reset
+        - restart
         - undo
         - redo
         - apply-hint
@@ -1201,6 +1202,7 @@ components:
         - $ref: "#/components/schemas/SetValueAction"
         - $ref: "#/components/schemas/ClearValueAction"
         - $ref: "#/components/schemas/ResetAction"
+        - $ref: "#/components/schemas/RestartAction"
         - $ref: "#/components/schemas/UndoAction"
         - $ref: "#/components/schemas/RedoAction"
         - $ref: "#/components/schemas/ApplyHintAction"
@@ -1214,6 +1216,7 @@ components:
           set-value: "#/components/schemas/SetValueAction"
           clear-value: "#/components/schemas/ClearValueAction"
           reset: "#/components/schemas/ResetAction"
+          restart: "#/components/schemas/RestartAction"
           undo: "#/components/schemas/UndoAction"
           redo: "#/components/schemas/RedoAction"
           apply-hint: "#/components/schemas/ApplyHintAction"
@@ -1306,6 +1309,8 @@ components:
 
     ResetAction:
       $ref: "#/components/schemas/NoArgumentResetAction"
+    RestartAction:
+      $ref: "#/components/schemas/NoArgumentRestartAction"
     UndoAction:
       $ref: "#/components/schemas/NoArgumentUndoAction"
     RedoAction:
@@ -1338,6 +1343,16 @@ components:
         kind:
           type: string
           const: reset
+    NoArgumentRestartAction:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, kind]
+      properties:
+        expected_revision:
+          $ref: "#/components/schemas/Revision"
+        kind:
+          type: string
+          const: restart
     NoArgumentUndoAction:
       type: object
       additionalProperties: false
