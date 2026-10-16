@@ -11,18 +11,14 @@ import (
 	"github.com/gnailuy/sudoku/solver"
 )
 
-// StateVersion is the current serialized game-state schema version.
-const StateVersion = 3
-
 // StateErrorCode identifies a serialized-state validation failure.
 type StateErrorCode string
 
 const (
-	StateErrorMalformed          StateErrorCode = "malformed-state"
-	StateErrorUnsupportedVersion StateErrorCode = "unsupported-version"
-	StateErrorInvalidPuzzle      StateErrorCode = "invalid-puzzle"
-	StateErrorInvalidSession     StateErrorCode = "invalid-session"
-	StateErrorInvalidHistory     StateErrorCode = "invalid-history"
+	StateErrorMalformed      StateErrorCode = "malformed-state"
+	StateErrorInvalidPuzzle  StateErrorCode = "invalid-puzzle"
+	StateErrorInvalidSession StateErrorCode = "invalid-session"
+	StateErrorInvalidHistory StateErrorCode = "invalid-history"
 )
 
 // StateError reports why serialized game state could not be restored.
@@ -49,7 +45,6 @@ func (err *StateError) Is(target error) bool {
 }
 
 type serializedGame struct {
-	Version  int                       `json:"version"`
 	Puzzle   string                    `json:"puzzle"`
 	Mistakes int                       `json:"mistakes"`
 	Current  serializedSessionState    `json:"current"`
@@ -74,12 +69,11 @@ type serializedHistoryRecord struct {
 	After  serializedSessionState `json:"after"`
 }
 
-// Serialize returns the complete game session as a versioned JSON document.
+// Serialize returns the complete game session in the current JSON shape.
 // Solver configuration is intentionally excluded and must be supplied when
 // restoring the session.
 func (game *Game) Serialize() ([]byte, error) {
 	payload := serializedGame{
-		Version:  StateVersion,
 		Puzzle:   game.problemBoard.ToString(),
 		Mistakes: game.mistakes,
 		Current:  serializeSessionState(game.problemBoard, game.captureState()),
@@ -106,9 +100,6 @@ func Restore(data []byte, options Options) (Game, error) {
 	}
 	if err := requireJSONEnd(decoder); err != nil {
 		return Game{}, stateError(StateErrorMalformed, "serialized game state has trailing data", err)
-	}
-	if payload.Version != StateVersion {
-		return Game{}, stateError(StateErrorUnsupportedVersion, fmt.Sprintf("unsupported game state version %d", payload.Version), nil)
 	}
 	if payload.Mistakes < 0 {
 		return Game{}, stateError(StateErrorInvalidSession, "serialized mistake count is invalid", nil)
