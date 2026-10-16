@@ -34,7 +34,7 @@ Guest play must create no durable player, recovery, session, or analytics row on
 
 ## Ownership States
 
-A guest game is one opaque sealed document stored by the browser. The sealed plaintext contains a random document identifier, exact puzzle presentation, complete versioned engine state and history, revision, actual difficulty, schema version, issued time, and expiry; authenticated encryption prevents browser forgery or authoritative edits.
+A guest game is one opaque sealed document stored by the browser. The sealed plaintext contains a random document identifier, exact puzzle presentation, complete current engine state and history, revision, actual difficulty, issued time, and expiry; authenticated encryption prevents browser forgery or authoritative edits.
 
 An account game belongs to exactly one `users` row, references the shared base-puzzle catalog and a presentation-specific play run, and stores durable engine state. Every account-game read, mutation, list, and deletion resolves ownership from the authenticated application session rather than accepting a user identifier from the client.
 

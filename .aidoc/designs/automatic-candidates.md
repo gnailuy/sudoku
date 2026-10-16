@@ -34,7 +34,7 @@ A new or restarted game initializes every editable empty cell to its legal candi
 
 `game.Snapshot.Candidates` is detached value data. Given and filled cells have empty sets. Candidate edits are allowed only on editable empty cells and contain distinct digits 1–9.
 
-Candidate state is serialized directly with the session and history. Schema version 3 stores sparse `candidates` records beside values and invalid entries. Restoring validates positions, digits, occupancy, history connectivity, and the accepted board before returning a game.
+Candidate state is serialized directly with the session and history. The one current state shape stores sparse `candidates` records beside values and invalid entries. Restoring validates positions, digits, occupancy, history connectivity, and the accepted board before returning a game.
 
 All clients consume `Candidates` and `SetCandidates` directly. The candidate grid is the only persisted pencilmark state.
 

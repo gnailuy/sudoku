@@ -1,6 +1,7 @@
 package game
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -34,6 +35,9 @@ func TestSerializeRestoreRoundTripPreservesStateAndHistory(t *testing.T) {
 	data, err := original.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize returned error: %v", err)
+	}
+	if bytes.Contains(data, []byte(`"version"`)) {
+		t.Fatalf("serialized state contains obsolete version discriminator: %s", data)
 	}
 	restored, err := Restore(data, NewDefaultOptions(solver.NewStore()))
 	if err != nil {
@@ -70,7 +74,7 @@ func TestSerializeRestoreRoundTripPreservesStateAndHistory(t *testing.T) {
 	}
 }
 
-func TestRestoreRejectsMalformedAndUnsupportedState(t *testing.T) {
+func TestRestoreRejectsMalformedState(t *testing.T) {
 	options := NewDefaultOptions(solver.NewStore())
 
 	tests := []struct {
@@ -78,10 +82,11 @@ func TestRestoreRejectsMalformedAndUnsupportedState(t *testing.T) {
 		data []byte
 		code StateErrorCode
 	}{
-		{name: "malformed JSON", data: []byte(`{"version":`), code: StateErrorMalformed},
+		{name: "malformed JSON", data: []byte(`{"puzzle":`), code: StateErrorMalformed},
 		{name: "trailing JSON", data: append(mustSerialize(t, newTestGame()), []byte(` {}`)...), code: StateErrorMalformed},
-		{name: "unknown field", data: []byte(`{"version":2,"puzzle":"","current":{},"history":[],"cursor":-1,"extra":true}`), code: StateErrorMalformed},
-		{name: "negative mistakes", data: []byte(`{"version":3,"puzzle":"..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8..2.3..9..5.1.3..","mistakes":-1,"current":{},"history":[],"cursor":-1}`), code: StateErrorInvalidSession},
+		{name: "unknown field", data: []byte(`{"puzzle":"","current":{},"history":[],"cursor":-1,"extra":true}`), code: StateErrorMalformed},
+		{name: "obsolete version field", data: []byte(`{"version":3,"puzzle":"","current":{},"history":[],"cursor":-1}`), code: StateErrorMalformed},
+		{name: "negative mistakes", data: []byte(`{"puzzle":"..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8..2.3..9..5.1.3..","mistakes":-1,"current":{},"history":[],"cursor":-1}`), code: StateErrorInvalidSession},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -89,12 +94,6 @@ func TestRestoreRejectsMalformedAndUnsupportedState(t *testing.T) {
 				t.Fatalf("expected %s, got %v", test.code, err)
 			}
 		})
-	}
-
-	payload := decodeSerializedGame(t, mustSerialize(t, newTestGame()))
-	payload.Version = StateVersion + 1
-	if _, err := Restore(encodeSerializedGame(t, payload), options); !errors.Is(err, &StateError{Code: StateErrorUnsupportedVersion}) {
-		t.Fatalf("expected unsupported version error, got %v", err)
 	}
 }
 

@@ -32,7 +32,7 @@ The project index provides reading chains for common starting points and a compl
 9. `solver/store.go` — solver registry with typed access
 10. `game/game.go` — private session state and compatibility adapters
 11. `game/contract.go` — typed actions, detached snapshots, results, and engine errors
-12. `game/serialization.go` — versioned complete-session persistence and atomic restoration
+12. `game/serialization.go` — current complete-session persistence and atomic restoration
 13. `cli/controller.go` — line-oriented CLI controller (terminal I/O, commands, display)
 14. `sessionfile/session_file.go` — presentation-neutral bounded and atomic session transport
 15. `tui/model.go` — Bubble Tea event model and action translation

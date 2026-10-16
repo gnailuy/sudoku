@@ -322,8 +322,8 @@ def main():
         if stat.S_IMODE(session.stat().st_mode) != 0o600:
             raise AssertionError("session file mode is not 0600")
         saved = json.loads(session.read_text(encoding="utf-8"))
-        if saved.get("version") != 3:
-            raise AssertionError("saved session does not use version 3")
+        if "version" in saved:
+            raise AssertionError("saved session contains obsolete version discriminator")
         output = run(binary, ["--resume", str(session)], root, "check\nr\ncheck\nq\n")
         contains(
             output,
@@ -333,13 +333,13 @@ def main():
 
         corrupt = root / "corrupt.json"
         corrupt.write_text("{bad json", encoding="utf-8")
-        unsupported = root / "unsupported.json"
-        unsupported.write_text('{"version":999}', encoding="utf-8")
+        obsolete = root / "obsolete.json"
+        obsolete.write_text('{"version":3}', encoding="utf-8")
         oversized = root / "oversized.json"
         oversized.write_bytes(b"x" * (1024 * 1024 + 1))
         for source, message in (
             (corrupt, "resume saved session"),
-            (unsupported, "resume saved session"),
+            (obsolete, "resume saved session"),
             (oversized, "session file is too large"),
         ):
             contains(run(binary, ["--resume", str(source)], root, expected=1), message)

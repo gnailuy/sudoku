@@ -40,7 +40,7 @@ The engine owns:
 - unified undo/redo history for value and candidate actions;
 - solved, valid, and conflict status;
 - hint calculation through the configured solver store;
-- versioned state serialization and restoration.
+- complete current-state serialization and restoration.
 
 Frontends own presentation, command parsing, keyboard or pointer gestures, accessibility, localization, file/network transport, and autosave timing. The engine returns structured state and errors; it does not print, read input, exit a process, or choose UI wording.
 
@@ -81,11 +81,9 @@ A hint validates wrong values first, then removes candidates ruled out by accept
 
 ## Serialization Contract
 
-`Game.Serialize()` returns the complete session as versioned JSON. `game.Restore(data, options)` validates that JSON and returns a newly constructed game. The host supplies `Options` during restoration because solver configuration is executable host policy, not persisted player state.
+`Game.Serialize()` returns the complete session in the one current JSON shape. `game.Restore(data, options)` validates that exact shape and returns a newly constructed game. The host supplies `Options` during restoration because solver configuration is executable host policy, not persisted player state. Format changes replace the shape across coordinated callers and stored development data instead of adding version branches or compatibility adapters.
 
-Version 3 has these fields:
-
-- `version`: schema version, currently `3`;
+The current shape has these fields:
 - `puzzle`: the original 81-character puzzle string;
 - `mistakes`: the cumulative count of confirmed invalid value submissions;
 - `current`: the current player-controlled state;
@@ -94,9 +92,9 @@ Version 3 has these fields:
 
 Each player-controlled state stores separate 81-character `values` and `invalid` grids plus sparse `candidates` records containing a zero-based row, zero-based column, and digits. `values` excludes puzzle givens. Separating invalid entries keeps player mistakes visible without contaminating the solver board. Before/after history records use the same complete state shape, so restoration preserves mixed value/candidate Undo and Redo exactly.
 
-Restoration rejects malformed JSON, unknown fields, unsupported versions, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid candidate records, candidates on occupied cells, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Current state is stored explicitly alongside the validated history and cursor. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `unsupported-version`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
+Restoration rejects malformed JSON, unknown fields, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid candidate records, candidates on occupied cells, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Current state is stored explicitly alongside the validated history and cursor. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
 
-Only schema version 3 is accepted; earlier and unknown versions fail explicitly. `Game.ToString` remains diagnostic text and is not a persistence format.
+Serialized game state has no version discriminator or migration path. An obsolete or future field is an unknown field and fails as malformed input. `Game.ToString` remains diagnostic text and is not a persistence format.
 
 ## Compatibility and Failure Boundaries
 
@@ -106,6 +104,6 @@ Serialization failures, invalid actions, unavailable undo/redo, and attempts to 
 
 ## Verification
 
-Engine tests cover every action, typed error, atomic rollback, candidate cleanup, correction-first hint priority, deterministic hint identity, placement and elimination plans, exact-plan rejection, atomic elimination Undo, mixed value/candidate history, redo truncation, immutable snapshots, and serialization round trips. Restoration tests include malformed and unsupported versions.
+Engine tests cover every action, typed error, atomic rollback, candidate cleanup, correction-first hint priority, deterministic hint identity, placement and elimination plans, exact-plan rejection, atomic elimination Undo, mixed value/candidate history, redo truncation, immutable snapshots, and serialization round trips. Restoration tests include malformed input and rejection of obsolete fields.
 
 The CLI boundary is verified against `.aidoc/designs/e2e-play-scenarios.md` by building the binary and exercising it as a black box. Package tests cover repair, solve, applied-hint metadata, typed errors, and snapshot isolation; package tests, `go vet`, golangci-lint, and CI must remain green.

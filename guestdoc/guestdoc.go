@@ -279,10 +279,9 @@ func validateDocument(document Document, now time.Time, maxLifetime time.Duratio
 		return &Error{Code: ErrorExpired}
 	}
 	var state struct {
-		Version int    `json:"version"`
-		Puzzle  string `json:"puzzle"`
+		Puzzle string `json:"puzzle"`
 	}
-	if err := json.Unmarshal(document.EngineState, &state); err != nil || state.Version != game.StateVersion || state.Puzzle != document.PresentedPuzzle {
+	if err := json.Unmarshal(document.EngineState, &state); err != nil || state.Puzzle != document.PresentedPuzzle {
 		return payloadError(err)
 	}
 	return nil

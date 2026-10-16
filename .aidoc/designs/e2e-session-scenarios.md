@@ -41,9 +41,9 @@ Use the known puzzle from section 2 of `.aidoc/designs/e2e-play-scenarios.md` an
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
 **Expected:** The first restored board includes note 5 at (1,1), `redo` restores value 4, and the session file has mode `0600`. The second restore retains the invalid entry and note, and `check` reports the invalid board.
 
-### 8.4 Reject Corrupt, Unsupported, and Oversized Sessions
+### 8.4 Reject Corrupt, Obsolete-Shape, and Oversized Sessions
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
-**Expected:** Every command exits non-zero before interactive play with a concise restore error. Source files remain unchanged.
+**Expected:** The saved session has no version discriminator. Every corrupt, obsolete-shape, or oversized restore exits non-zero before interactive play with a concise error, and source files remain unchanged.
 
 ### 8.5 Resume Flag Conflicts
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
