@@ -257,7 +257,7 @@ func composeCandidateCorrectionPlan(snapshot Snapshot, position core.Position, c
 	for _, value := range corrected.Values() {
 		correctionMarks = append(correctionMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: position, Value: value}), Role: HintRoleConclusion})
 	}
-	problemText := "Its candidates are inconsistent with the puzzle."
+	var problemText string
 	if len((current&^legal).Values()) > 0 && len((corrected&^current).Values()) > 0 {
 		problemText = "It contains impossible candidates and is missing the candidate required by the solution."
 	} else if len((current &^ legal).Values()) > 0 {
