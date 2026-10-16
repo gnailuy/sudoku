@@ -261,6 +261,7 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.hint == nil {
 			m.message = "No hint is available."
 		} else {
+			m.autoCandidates = true
 			m.message = hintStepMessage(*m.hint, m.hintStep)
 		}
 	case "enter":

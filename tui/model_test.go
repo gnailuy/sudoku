@@ -255,8 +255,8 @@ func TestHintPreviewNavigatesLocallyUntilEnter(t *testing.T) {
 	model := testModel(t)
 	before := model.snapshot
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
-	if model.hint == nil || model.snapshot != before || model.hintStep != 0 {
-		t.Fatal("hint preview missing, mutated game, or started on the wrong step")
+	if model.hint == nil || model.snapshot != before || model.hintStep != 0 || !model.autoCandidates {
+		t.Fatal("hint preview missing, mutated game, hid candidates, or started on the wrong step")
 	}
 	if !strings.Contains(ansi.Strip(model.View()), "Step 1 of") {
 		t.Fatal("hint preview did not render the active step")
@@ -280,8 +280,8 @@ func TestHintPreviewCanBeCanceled(t *testing.T) {
 	before := model.snapshot
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyEscape})
-	if model.hint != nil || model.snapshot != before || model.dirty {
-		t.Fatal("canceling a hint preview changed the game")
+	if model.hint != nil || model.snapshot != before || model.dirty || !model.autoCandidates {
+		t.Fatal("canceling a hint preview changed the game or hid revealed candidates")
 	}
 }
 
