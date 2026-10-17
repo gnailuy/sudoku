@@ -63,7 +63,6 @@ const (
 	ActionUndo          ActionKind = "undo"
 	ActionRedo          ActionKind = "redo"
 	ActionApplyHint     ActionKind = "apply-hint"
-	ActionSetNotes      ActionKind = "set-notes"
 	ActionSetCandidates ActionKind = "set-candidates"
 	ActionRepair        ActionKind = "repair"
 	ActionSolve         ActionKind = "solve"
@@ -114,14 +113,6 @@ type ApplyHint struct{ PlanID string }
 
 func (ApplyHint) actionKind() ActionKind { return ActionApplyHint }
 
-// SetNotes atomically replaces the player's notes on one editable empty cell.
-type SetNotes struct {
-	Position core.Position
-	Values   []int
-}
-
-func (SetNotes) actionKind() ActionKind { return ActionSetNotes }
-
 // SetCandidates atomically replaces the authoritative candidates on one editable empty cell.
 type SetCandidates struct {
 	Position core.Position
@@ -147,7 +138,6 @@ type Snapshot struct {
 	Givens     [9][9]int
 	Values     [9][9]int
 	Invalid    [9][9]bool
-	Notes      [9][9]core.CandidateSet
 	Candidates [9][9]core.CandidateSet
 	Mistakes   int
 	Status     Status
@@ -198,8 +188,6 @@ type CellChange struct {
 	After            int
 	InvalidBefore    bool
 	InvalidAfter     bool
-	NotesBefore      core.CandidateSet
-	NotesAfter       core.CandidateSet
 	CandidatesBefore core.CandidateSet
 	CandidatesAfter  core.CandidateSet
 }
@@ -223,7 +211,6 @@ func (game *Game) Snapshot() Snapshot {
 			snapshot.Givens[row][column] = game.problemBoard.Get(position)
 			snapshot.Values[row][column] = game.Get(position)
 			snapshot.Invalid[row][column] = game.invalidInput.Get(position) != 0
-			snapshot.Notes[row][column] = game.notes[row][column]
 			snapshot.Candidates[row][column] = game.candidates[row][column]
 		}
 	}
@@ -283,8 +270,6 @@ func (game *Game) Apply(action Action) (Result, error) {
 			err = game.applyHintPlan(hint)
 			appliedHint = hint
 		}
-	case SetNotes:
-		err = game.setNotes(typed.Position, typed.Values)
 	case SetCandidates:
 		err = game.setCandidates(typed.Position, typed.Values)
 	case Repair:
@@ -367,7 +352,6 @@ func resultFromSnapshots(kind ActionKind, before, after Snapshot) Result {
 		for column := 0; column < 9; column++ {
 			if before.Values[row][column] == after.Values[row][column] &&
 				before.Invalid[row][column] == after.Invalid[row][column] &&
-				before.Notes[row][column] == after.Notes[row][column] &&
 				before.Candidates[row][column] == after.Candidates[row][column] {
 				continue
 			}
@@ -377,34 +361,12 @@ func resultFromSnapshots(kind ActionKind, before, after Snapshot) Result {
 				After:            after.Values[row][column],
 				InvalidBefore:    before.Invalid[row][column],
 				InvalidAfter:     after.Invalid[row][column],
-				NotesBefore:      before.Notes[row][column],
-				NotesAfter:       after.Notes[row][column],
 				CandidatesBefore: before.Candidates[row][column],
 				CandidatesAfter:  after.Candidates[row][column],
 			})
 		}
 	}
 	return result
-}
-
-func (game *Game) setNotes(position core.Position, values []int) error {
-	if !position.IsValid() {
-		return invalidCellError(position, 0)
-	}
-	if err := game.validateCandidateCell(position); err != nil {
-		return err
-	}
-	var notes core.CandidateSet
-	for _, value := range values {
-		if value < 1 || value > 9 || notes.Has(value) {
-			return invalidCellError(position, value)
-		}
-		notes.Add(value)
-	}
-	before := game.captureState()
-	game.notes[position.Row][position.Column] = notes
-	game.recordTransition(before)
-	return nil
 }
 
 func (game *Game) setCandidates(position core.Position, values []int) error {

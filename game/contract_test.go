@@ -176,29 +176,6 @@ func TestApplyValueActionsAndHistory(t *testing.T) {
 	assertSingleChange(t, result, position, 4, 0)
 }
 
-func TestNotesRemainSeparateFromSolverCandidates(t *testing.T) {
-	game := newTestGame()
-	position := core.NewPosition(0, 2)
-	before := game.Snapshot().Candidates[position.Row][position.Column]
-
-	if _, err := game.Apply(SetNotes{Position: position, Values: []int{1, 4}}); err != nil {
-		t.Fatal(err)
-	}
-	snapshot := game.Snapshot()
-	if got, want := snapshot.Notes[position.Row][position.Column].Values(), []int{1, 4}; !slices.Equal(got, want) {
-		t.Fatalf("notes = %v, want %v", got, want)
-	}
-	if got := snapshot.Candidates[position.Row][position.Column]; got != before {
-		t.Fatalf("manual notes changed solver candidates: got %v, want %v", got.Values(), before.Values())
-	}
-	if _, err := game.Apply(Undo{}); err != nil {
-		t.Fatal(err)
-	}
-	if !game.Snapshot().Notes[position.Row][position.Column].IsEmpty() {
-		t.Fatal("undo did not restore the previous manual notes")
-	}
-}
-
 func TestApplySetCandidatesIsAtomicAndUndoable(t *testing.T) {
 	game := newTestGame()
 	position := core.NewPosition(0, 2)

@@ -3,11 +3,8 @@ package webapi
 import (
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"testing"
-
-	"github.com/gnailuy/sudoku/game"
 )
 
 const knownPuzzle = "..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8..2.3..9..5.1.3.."
@@ -34,26 +31,6 @@ func TestCleanWebHandlerRemovesLegacySessionNamespace(t *testing.T) {
 		if record.Code != http.StatusNotFound {
 			t.Fatalf("%s status=%d body=%s", path, record.Code, record.Body.String())
 		}
-	}
-}
-
-func TestSetNotesTranslatesWithoutChangingCandidateSemantics(t *testing.T) {
-	var request ActionRequest
-	if err := request.FromSetNotesAction(SetNotesAction{
-		ExpectedRevision: 7,
-		Row:              2,
-		Column:           3,
-		Values:           []int{1, 4, 9},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	action, revision, err := translateAction(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	notes, ok := action.(game.SetNotes)
-	if !ok || revision != 7 || notes.Position.Row != 1 || notes.Position.Column != 2 || !slices.Equal(notes.Values, []int{1, 4, 9}) {
-		t.Fatalf("translated action = %#v revision=%d", action, revision)
 	}
 }
 
