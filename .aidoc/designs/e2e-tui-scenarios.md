@@ -39,12 +39,12 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 **Expected:** The centered board uses clean digits, fixed-position notes, strong 3×3 boundaries, a strong focus background, and subtle peer backgrounds. A small terminal displays only the minimum-size instruction; resizing restores the unchanged game.
 
 ### 9.2 Values, Candidates, and History
-**Action:** Move with arrows or `h`/`j`/`k`/`l`, enter a value, toggle candidate-edit mode with `n`, edit a candidate, then use `u` and `r`.
-**Expected:** Focus stops at board edges. Keys submit value or complete candidate actions against one grid, peer cleanup follows accepted values, and Undo/Redo restore whole transitions.
+**Action:** Move with arrows or `h`/`j`/`k`/`l`, enter a value, toggle note input with `n`, edit a hidden candidate cell, reveal all candidates with `a`, edit a visible candidate cell, then use `u` and `r`.
+**Expected:** Focus stops at board edges. The hidden-cell edit reveals only that cell and replaces its stored set from an empty baseline; the visible-cell edit starts from its complete displayed set. Keys submit complete candidate actions against one grid, peer cleanup follows accepted values, and Undo/Redo restore whole game transitions without changing the presentation mask.
 
 ### 9.3 Help, Every-Strategy Hint Navigation, and Apply
 **Action:** Start with automatic candidates hidden, press `?`, inspect and close the keyboard-help overlay, press `i`, navigate Back and Next with Left/Right or `h`/`l`, then press Enter; separately cancel a preview with Esc. Run `scripts/e2e_tui_hint_strategies.py` against the built binary to repeat preview, local step navigation, and apply over the maintained complete-game manifest until each of the 23 registered strategies is reached.
-**Expected:** A successful preview changes the presentation to `AUTO ON` before Step 1 without changing puzzle state, history, or serialized session, and candidates remain visible after cancel or apply until explicitly hidden. Help and local step navigation do not mutate the game. Wrong values and inconsistent candidate cells appear as correction plans before any strategy; correction scenes point to the exact cell and candidate differences. Enter submits the retained `plan_id` once; Esc discards it without mutation. The strategy matrix still observes and applies all 23 public strategy names and grades after validation passes.
+**Expected:** A successful preview changes the presentation to `CANDIDATES ON` before Step 1 without changing puzzle state, history, or serialized session, and candidates remain visible after cancel or apply until explicitly hidden. Help and local step navigation do not mutate the game. Wrong values and inconsistent candidate cells appear as correction plans before any strategy; correction scenes point to the exact cell and candidate differences. Enter submits the retained `plan_id` once; Esc discards it without mutation. The strategy matrix still observes and applies all 23 public strategy names and grades after validation passes.
 
 ### 9.4 Explicit Save and Safe Quit
 **Action:** Change a cell, press `q` and decline, press `S`, enter a path, then quit. Resume with `sudoku tui --resume <path>`.
@@ -56,11 +56,11 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 
 ### 9.6 Themes and No-Color Accessibility
 **Action:** Start the known puzzle with the default environment, `SUDOKU_THEME=light`, and `NO_COLOR=1`.
-**Expected:** Dark and light runs use their deterministic palettes. The no-color run emits no color codes while bold givens, underlined invalid values, reverse-video focus, faint peers/automatic candidates, bold manual notes, clean digits, and heavy box boundaries preserve semantic distinctions.
+**Expected:** Dark and light runs use their deterministic palettes. The no-color run emits no color codes while bold givens, underlined invalid values, reverse-video focus, faint peers and globally revealed candidates, visible cell-level notes, clean digits, and heavy box boundaries preserve semantic distinctions.
 
-### 9.7 Automatic-Candidate Toggle
+### 9.7 Candidate Visibility Toggle
 **Action:** Start TUI, press `a`, and press `a` again.
-**Expected:** Legal candidates appear only while enabled, board geometry remains stable, the status changes between `AUTO ON` and `AUTO OFF`, and no dirty marker is created.
+**Expected:** The one stored candidate grid appears only while globally visible, board geometry remains stable, the status changes between `CANDIDATES ON` and `CANDIDATES OFF`, and no dirty marker or history entry is created.
 
 ### 9.8 Candidate Transition Refresh
 **Action:** With candidates enabled, set and clear a value, undo and redo, apply a hint, repair an invalid entry, solve, and reset.
@@ -72,7 +72,7 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 
 ### 9.10 Candidate Save and Resume
 **Action:** Edit candidates, save, then resume the session.
-**Expected:** Session bytes preserve the authoritative grid but not the visibility preference; the resumed TUI starts with `AUTO OFF` and reveals the saved grid when requested.
+**Expected:** Session bytes preserve the authoritative grid but not the visibility preference; the resumed TUI starts with `CANDIDATES OFF` and reveals the saved grid when requested.
 
 ### 9.11 Invalid-Entry Handling
 **Action:** Enter an invalid value with candidates enabled, then clear or repair it.

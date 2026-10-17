@@ -50,7 +50,9 @@ Correction plans use the same deterministic `plan_id`, local step navigation, st
 
 ## Presentation
 
-Frontends may hide or show the grid without changing game state. The TUI and web client start with candidates hidden, reveal them for candidate-edit mode or a successful hint preview, and retain the visibility preference until the player changes it. Visibility is presentation-only and is not serialized.
+Frontends own an 81-cell visibility mask without changing game state. The TUI and web client start with every cell hidden. Candidates on reveals every editable empty cell, Candidates off hides every cell, and note input on a hidden cell reveals only that cell. The first edit of a hidden cell replaces its stored set from an empty visible baseline; later edits use the now-visible authoritative set. Editing a visible cell starts from its complete displayed set. A successful hint preview reveals every candidate cell and leaves them visible after close or apply.
+
+Visibility is renderer state rather than game data. The web may persist the mask by game identity in browser storage, while the TUI keeps it in its presentation model; neither engine serialization nor Undo/Redo contains visibility. A future cross-device preference may use a separate non-history record rather than expanding the game state.
 
 A fixed 3×3 mini-grid renders each candidate. Correction scenes distinguish the problematic cell, impossible digits, missing required digits, and the corrected conclusion without relying on color alone. Filled, given, and invalid-visible cells render their value instead of candidates.
 

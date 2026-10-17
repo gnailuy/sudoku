@@ -50,9 +50,9 @@ func render(m Model) string {
 	title := center(m.width, styles.title.Render("SUDOKU"), styles.canvas)
 	status := fmt.Sprintf("%s  •  %s  •  Mistakes: %d  •  r%dc%d", mode, m.snapshot.Status, m.snapshot.Mistakes, m.row+1, m.column+1)
 	if m.autoCandidates {
-		status = "AUTO ON  •  " + status
+		status = "CANDIDATES ON  •  " + status
 	} else {
-		status = "AUTO OFF  •  " + status
+		status = "CANDIDATES OFF  •  " + status
 	}
 	if m.dirty {
 		status += "  •  unsaved"
@@ -170,7 +170,7 @@ func renderCell(m Model, styles renderStyles, row, column, noteRow int) string {
 	}
 
 	candidates := m.snapshot.Candidates[row][column]
-	showCandidates := m.autoCandidates || m.mode == noteMode
+	showCandidates := m.candidateVisible[row][column]
 	if (!showCandidates || candidates.IsEmpty()) && !hasHintCandidate(m, row, column) {
 		return contextualStyle(m, styles, row, column, hintCellStyle(m, styles, row, column, styles.empty)).Render("     ")
 	}
@@ -298,7 +298,7 @@ func cellContent(m Model, row, column, noteRow int) string {
 	}
 
 	candidates := m.snapshot.Candidates[row][column]
-	showCandidates := m.autoCandidates || m.mode == noteMode
+	showCandidates := m.candidateVisible[row][column]
 	if !showCandidates || candidates.IsEmpty() {
 		return "     "
 	}
@@ -333,7 +333,7 @@ func renderHelp(styles renderStyles) string {
 		"KEYBOARD HELP  •  ? or Esc closes",
 		"Move     arrows / h j k l",
 		"Edit     1–9 set or note  •  0 clears  •  n toggles mode",
-		"Assist   a toggles automatic legal candidates",
+		"Display  a shows or hides every candidate cell",
 		"Game     i previews hint  •  ←/→ steps  •  Enter applies  •  Esc cancels",
 		"Hint     bold focus  •  underlined premise  •  struck elimination  •  reversed conclusion",
 		"Session  S saves  •  R resets  •  q quits",
