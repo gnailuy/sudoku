@@ -166,6 +166,19 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 			return nil, 0, e
 		}
 		return game.ClearValue{Position: p}, v.ExpectedRevision, nil
+	case "set-notes":
+		v, e := body.AsSetNotesAction()
+		if e != nil {
+			return nil, 0, e
+		}
+		p, e := position(v.Row, v.Column)
+		if e != nil {
+			return nil, 0, e
+		}
+		if e = validRevision(v.ExpectedRevision); e != nil {
+			return nil, 0, e
+		}
+		return game.SetNotes{Position: p, Values: append([]int(nil), v.Values...)}, v.ExpectedRevision, nil
 	case "set-candidates":
 		v, e := body.AsSetCandidatesAction()
 		if e != nil {
@@ -250,16 +263,18 @@ func translateAction(body ActionRequest) (game.Action, int64, error) {
 func apiStatus(v game.Status) GameStatus { return GameStatus(v) }
 func digits(set core.CandidateSet) []int { return set.Values() }
 func apiSnapshot(v game.Snapshot) Snapshot {
-	o := Snapshot{Status: apiStatus(v.Status), Mistakes: v.Mistakes, CanUndo: v.CanUndo, CanRedo: v.CanRedo, Givens: make(ValueGrid, 9), Values: make(ValueGrid, 9), Invalid: make(BooleanGrid, 9), Candidates: make(DigitSetGrid, 9)}
+	o := Snapshot{Status: apiStatus(v.Status), Mistakes: v.Mistakes, CanUndo: v.CanUndo, CanRedo: v.CanRedo, Givens: make(ValueGrid, 9), Values: make(ValueGrid, 9), Invalid: make(BooleanGrid, 9), Notes: make(DigitSetGrid, 9), Candidates: make(DigitSetGrid, 9)}
 	for r := 0; r < 9; r++ {
 		o.Givens[r] = make(ValueRow, 9)
 		o.Values[r] = make(ValueRow, 9)
 		o.Invalid[r] = make(BooleanRow, 9)
+		o.Notes[r] = make(DigitSetRow, 9)
 		o.Candidates[r] = make(DigitSetRow, 9)
 		for c := 0; c < 9; c++ {
 			o.Givens[r][c] = v.Givens[r][c]
 			o.Values[r][c] = v.Values[r][c]
 			o.Invalid[r][c] = v.Invalid[r][c]
+			o.Notes[r][c] = digits(v.Notes[r][c])
 			o.Candidates[r][c] = digits(v.Candidates[r][c])
 		}
 	}
@@ -268,7 +283,7 @@ func apiSnapshot(v game.Snapshot) Snapshot {
 func apiResult(v game.Result) ActionResult {
 	o := ActionResult{Action: ActionKind(v.Action), Status: apiStatus(v.Status), CanUndo: v.CanUndo, CanRedo: v.CanRedo, Changes: make([]CellChange, len(v.Changes))}
 	for i, c := range v.Changes {
-		o.Changes[i] = CellChange{Row: c.Position.Row + 1, Column: c.Position.Column + 1, Before: c.Before, After: c.After, InvalidBefore: c.InvalidBefore, InvalidAfter: c.InvalidAfter, CandidatesBefore: digits(c.CandidatesBefore), CandidatesAfter: digits(c.CandidatesAfter)}
+		o.Changes[i] = CellChange{Row: c.Position.Row + 1, Column: c.Position.Column + 1, Before: c.Before, After: c.After, InvalidBefore: c.InvalidBefore, InvalidAfter: c.InvalidAfter, NotesBefore: digits(c.NotesBefore), NotesAfter: digits(c.NotesAfter), CandidatesBefore: digits(c.CandidatesBefore), CandidatesAfter: digits(c.CandidatesAfter)}
 	}
 	if v.Hint != nil {
 		hint := apiHintPlan(v.Hint)
@@ -478,7 +493,7 @@ func validateActionObject(object map[string]json.RawMessage) error {
 	switch kind {
 	case "set-value":
 		keys = append(keys, "row", "column", "value")
-	case "set-candidates":
+	case "set-notes", "set-candidates":
 		keys = append(keys, "row", "column", "values")
 	case "clear-value":
 		keys = append(keys, "row", "column")

@@ -12,6 +12,7 @@ import (
 type sessionState struct {
 	playBoard    core.Board
 	invalidInput core.Board
+	notes        [9][9]core.CandidateSet
 	candidates   [9][9]core.CandidateSet
 }
 
@@ -25,7 +26,8 @@ type Game struct {
 	problemBoard    core.Board
 	playBoard       core.Board
 	invalidInput    core.Board              // Put the invalid input in another board to keep the play board solvable.
-	candidates      [9][9]core.CandidateSet // The one authoritative candidate grid.
+	notes           [9][9]core.CandidateSet // Player-authored notes, separate from solver candidates.
+	candidates      [9][9]core.CandidateSet // The authoritative solver candidate grid.
 	mistakes        int                     // Confirmed invalid value submissions; deliberately outside undo/redo history.
 	inputSequence   []historyRecord         // Atomic value and note transitions.
 	inputCursor     int                     // The cursor of the current transition.
@@ -188,6 +190,7 @@ func (game *Game) repair() (undoSteps int) {
 func (game *Game) reset() {
 	game.playBoard = game.problemBoard.Copy()
 	game.invalidInput = core.NewEmptyBoard()
+	game.notes = [9][9]core.CandidateSet{}
 	game.candidates = legalCandidateGrid(&game.playBoard)
 	game.inputSequence = []historyRecord{}
 	game.inputCursor = -1
@@ -203,6 +206,7 @@ func (game *Game) captureState() sessionState {
 	return sessionState{
 		playBoard:    game.playBoard.Copy(),
 		invalidInput: game.invalidInput.Copy(),
+		notes:        game.notes,
 		candidates:   game.candidates,
 	}
 }
@@ -210,6 +214,7 @@ func (game *Game) captureState() sessionState {
 func (game *Game) restoreState(state sessionState) {
 	game.playBoard = state.playBoard.Copy()
 	game.invalidInput = state.invalidInput.Copy()
+	game.notes = state.notes
 	game.candidates = state.candidates
 }
 
@@ -230,17 +235,21 @@ func (game *Game) applyValueCandidateCleanup(input core.Cell) {
 		game.candidates[row][column] = game.playBoard.Candidates(input.Position)
 		return
 	}
+	game.notes[row][column] = 0
 	game.candidates[row][column] = 0
 	if game.playBoard.Get(input.Position) != input.Value {
 		return
 	}
 	for index := 0; index < 9; index++ {
+		game.notes[row][index].Remove(input.Value)
+		game.notes[index][column].Remove(input.Value)
 		game.candidates[row][index].Remove(input.Value)
 		game.candidates[index][column].Remove(input.Value)
 	}
 	boxRow, boxColumn := row-row%3, column-column%3
 	for r := boxRow; r < boxRow+3; r++ {
 		for c := boxColumn; c < boxColumn+3; c++ {
+			game.notes[r][c].Remove(input.Value)
 			game.candidates[r][c].Remove(input.Value)
 		}
 	}
@@ -250,6 +259,7 @@ func (game *Game) applyValueCandidateCleanup(input core.Cell) {
 func (game *Game) solve() {
 	game.completeSolver.Solve(&game.playBoard)
 	game.invalidInput = core.NewEmptyBoard()
+	game.notes = [9][9]core.CandidateSet{}
 	game.candidates = [9][9]core.CandidateSet{}
 }
 

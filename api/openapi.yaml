@@ -751,6 +751,7 @@ components:
         - undo
         - redo
         - apply-hint
+        - set-notes
         - set-candidates
         - repair
         - solve
@@ -866,6 +867,7 @@ components:
         - givens
         - values
         - invalid
+        - notes
         - candidates
         - mistakes
         - status
@@ -878,6 +880,8 @@ components:
           $ref: "#/components/schemas/ValueGrid"
         invalid:
           $ref: "#/components/schemas/BooleanGrid"
+        notes:
+          $ref: "#/components/schemas/DigitSetGrid"
         candidates:
           $ref: "#/components/schemas/DigitSetGrid"
         mistakes:
@@ -1229,6 +1233,7 @@ components:
         - $ref: "#/components/schemas/UndoAction"
         - $ref: "#/components/schemas/RedoAction"
         - $ref: "#/components/schemas/ApplyHintAction"
+        - $ref: "#/components/schemas/SetNotesAction"
         - $ref: "#/components/schemas/SetCandidatesAction"
         - $ref: "#/components/schemas/RepairAction"
         - $ref: "#/components/schemas/SolveAction"
@@ -1242,6 +1247,7 @@ components:
           undo: "#/components/schemas/UndoAction"
           redo: "#/components/schemas/RedoAction"
           apply-hint: "#/components/schemas/ApplyHintAction"
+          set-notes: "#/components/schemas/SetNotesAction"
           set-candidates: "#/components/schemas/SetCandidatesAction"
           repair: "#/components/schemas/RepairAction"
           solve: "#/components/schemas/SolveAction"
@@ -1285,6 +1291,27 @@ components:
           type: integer
           minimum: 1
           maximum: 9
+
+    SetNotesAction:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, kind, row, column, values]
+      properties:
+        expected_revision:
+          $ref: "#/components/schemas/Revision"
+        kind:
+          type: string
+          const: set-notes
+        row:
+          type: integer
+          minimum: 1
+          maximum: 9
+        column:
+          type: integer
+          minimum: 1
+          maximum: 9
+        values:
+          $ref: "#/components/schemas/DigitSet"
 
     SetCandidatesAction:
       type: object
@@ -1404,6 +1431,8 @@ components:
         - after
         - invalid_before
         - invalid_after
+        - notes_before
+        - notes_after
         - candidates_before
         - candidates_after
       properties:
@@ -1423,6 +1452,10 @@ components:
           type: boolean
         invalid_after:
           type: boolean
+        notes_before:
+          $ref: "#/components/schemas/DigitSet"
+        notes_after:
+          $ref: "#/components/schemas/DigitSet"
         candidates_before:
           $ref: "#/components/schemas/DigitSet"
         candidates_after:

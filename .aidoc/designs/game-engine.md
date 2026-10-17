@@ -35,9 +35,9 @@ The engine extends the original `game` package rather than introducing a second 
 The engine owns:
 
 - immutable puzzle givens and the current player state;
-- accepted values, invalid player entries, and one authoritative candidate grid;
+- accepted values, invalid player entries, player-authored notes, and one authoritative solver-candidate grid;
 - action validation and deterministic state transitions;
-- unified undo/redo history for value and candidate actions;
+- unified undo/redo history for value, note, and candidate actions;
 - solved, valid, and conflict status;
 - hint calculation through the configured solver store;
 - complete current-state serialization and restoration.
@@ -49,15 +49,15 @@ Frontends own presentation, command parsing, keyboard or pointer gestures, acces
 The stable contract is organized around four concepts:
 
 - `Game` is the authoritative mutable session owned by one caller at a time.
-- `Snapshot` is a detached read model containing givens, visible values, invalid markers, the authoritative candidate grid, a cumulative mistake count, status, and undo/redo availability. Mutating a snapshot cannot mutate the game.
-- `Action` is a typed player intent: set or clear a value, replace one cell’s complete candidate set, reset, restart, repair, solve, undo, redo, or apply a hint. `SetCandidates` accepts an empty, one-digit, or multi-digit complete replacement.
+- `Snapshot` is a detached read model containing givens, visible values, invalid markers, player notes, the authoritative solver-candidate grid, a cumulative mistake count, status, and undo/redo availability. Mutating a snapshot cannot mutate the game.
+- `Action` is a typed player intent: set or clear a value, replace one cell’s complete note or candidate set, reset, restart, repair, solve, undo, redo, or apply a hint. `SetNotes` and `SetCandidates` accept empty, one-digit, or multi-digit complete replacements.
 - `Result` describes the accepted transition, changed cells, current status, undo/redo availability, and the recommendation used by an applied hint. Invalid actions return typed errors and leave state unchanged.
 
 The hint query returns one complete renderer-neutral `HintPlan` without mutation. It first returns an exact value or candidate correction when player state is inconsistent, and only then selects a strategy against a detached board constrained by the authoritative candidate grid. Step navigation remains client-local; accepting the preview submits `ApplyHint` with its deterministic `plan_id`, verifies the conclusion, and records one value or candidate transition.
 
 `cli.Controller` renders only `Game.Snapshot` values and performs game operations only through `Game.Apply`. Command-shaped mutation helpers are private engine implementation details; `Game.Apply` is the public mutation boundary. Public callers must not receive mutable references to the engine's internal boards or history.
 
-`Reset` preserves the cumulative mistake count and restores the initial legal candidate grid. `Restart` also clears mistakes while preserving puzzle identity and givens. Both clear values, invalid entries, history, and solved state; Undo and Redo cannot cross either boundary.
+`Reset` preserves the cumulative mistake count, clears player notes, and restores the initial legal candidate grid. `Restart` also clears mistakes while preserving puzzle identity and givens. Both clear values, invalid entries, notes, history, and solved state; Undo and Redo cannot cross either boundary.
 
 ## State and Validation Invariants
 
@@ -73,9 +73,9 @@ The hint query returns one complete renderer-neutral `HintPlan` without mutation
 
 ## Candidate Semantics
 
-The candidate grid is player-controlled engine state represented by `core.CandidateSet`. New and restarted games initialize editable empty cells from accepted-value legality. `SetCandidates` replaces one complete cell set and enters unified history.
+Player notes and solver candidates are separate engine-owned `core.CandidateSet` grids. Notes start empty and change only through deliberate note actions or value cleanup. New and restarted games initialize solver candidates from accepted-value legality. `SetNotes` and `SetCandidates` each replace one complete cell set and enter unified history without copying one grid into the other.
 
-Setting any visible value clears the target candidates. Only a value accepted into the solver-safe board removes that digit from candidate peers; a visible invalid entry does not constrain peers. Clearing a value restores the target’s current legal set. Every cleanup belongs to the same action delta, so Undo restores the exact previous grid.
+Setting any visible value clears target notes and candidates. Only a value accepted into the solver-safe board removes that digit from note and candidate peers; a visible invalid entry does not constrain peers. Clearing a value restores the target’s current legal candidate set while leaving notes empty. Every cleanup belongs to the same action delta, so Undo restores both exact previous grids.
 
 A hint validates wrong values first, then removes candidates ruled out by accepted values and restores a missing digit required by the solved continuation. Strategy selection starts only after validation and applies the authoritative grid as constraints on a detached solver board. Elimination conclusions mutate the same grid directly, so later hints, serialization, Undo, Redo, CLI, TUI, and HTTP clients all continue from one state.
 
@@ -90,7 +90,7 @@ The current shape has these fields:
 - `history`: ordered before/after state records;
 - `cursor`: the applied history record, or `-1` when no record is applied.
 
-Each player-controlled state stores separate 81-character `values` and `invalid` grids plus sparse `candidates` records containing a zero-based row, zero-based column, and digits. `values` excludes puzzle givens. Separating invalid entries keeps player mistakes visible without contaminating the solver board. Before/after history records use the same complete state shape, so restoration preserves mixed value/candidate Undo and Redo exactly.
+Each player-controlled state stores separate 81-character `values` and `invalid` grids plus sparse `notes` and `candidates` records containing a zero-based row, zero-based column, and digits. `values` excludes puzzle givens. Separating invalid entries keeps player mistakes visible without contaminating the solver board. Before/after history records use the same complete state shape, so restoration preserves mixed value/candidate Undo and Redo exactly.
 
 Restoration rejects malformed JSON, unknown fields, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid candidate records, candidates on occupied cells, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Current state is stored explicitly alongside the validated history and cursor. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
 
