@@ -62,21 +62,22 @@ type autosaveDoneMsg struct {
 
 // Model owns presentation state while delegating all puzzle transitions to game.Game.
 type Model struct {
-	game           *game.Game
-	tracker        *playrun.Tracker
-	snapshot       game.Snapshot
-	row, column    int
-	width, height  int
-	mode           inputMode
-	modal          modalKind
-	theme          themeName
-	message        string
-	hint           *game.HintPlan
-	hintStep       int
-	dirty          bool
-	autoCandidates bool
-	savePath       string
-	writeSession   func(string, []byte) error
+	game             *game.Game
+	tracker          *playrun.Tracker
+	snapshot         game.Snapshot
+	row, column      int
+	width, height    int
+	mode             inputMode
+	modal            modalKind
+	theme            themeName
+	message          string
+	hint             *game.HintPlan
+	hintStep         int
+	dirty            bool
+	autoCandidates   bool
+	candidateVisible [9][9]bool
+	savePath         string
+	writeSession     func(string, []byte) error
 
 	recoveryStore      *recovery.Store
 	recoveryChoices    []RecoveryChoice
@@ -134,6 +135,19 @@ func themeFromEnvironment() themeName {
 }
 
 func (m Model) Init() tea.Cmd { return nil }
+
+func (m *Model) setAllCandidateVisibility(visible bool) {
+	m.autoCandidates = visible
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			m.candidateVisible[row][column] = visible && m.snapshot.Values[row][column] == 0
+		}
+	}
+}
+
+func (m *Model) revealCandidateCell(row, column int) {
+	m.candidateVisible[row][column] = true
+}
 
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch typed := message.(type) {
@@ -243,11 +257,11 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = valueMode
 		}
 	case "a":
-		m.autoCandidates = !m.autoCandidates
+		m.setAllCandidateVisibility(!m.autoCandidates)
 		if m.autoCandidates {
-			m.message = "Automatic candidates shown."
+			m.message = "Candidates shown."
 		} else {
-			m.message = "Automatic candidates hidden."
+			m.message = "Candidates hidden."
 		}
 	case "u":
 		command = m.apply(game.Undo{})
@@ -261,7 +275,7 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.hint == nil {
 			m.message = "No hint is available."
 		} else {
-			m.autoCandidates = true
+			m.setAllCandidateVisibility(true)
 			m.message = hintStepMessage(*m.hint, m.hintStep)
 		}
 	case "enter":
@@ -282,6 +296,7 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "0", "backspace", "delete":
 		position := core.NewPosition(m.row, m.column)
 		if m.mode == noteMode {
+			m.revealCandidateCell(m.row, m.column)
 			command = m.apply(game.SetCandidates{Position: position})
 		} else {
 			command = m.apply(game.ClearValue{Position: position})
@@ -291,7 +306,12 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			value := int(key.Runes[0] - '0')
 			position := core.NewPosition(m.row, m.column)
 			if m.mode == noteMode {
-				candidates := m.snapshot.Candidates[m.row][m.column]
+				var candidates core.CandidateSet
+				if m.candidateVisible[m.row][m.column] {
+					candidates = m.snapshot.Candidates[m.row][m.column]
+				} else {
+					m.revealCandidateCell(m.row, m.column)
+				}
 				if candidates.Has(value) {
 					candidates.Remove(value)
 				} else {
@@ -417,6 +437,10 @@ func (m *Model) apply(action game.Action) tea.Cmd {
 		return nil
 	}
 	m.snapshot = m.game.Snapshot()
+	if _, reset := action.(game.Reset); reset {
+		m.setAllCandidateVisibility(false)
+		m.mode = valueMode
+	}
 	m.dirty = true
 	m.hint = nil
 	m.hintStep = 0

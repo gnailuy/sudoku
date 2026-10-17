@@ -35,8 +35,9 @@ The TUI presents one focused cell, the board, game status, the authoritative cum
 
 The following global actions remain available when no modal is open:
 
-- `n` toggles value and note modes; the first digit edit while automatic candidates are visible atomically adopts the candidate grid, applies that digit toggle, and hides the automatic preview without confirmation;
-- `a` toggles derived legal-candidate display without mutating or dirtying the session;
+- `n` toggles value and note input without changing candidate visibility; note input edits the one authoritative candidate set;
+- `a` shows every editable candidate cell or hides every candidate cell without mutating or dirtying the session;
+- the first note digit in a hidden cell reveals only that cell and replaces its stored set from an empty visible baseline, while note input in a visible cell edits the complete displayed set;
 - `u` and `r` submit undo and redo;
 - `i` requests a hint preview and reveals automatic candidates before its first step; Left/Right or `h`/`l` navigate the retained steps locally, Enter applies the exact plan, and Esc cancels it while leaving candidates visible;
 - `?` opens a compact keyboard-help overlay;
@@ -59,7 +60,7 @@ The filesystem transport lives in the presentation-neutral `sessionfile` package
 
 The TUI supports terminals large enough to show a 9×9 board, status, messages, and help. A too-small terminal renders a resize instruction and accepts only resize and quit events until the minimum layout fits.
 
-Given cells, player values, invalid entries, the focused cell, and peer cells remain semantically distinct without punctuation around digits. Focus uses a strong background, peers use a quieter background, 3×3 boundaries are heavier than cell boundaries, and manual notes and opt-in automatic candidates share fixed candidate positions without placeholder dots. A successful hint preview turns automatic candidates on as presentation state and leaves them visible after close or apply; bold focus, underlined premises, struck eliminations, and reversed conclusions preserve meaning without color. Manual styling wins outside the active hint mark. The title, status, board, messages, and one-line key guide center within the available width.
+Given cells, player values, invalid entries, the focused cell, and peer cells remain semantically distinct without punctuation around digits. Focus uses a strong background, peers use a quieter background, and 3×3 boundaries are heavier than cell boundaries. Visible candidates use fixed positions without placeholder dots; hidden candidates leave no digit or matching mark. A successful hint preview reveals every candidate cell as presentation state and leaves them visible after close or apply. Bold focus, underlined premises, struck eliminations, and reversed conclusions preserve hint meaning without color. The title, status, board, messages, and one-line key guide center within the available width.
 
 Dark and light palettes are deterministic and selected with `SUDOKU_THEME`; `NO_COLOR` or the `no-color` theme retains bold, underline, reverse-video, and faint attributes while removing color distinctions. The renderer must produce deterministic output from model state so package tests can verify layouts without a live terminal.
 
@@ -73,6 +74,6 @@ The terminal dependencies are confined to the `tui` package and `cmd/tui.go`. Th
 
 ## Verification
 
-Package tests cover key-to-action translation, focus boundaries, note mode, automatic-candidate display, authoritative mistake-count rendering, modal confirmations and help, dirty-state tracking, save transport, read-only hint step navigation/cancel/apply, small-terminal fallback, clean cell rendering, theme selection, no-color accessibility, and deterministic rendering. The model injects its persistence function for isolated save tests.
+Package tests cover key-to-action translation, focus boundaries, independent note mode and cell visibility, hidden-cell empty-baseline edits, visible-cell complete-set edits, authoritative mistake-count rendering, modal confirmations and help, dirty-state tracking, save transport, read-only hint step navigation/cancel/apply, small-terminal fallback, clean cell rendering, theme selection, no-color accessibility, and deterministic rendering. The model injects its persistence function for isolated save tests.
 
 `scripts/e2e_tui.py` is a standard-library pseudo-terminal harness that starts the built binary, sends keys, resizes the terminal, and inspects stable screen text. Black-box scenarios cover startup from input and saved state, value and note entry, undo/redo, hint step navigation and exact apply, explicit save, invalid restore rejection, quit confirmation, and CLI backward compatibility.

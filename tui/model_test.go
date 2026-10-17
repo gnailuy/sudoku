@@ -47,10 +47,9 @@ func TestNavigationAndValueNoteModes(t *testing.T) {
 	}
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyDown})
-	beforeCandidate := model.snapshot.Candidates[1][1].Has(4)
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'4'}})
-	if model.snapshot.Candidates[1][1].Has(4) == beforeCandidate {
-		t.Fatal("candidate toggle was not applied")
+	if got := model.snapshot.Candidates[1][1].Values(); len(got) != 1 || got[0] != 4 || !model.candidateVisible[1][1] {
+		t.Fatalf("hidden candidate edit should reveal the cell from an empty baseline: %v", got)
 	}
 }
 
@@ -71,11 +70,11 @@ func TestAutomaticCandidateToggleIsPresentationOnly(t *testing.T) {
 	}
 	view := ansi.Strip(model.View())
 	cell := cellContent(model, 0, 0, 0) + cellContent(model, 0, 0, 1) + cellContent(model, 0, 0, 2)
-	if !strings.Contains(view, "AUTO ON") || strings.TrimSpace(cell) == "" {
+	if !strings.Contains(view, "CANDIDATES ON") || strings.TrimSpace(cell) == "" {
 		t.Fatal("automatic candidates were not exposed in status and cells")
 	}
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
-	if model.autoCandidates || model.dirty || !strings.Contains(ansi.Strip(model.View()), "AUTO OFF") {
+	if model.autoCandidates || model.dirty || !strings.Contains(ansi.Strip(model.View()), "CANDIDATES OFF") {
 		t.Fatal("automatic candidates did not turn off cleanly")
 	}
 }
@@ -102,7 +101,7 @@ func TestStatusDisplaysAuthoritativeMistakeCount(t *testing.T) {
 
 func TestCandidateEditIsAtomicAndUndoable(t *testing.T) {
 	model := testModel(t)
-	model.autoCandidates = true
+	model.setAllCandidateVisibility(true)
 	model.mode = noteMode
 	target := core.NewPosition(0, 0)
 	before := model.snapshot
@@ -132,7 +131,7 @@ func TestCandidateEditIsAtomicAndUndoable(t *testing.T) {
 
 func TestAutomaticCandidatesRefreshAndCoexistWithNotes(t *testing.T) {
 	model := testModel(t)
-	model.autoCandidates = true
+	model.setAllCandidateVisibility(true)
 	noteTarget := core.NewPosition(0, 0)
 	legalNote := model.snapshot.Candidates[noteTarget.Row][noteTarget.Column].Values()[0]
 	model.snapshot.Candidates[noteTarget.Row][noteTarget.Column].Add(legalNote)

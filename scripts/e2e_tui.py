@@ -84,7 +84,7 @@ def main():
         finally:
             os.close(master)
         text = ANSI.sub(b"", output).decode("utf-8", "replace")
-        required = ("SUDOKU", "Mistakes: 0", "Mistakes: 1", "AUTO ON", "AUTO OFF", "NOTE  ", "KEYBOARD HELP", "Step 1 of", "Step 2 of", "Saved to ", "unsaved", "Unsaved changes")
+        required = ("SUDOKU", "Mistakes: 0", "Mistakes: 1", "CANDIDATES ON", "CANDIDATES OFF", "NOTE  ", "KEYBOARD HELP", "Step 1 of", "Step 2 of", "Saved to ", "unsaved", "Unsaved changes")
         missing = [value for value in required if value not in text]
         if missing:
             raise AssertionError(f"screen output missing {missing}\n{text[-4000:]}")
@@ -101,7 +101,7 @@ def main():
         os.write(master, b"q")
         resumed_output += drain(master, 0.3)
         resumed_text = ANSI.sub(b"", resumed_output)
-        if resumed.wait(timeout=3) != 0 or b"SUDOKU" not in resumed_text or b"AUTO OFF" not in resumed_text:
+        if resumed.wait(timeout=3) != 0 or b"SUDOKU" not in resumed_text or b"CANDIDATES OFF" not in resumed_text:
             raise AssertionError("saved TUI session did not resume cleanly with candidates off")
         os.close(master)
         # An abnormal exit retains the latest debounced record, and plain
