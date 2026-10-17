@@ -333,10 +333,10 @@ func (game *Game) candidateCorrectionHint() *HintPlan {
 			}
 			current := game.candidates[row][column]
 			legal := game.playBoard.Candidates(position)
-			corrected := current & legal
-			corrected.Add(solution.Get(position))
-			if corrected != current {
-				return composeCandidateCorrectionPlan(game.Snapshot(), position, current, corrected, legal)
+			containsImpossible := !(current &^ legal).IsEmpty()
+			omitsSolution := !current.Has(solution.Get(position))
+			if containsImpossible || omitsSolution {
+				return composeCandidateCorrectionPlan(game.Snapshot(), position, current, legal)
 			}
 		}
 	}

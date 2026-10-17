@@ -43,7 +43,7 @@ All clients consume `Candidates` and `SetCandidates` directly. The candidate gri
 A hint request validates player state before selecting a Sudoku strategy:
 
 1. A visible invalid value produces a `value-correction` plan pointing to that exact cell and an undoable `clear-value` conclusion.
-2. For each editable empty cell, the engine compares the candidate set with accepted-value legality and a solved continuation. Impossible candidates are marked extra, and a missing candidate required by the solution is marked missing. The first inconsistency produces a `candidate-correction` plan with one complete replacement set.
+2. For each editable empty cell, the engine checks accepted-value legality and verifies that the candidate set still supports the puzzle's unique continuation. The first set with an impossible digit, an empty state, or a missing solution-supporting digit produces a `candidate-correction` plan that resets the whole cell to every digit allowed directly by its accepted row, column, and box values. The plan may mark locally impossible extras, but it never identifies which restored digit belongs to the solved continuation.
 3. Only a consistent board and candidate grid proceed to strategy selection. Strategy solvers receive a detached board constrained by the authoritative candidate grid, so the explanation and application use the same state the player sees.
 
 Correction plans use the same deterministic `plan_id`, local step navigation, stale-plan rejection, application boundary, revision increment, and one-step Undo as strategy plans. Correction titles are not presented as Sudoku technique names.
@@ -54,10 +54,10 @@ Frontends own an 81-cell visibility mask without changing game state. The TUI an
 
 Visibility is renderer state rather than game data. The web may persist the mask by game identity in browser storage, while the TUI keeps it in its presentation model; neither engine serialization nor Undo/Redo contains visibility. A future cross-device preference may use a separate non-history record rather than expanding the game state.
 
-A fixed 3×3 mini-grid renders each candidate. Correction scenes distinguish the problematic cell, impossible digits, missing required digits, and the corrected conclusion without relying on color alone. Filled, given, and invalid-visible cells render their value instead of candidates.
+A fixed 3×3 mini-grid renders each candidate. Correction scenes distinguish the problematic cell, any locally impossible digits, and the complete locally legal replacement without relying on color alone. The scene never singles out a solution-supporting digit. Filled, given, and invalid-visible cells render their value instead of candidates.
 
 The line CLI uses the same authoritative candidate state and dense candidate renderer. Its existing `note` aliases remain command vocabulary for candidate toggles, but they submit `SetCandidates`; no second note model exists.
 
 ## Verification
 
-Engine tests prove initialization, direct edits, peer cleanup, invalid-value isolation, exact undo/redo, version-3 round trips, correction priority, deterministic correction identity, stale rejection, and strategy selection against the candidate grid. TUI, CLI, API, and browser tests prove the single wire/state shape, visibility-only toggles, correction rendering, exact application, and persistence across ownership modes.
+Engine tests prove initialization, direct edits, peer cleanup, invalid-value isolation, exact undo/redo, version-3 round trips, full-cell candidate reset, preservation of valid reduced sets, correction priority, deterministic correction identity, stale rejection, and strategy selection against the candidate grid. TUI, CLI, API, and browser tests prove the single wire/state shape, visibility-only toggles, correction rendering, exact application, and persistence across ownership modes.

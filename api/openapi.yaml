@@ -985,7 +985,7 @@ components:
 
     HintRole:
       type: string
-      enum: [focus, premise, eliminated, conclusion, problem, missing, extra]
+      enum: [focus, premise, eliminated, conclusion, problem, extra]
 
     HintNarrationChunk:
       oneOf:

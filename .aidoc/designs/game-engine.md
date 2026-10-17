@@ -53,7 +53,7 @@ The stable contract is organized around four concepts:
 - `Action` is a typed player intent: set or clear a value, replace one cell’s complete candidate set, reset, restart, repair, solve, undo, redo, or apply a hint. `SetCandidates` accepts an empty, one-digit, or multi-digit complete replacement.
 - `Result` describes the accepted transition, changed cells, current status, undo/redo availability, and the recommendation used by an applied hint. Invalid actions return typed errors and leave state unchanged.
 
-The hint query returns one complete renderer-neutral `HintPlan` without mutation. It first returns an exact value or candidate correction when player state is inconsistent, and only then selects a strategy against a detached board constrained by the authoritative candidate grid. Step navigation remains client-local; accepting the preview submits `ApplyHint` with its deterministic `plan_id`, verifies the conclusion, and records one value or candidate transition.
+The hint query returns one complete renderer-neutral `HintPlan` without mutation. It first clears an inconsistent value or resets one unreliable candidate cell to the complete set allowed by accepted row, column, and box values, and only then selects a strategy against a detached board constrained by the authoritative candidate grid. Step navigation remains client-local; accepting the preview submits `ApplyHint` with its deterministic `plan_id`, verifies the conclusion, and records one value or candidate transition.
 
 `cli.Controller` renders only `Game.Snapshot` values and performs game operations only through `Game.Apply`. Command-shaped mutation helpers are private engine implementation details; `Game.Apply` is the public mutation boundary. Public callers must not receive mutable references to the engine's internal boards or history.
 
@@ -77,7 +77,7 @@ The candidate grid is player-controlled engine state represented by `core.Candid
 
 Setting any visible value clears the target candidates. Only a value accepted into the solver-safe board removes that digit from candidate peers; a visible invalid entry does not constrain peers. Clearing a value restores the target’s current legal set. Every cleanup belongs to the same action delta, so Undo restores the exact previous grid.
 
-A hint validates wrong values first, then removes candidates ruled out by accepted values and restores a missing digit required by the solved continuation. Strategy selection starts only after validation and applies the authoritative grid as constraints on a detached solver board. Elimination conclusions mutate the same grid directly, so later hints, serialization, Undo, Redo, CLI, TUI, and HTTP clients all continue from one state.
+A hint validates wrong values first, then resets the first inconsistent candidate cell to every digit allowed by accepted row, column, and box values. Locally impossible extras, an empty set, or omission of the puzzle’s solution-supporting digit make that cell unreliable; the correction discards all deductions in that cell without identifying the solved digit. A locally legal reduced set that still supports the solution remains valid player progress. Strategy selection starts only after validation and applies the authoritative grid as constraints on a detached solver board. Elimination conclusions mutate the same grid directly, so later hints, serialization, Undo, Redo, CLI, TUI, and HTTP clients all continue from one state.
 
 ## Serialization Contract
 

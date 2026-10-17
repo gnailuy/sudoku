@@ -104,6 +104,75 @@ func TestHintRepairsCandidateCellBeforeStrategy(t *testing.T) {
 	}
 }
 
+func TestHintResetsCorruptCandidateCellToFullLocalLegality(t *testing.T) {
+	base := newTestGame()
+	position := core.NewPosition(0, 2)
+	board := base.PlayBoard()
+	legal := board.Candidates(position)
+	solution := base.PlayBoard()
+	if !base.completeSolver.Solve(&solution) {
+		t.Fatal("test puzzle has no solution")
+	}
+	required := solution.Get(position)
+	var otherLegal, impossible int
+	for value := 1; value <= 9; value++ {
+		if legal.Has(value) && value != required && otherLegal == 0 {
+			otherLegal = value
+		}
+		if !legal.Has(value) && impossible == 0 {
+			impossible = value
+		}
+	}
+	if otherLegal == 0 || impossible == 0 {
+		t.Fatalf("test setup needs multiple legal candidates and one impossible digit: %v", legal.Values())
+	}
+
+	tests := []struct {
+		name   string
+		values []int
+	}{
+		{name: "reduced set with impossible digit", values: []int{required, impossible}},
+		{name: "missing solution-supporting digit", values: []int{otherLegal}},
+		{name: "empty set", values: []int{}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			game := newTestGame()
+			if _, err := game.Apply(SetCandidates{Position: position, Values: test.values}); err != nil {
+				t.Fatal(err)
+			}
+			plan := game.Hint()
+			if plan == nil || plan.Kind != HintKindCandidateCorrection || plan.Conclusion.SetCandidates == nil {
+				t.Fatalf("expected candidate correction plan, got %+v", plan)
+			}
+			if got := plan.Conclusion.SetCandidates.Values; got != legal {
+				t.Fatalf("candidate correction = %v, want full locally legal set %v", got.Values(), legal.Values())
+			}
+			for _, step := range plan.Steps {
+				message := strings.ToLower(step.Message)
+				if strings.Contains(message, "solution") || strings.Contains(message, "required candidate") || strings.Contains(message, "keep every valid") {
+					t.Fatalf("candidate correction leaks solution-specific reasoning: %q", step.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestHintPreservesLocallyLegalReducedCandidates(t *testing.T) {
+	game := newTestGame()
+	position := core.NewPosition(0, 2)
+	solution := game.PlayBoard()
+	if !game.completeSolver.Solve(&solution) {
+		t.Fatal("test puzzle has no solution")
+	}
+	if _, err := game.Apply(SetCandidates{Position: position, Values: []int{solution.Get(position)}}); err != nil {
+		t.Fatal(err)
+	}
+	if plan := game.Hint(); plan != nil && plan.Kind == HintKindCandidateCorrection {
+		t.Fatalf("locally legal reduced candidates were treated as corrupt: %+v", plan)
+	}
+}
+
 func TestReportedSimpleColoringUsesReducedAuthoritativeCandidates(t *testing.T) {
 	store := solver.NewStore()
 	options := NewDefaultOptions(store)

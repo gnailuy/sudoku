@@ -74,7 +74,6 @@ Scene marks pair one target with one semantic role:
 | `eliminated` | Candidate proven impossible by this deduction |
 | `conclusion` | Applied change that completes the teaching step |
 | `problem` | Cell whose current value or candidate set is inconsistent |
-| `missing` | Required candidate absent from the player grid |
 | `extra` | Candidate ruled out by accepted values |
 
 Semantic roles carry no palette or animation requirement. Color cannot be the sole carrier of meaning, motion is optional, and the fallback message names every fact needed to understand the step.
@@ -87,7 +86,7 @@ Logical effects are separate from marks. A mark explains presentation emphasis; 
 
 ## Validation and Deduction Selection
 
-Interactive hint orchestration validates the authoritative player state before choosing a strategy. A visible invalid value returns a value-correction plan for that exact cell. The engine then checks each editable empty cell: candidates impossible under accepted values are marked extra, and a missing digit required by the solved continuation is marked missing. The first inconsistent cell returns a complete candidate replacement plan.
+Interactive hint orchestration validates the authoritative player state before choosing a strategy. A visible invalid value returns a value-correction plan for that exact cell. The engine then checks each editable empty cell against accepted-value legality and the puzzle's unique continuation. The first set with an impossible digit, an empty state, or a missing solution-supporting digit returns a plan that discards the cell's deductions and restores every candidate allowed directly by accepted row, column, and box values. The plan may mark locally impossible extras, but it never identifies the solved digit or labels a restored digit as missing.
 
 Only a consistent board and candidate grid proceed to the configured strategy order. The engine applies the grid as eliminations on a detached solver board, so the selected technique and explanation use exactly the state the player sees. Strategy selection returns the first meaningful deduction, whether it places a value or only eliminates candidates; it never silently consumes elimination progress to search for a later placement.
 
