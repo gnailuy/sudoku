@@ -44,7 +44,7 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 
 ### 9.3 Help, Every-Strategy Hint Navigation, and Apply
 **Action:** Start with automatic candidates hidden, press `?`, inspect and close the keyboard-help overlay, press `i`, navigate Back and Next with Left/Right or `h`/`l`, then press Enter; separately cancel a preview with Esc. Run `scripts/e2e_tui_hint_strategies.py` against the built binary to repeat preview, local step navigation, and apply over the maintained complete-game manifest until each of the 23 registered strategies is reached.
-**Expected:** A successful preview changes the presentation to `CANDIDATES ON` before Step 1 without changing puzzle state, history, or serialized session, and candidates remain visible after cancel or apply until explicitly hidden. Help and local step navigation do not mutate the game. Wrong values and inconsistent candidate cells appear as correction plans before any strategy; correction scenes point to the exact cell and candidate differences. Enter submits the retained `plan_id` once; Esc discards it without mutation. The strategy matrix still observes and applies all 23 public strategy names and grades after validation passes.
+**Expected:** A successful preview changes the presentation to `CANDIDATES ON` before Step 1 without changing puzzle state, history, or serialized session, and candidates remain visible after cancel or apply until explicitly hidden. Help and local step navigation do not mutate the game. Wrong values and inconsistent candidate cells appear as correction plans before any strategy; a candidate correction points to the exact cell, may mark locally impossible extras, and resets that cell to its complete locally legal set without identifying the solved digit. Enter submits the retained `plan_id` once; Esc discards it without mutation. The strategy matrix still observes and applies all 23 public strategy names and grades after validation passes.
 
 ### 9.4 Explicit Save and Safe Quit
 **Action:** Change a cell, press `q` and decline, press `S`, enter a path, then quit. Resume with `sudoku tui --resume <path>`.
@@ -67,8 +67,8 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 **Expected:** Every displayed candidate set follows the accepted solver-safe board without an independent candidate action or history entry.
 
 ### 9.9 Candidate Editing and Accessibility
-**Action:** Edit legal, impossible, and missing candidates under dark, light, and `NO_COLOR` themes, then request a hint.
-**Expected:** One grid is rendered in fixed positions. The correction plan distinguishes the problem cell, extra digits, missing digit, and complete replacement without relying on color.
+**Action:** Preserve a valid reduced set, then separately create reduced-plus-impossible, missing-solution-supporting, and empty candidate sets under dark, light, and `NO_COLOR` themes and request a hint.
+**Expected:** One grid is rendered in fixed positions. A valid reduced set proceeds to strategy selection. Each inconsistent case identifies the problem cell, may mark locally impossible extras, and replaces the complete set with every locally legal digit without identifying the solved digit or relying on color.
 
 ### 9.10 Candidate Save and Resume
 **Action:** Edit candidates, save, then resume the session.

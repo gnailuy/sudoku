@@ -183,7 +183,7 @@ func renderCell(m Model, styles renderStyles, row, column, noteRow int) string {
 			digit := noteRow*3 + offset + 1
 			role, marked := hintCandidateRole(m, row, column, digit)
 			switch {
-			case marked && (candidates.Has(digit) || role == game.HintRoleMissing):
+			case marked && candidates.Has(digit):
 				style = hintRoleStyle(styles, role).Inherit(style)
 				content = string(rune('0' + digit))
 			case showCandidates && candidates.Has(digit):
@@ -262,7 +262,7 @@ func hintRolePriority(role game.HintRole) int {
 	switch role {
 	case game.HintRoleConclusion:
 		return 5
-	case game.HintRoleProblem, game.HintRoleMissing, game.HintRoleExtra:
+	case game.HintRoleProblem, game.HintRoleExtra:
 		return 4
 	case game.HintRoleEliminated:
 		return 3
