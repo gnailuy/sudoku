@@ -145,7 +145,7 @@ Explicit database paths remain unseeded until requested:
 ./sudoku db bootstrap --db puzzles.db
 ```
 
-The foundation release establishes the versioned lifecycle but intentionally contains no starter puzzles; the official five-grade dataset is reviewed separately. Bundle upgrades add validated puzzle/provenance rows without replacing user imports, counters, play history, accounts, sessions, or saved games.
+The embedded release contains 256 public-domain starter puzzles for each of Easy, Medium, Hard, and Expert plus the complete 2,023-member audited Evil serving cohort. Bundle upgrades add validated puzzle/provenance rows without replacing user imports, counters, play history, accounts, sessions, or saved games.
 
 ## Import Puzzles
 

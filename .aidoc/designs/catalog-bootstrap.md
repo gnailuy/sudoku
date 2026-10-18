@@ -5,6 +5,7 @@ entry_points:
   - catalogbundle/bundle.go
   - db/catalog_bundle.go
   - cmd/catalog.go
+  - tools/build-catalog-bundle/main.go
 dependencies:
   - .aidoc/designs/database-catalog.md
   - .aidoc/designs/database-puzzle-selection.md
@@ -28,7 +29,11 @@ The bootstrap boundary treats starter puzzles as versioned application reference
 
 A database file would mix schema state with application data and could accidentally carry counters, play runs, accounts, sessions, or saved games. The embedded JSON artifact contains only immutable catalog facts and separately approved cohort definitions. A companion SHA-256 file binds the exact artifact bytes, while the solver-configuration digest prevents classifications from being applied under a different strategy registry, tier assignment, or weight configuration.
 
-Bundle release 1 establishes this lifecycle without choosing starter puzzles or cohort members. The initial official five-grade dataset remains a separate review decision and will advance the monotonic bundle version.
+Bundle release 2 ships 256 deterministic public-domain puzzles for each of Easy, Medium, Hard, and Expert plus all 2,023 members of the approved `evil-v1` cohort. The 3,047 canonical puzzles are reproduced from the hash-pinned Sudoku Exchange bank and frozen full-catalog audit rather than copied from a live database. The bounded non-Evil supply gives each grade substantial never-played rotation while keeping the embedded artifact small; Evil preserves the complete audited serving population instead of sampling it.
+
+`tools/build-catalog-bundle` validates the three source-bank SHA-256 values, frozen report and evidence hashes, canonical puzzle identities, solver digest, per-grade counts, and complete Evil membership before replacing the reviewable JSON artifact. Release metadata retains the public-domain license and immutable source-record identifier for every puzzle.
+
+The release-2 JSON is 1,707,150 bytes and compresses to 338,898 bytes with gzip level 9. A clean Linux amd64 Go build measured a 1,703,496-byte raw binary increase and a 341,046-byte compressed release increase over the empty release-1 bundle. This keeps the distributed cost near one third of a megabyte while preserving a directly reviewable artifact.
 
 ## Managed and Explicit Locations
 
@@ -48,4 +53,4 @@ A newer release runs in one transaction. Missing canonical puzzles and official 
 
 ## Verification
 
-Package tests cover artifact and solver-digest drift, dry-run rollback, idempotent replay, additive provenance, preserved acquisition history, conflict rollback, and managed-versus-explicit initialization. The built-binary database scenario verifies automatic first use, explicit check/apply, ledger persistence, and schema rebuild composition without network access.
+Package tests cover exact five-grade counts, complete Evil membership, artifact and solver-digest drift, dry-run rollback, idempotent replay, additive provenance, preserved acquisition history, conflict rollback, and managed-versus-explicit initialization. The built-binary database scenario verifies automatic first use, exact grade/cohort materialization, explicit check/apply, ledger persistence, and schema rebuild composition without network access.

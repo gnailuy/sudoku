@@ -38,7 +38,7 @@ Database behavior crosses generation, classification, persistence, and startup. 
 
 ### Managed and Explicit Bootstrap
 **Action:** Start `db stats` with a clean managed application-data directory; open a separate explicit database through import; run `db bootstrap --check` and then `db bootstrap` against the explicit path.
-**Expected:** Managed first use creates the OS-native database and records the exact embedded release. Opening the explicit database does not record a release, check rolls back every addition and ledger write, and explicit apply records the same digest exactly once without changing existing catalog rows or history.
+**Expected:** Managed first use creates the OS-native database, records release 2, materializes exactly 256 Easy, Medium, Hard, and Expert puzzles, and materializes the complete 2,023-member `evil-v1` cohort. Opening the explicit database does not record a release, check rolls back every addition and ledger write, and explicit apply records the same digest exactly once without changing existing catalog rows or history.
 
 ### Auto-Store and Fallback
 **Action:** Run the matching `scripts/e2e_cli.py` cases for automatic play storage, catalog-first high-grade selection, exact-grade database fallback, and an empty requested grade.

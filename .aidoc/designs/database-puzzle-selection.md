@@ -69,7 +69,7 @@ Root play provides `--db <path>` and `--from-db`:
 - `--from-db` returns a clear error when that grade has no stored puzzle.
 - `--from-db` is mutually exclusive with `--input` and `--resume`.
 
-The explicit database source is useful to players who want an offline stored puzzle and gives built-binary E2E a public, deterministic database boundary. The managed embedded release changes catalog supply only when a reviewed bundle contains puzzle rows; release 1 establishes the lifecycle with no starter dataset.
+The explicit database source is useful to players who want an offline stored puzzle and gives built-binary E2E a public, deterministic database boundary. The managed embedded release supplies 256 public-domain puzzles for each non-Evil grade and restricts Evil acquisition to the complete approved 2,023-member `evil-v1` cohort.
 
 ## Schema and Indexing
 

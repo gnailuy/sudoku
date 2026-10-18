@@ -67,17 +67,18 @@ The project index provides reading chains for common starting points and a compl
 24. `solver/classify.go` — puzzle classification (difficulty tier, score, max technique)
 25. `.aidoc/designs/database-catalog.md` — base-puzzle identity, provenance, play-run separation, and rebuild boundary
 26. `.aidoc/designs/catalog-bootstrap.md` — embedded release, managed-location, and additive upgrade contract
-27. `core/canonical.go` — shared digit and Sudoku-symmetry canonicalization boundary
-28. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and rebuild contract
-29. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
-30. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
-31. `db/db.go` — SQLite database open, schema, and rebuild boundary
-32. `db/catalog.go` — provenance and presentation-specific play-run contracts
-33. `db/puzzle.go` — catalog CRUD, acquisition, and statistics
-34. `cmd/play.go` — fallback flow and auto-store
-35. `cmd/generate.go` — batch generation CLI
-36. `cmd/import.go` — plain and hash-pinned external import boundary
-37. `scripts/import_sudoku_exchange_diabolical.sh` — exact public-domain source pin and import composition
+27. `tools/build-catalog-bundle/main.go` — pinned-source reproduction and five-grade release validation
+28. `core/canonical.go` — shared digit and Sudoku-symmetry canonicalization boundary
+29. `.aidoc/designs/database-puzzle-selection.md` — current acquisition, recycling, and rebuild contract
+30. `.aidoc/designs/database-play-statistics.md` — current completion, statistics, and history-reset contract
+31. `.aidoc/designs/database-concurrency.md` — connection policy and deterministic mixed-workload reliability contract
+32. `db/db.go` — SQLite database open, schema, and rebuild boundary
+33. `db/catalog.go` — provenance and presentation-specific play-run contracts
+34. `db/puzzle.go` — catalog CRUD, acquisition, and statistics
+35. `cmd/play.go` — fallback flow and auto-store
+36. `cmd/generate.go` — batch generation CLI
+37. `cmd/import.go` — plain and hash-pinned external import boundary
+38. `scripts/import_sudoku_exchange_diabolical.sh` — exact public-domain source pin and import composition
 
 ### Understanding the Roadmap
 1. `.aidoc/designs/roadmap.md` — maintained replenishment boundary and delivery gates
@@ -149,6 +150,7 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/deployment-hardening.md` | Backend artifact, service, isolation, access-policy, and failure contract |
 | `.aidoc/designs/database-catalog.md` | Stable base-puzzle identity, provenance, play-run separation, and destructive schema rebuild |
 | `.aidoc/designs/catalog-bootstrap.md` | Embedded release, managed-location, and additive upgrade contract |
+| `tools/build-catalog-bundle/main.go` | Reproducible pinned-source catalog selection and release generation |
 | `.aidoc/designs/database-puzzle-selection.md` | Current exact-grade acquisition, played-state recycling, migration, and acceptance contract |
 | `.aidoc/designs/database-play-statistics.md` | Current completion counters, acquisition/completion statistics, and explicit history reset |
 | `.aidoc/designs/database-concurrency.md` | SQLite connection policy, mixed-workload stress, and multi-process acceptance contract |
