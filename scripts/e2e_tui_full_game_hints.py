@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""Solve a minimal maintained game corpus through public line-CLI hints."""
+"""Solve the maintained complete-hint corpus through the full-screen TUI."""
 
 import argparse
+import fcntl
 import os
 from pathlib import Path
 import pty
+import re
+import signal
+import struct
 import subprocess
 import tempfile
+import termios
 
-from e2e_hint_strategies import MAX_HINTS_PER_GAME, isolated_env, load_cases, read_response, send
+from e2e_tui_hint_strategies import MAX_HINTS_PER_GAME, drain, isolated_env, load_cases, send
 
 CORPUS = {
     "hidden-triple",
@@ -25,8 +30,9 @@ CORPUS = {
 
 def solve_game(binary, case, root):
     master, slave = pty.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 42, 100, 0, 0))
     process = subprocess.Popen(
-        [binary, "--input", case["puzzle"]],
+        [binary, "tui", "--input", case["puzzle"], "--no-autosave"],
         stdin=slave,
         stdout=slave,
         stderr=slave,
@@ -34,39 +40,41 @@ def solve_game(binary, case, root):
         close_fds=True,
     )
     os.close(slave)
-    transcript = read_response(master, process)
+    transcript = drain(master, quiet=0.1, timeout=3)
     observed = []
     try:
         for _ in range(MAX_HINTS_PER_GAME):
-            preview = send(master, process, "hint")
+            preview = send(master, b"i")
             transcript += preview
             observed.extend(
-                line.split(":", 1)[1].split("(", 1)[0].strip()
-                for line in preview.splitlines()
-                if line.startswith("Strategy:")
+                match.strip() for match in re.findall(r"Hint — ([^(]+) \([^)]+\)", preview)
             )
-            try:
-                applied = send(master, process, "hint apply")
-            except TimeoutError as error:
-                applied = str(error)
-                if "Congratulations! You have solved the problem." not in applied:
-                    raise
+            if "Step 1 of" not in preview:
+                raise AssertionError("hint preview did not render its first teaching step")
+            applied = send(master, b"\r")
             transcript += applied
-            if "Congratulations! You have solved the problem." in transcript:
-                process.wait(timeout=5)
+            if "Applied apply-hint;" not in applied:
+                raise AssertionError("hint conclusion did not apply through the TUI")
+            if "solved" in applied.lower():
+                send(master, b"q")
+                if process.poll() is None:
+                    send(master, b"y")
+                process.wait(timeout=3)
+                if process.returncode != 0:
+                    raise AssertionError(f"TUI exited {process.returncode}")
                 return observed
             if process.poll() is not None:
-                raise AssertionError("game exited without the solved completion message")
+                raise AssertionError("TUI exited before the game was solved")
         raise AssertionError("game did not solve within the bounded hint sequence")
     except Exception as error:
         if process.poll() is None:
-            process.kill()
-            process.wait(timeout=5)
+            process.send_signal(signal.SIGKILL)
+            process.wait(timeout=3)
         raise AssertionError(f"{case['strategy']}: {error}\n{transcript[-5000:]}") from error
     finally:
         if process.poll() is None:
             process.kill()
-            process.wait(timeout=5)
+            process.wait(timeout=3)
         os.close(master)
 
 
@@ -83,7 +91,7 @@ def main():
 
     observed = set()
     counts = []
-    with tempfile.TemporaryDirectory(prefix="sudoku-full-game-e2e-") as directory:
+    with tempfile.TemporaryDirectory(prefix="sudoku-tui-full-game-e2e-") as directory:
         root = Path(directory)
         for case in corpus:
             trace = solve_game(binary, case, root / case["strategy"])
@@ -95,7 +103,7 @@ def main():
             f"full-game strategy set mismatch: missing={sorted(expected_names-observed)} "
             f"unexpected={sorted(observed-expected_names)}"
         )
-    print(f"Full-game hint E2E passed: {len(corpus)} solved games covered {len(observed)}/23 strategies")
+    print(f"TUI full-game hint E2E passed: {len(corpus)} solved games covered {len(observed)}/23 strategies")
     for strategy, hints in counts:
         print(f"  {strategy}: solved in {hints} hint(s)")
 

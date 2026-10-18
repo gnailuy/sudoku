@@ -5,8 +5,6 @@ entry_points:
   - main.go
   - cmd/root.go
   - cli/controller.go
-  - scripts/e2e_hint_strategies.py
-  - scripts/e2e_full_game_hints.py
 dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/game-engine.md
@@ -98,31 +96,27 @@ The game-command scenarios verify the stable engine boundary through the real te
 **Input:** After making several moves: `reset` or `e`
 **Expected:** Board returns to the original problem state. All user inputs cleared.
 
-### 2.8 Hint Preview and Apply (`hint` / `i`)
-**Input:** Run `hint` or `i`, inspect the output, then run `hint apply`; separately preview and run `hint cancel`.
-**Expected:** Preview displays the strategy, summary, ordered teaching steps, and exact placement or elimination conclusion without changing the board or history. `hint apply` submits the cached `plan_id` as one action and consumes it; `hint cancel` discards it without mutation. Any successful non-hint mutation discards the preview with an explicit notice, while failed and no-op commands retain it. A missing or consumed plan cannot be applied.
+### 2.8 Placement Hint Preview and Apply (`hint` / `i`)
+**Input:** Run `hint` or `i` when the authoritative next deduction places a value, inspect the output, then run `hint apply`; separately preview and run `hint cancel`.
+**Expected:** The line CLI prints compact plain-text reasoning and the exact row, column, and value without rendering candidate cells or changing the board. `hint apply` submits the cached `plan_id` as one action and consumes it; `hint cancel` discards it. A successful non-hint mutation discards the preview, while failed and no-op commands preserve it.
 
-### 2.9 Every Registered Strategy Through Real Games
-**Action:** Execute `scripts/e2e_hint_strategies.py` against the built binary. The harness starts one complete valid game per registered strategy and repeatedly uses the public `hint` and `hint apply` commands.
-**Expected:** All 23 registered strategies appear with their public display name and strategy grade, expose an exact conclusion, and are accepted through the same CLI action a player uses. Every teaching step transports a valid closed text, target, and digit narration union; every concluding stream names the exact digit and cell target, and the real line CLI renders typed targets as plain row-and-column locations without parsing fallback prose. Invalid, conflicting, or unknown narration variants cause the complete step fallback to render rather than a partial reconstruction. Subset, intersection, fish, wing, BUG+1, and Unique Rectangle plans identify their exact typed facts and relationships before strategy vocabulary. Simple Coloring transports stable candidate nodes, explicit A/B groups, and strong links; X-Cycles transports numbered nodes with alternating strong and weak links; XY-Chain transports numbered nodes with implication links. Each complex family introduces one relation before revealing the complete graph, omits broad unit painting, and preserves the exact graph on the conclusion step. Each concluding step includes a because-clause and only then names the strategy. The shared `game/testdata/hint_strategy_games.json` manifest keeps the black-box matrix aligned with package-level typed-plan coverage without candidate-only synthetic boards.
+### 2.9 Candidate Hint Progression
+**Input:** Run repeated `hint` and `hint apply` commands against the maintained Naked Pair fixture until the next authoritative deduction is a candidate correction or elimination, apply it, then request another hint.
+**Expected:** The line CLI previews the candidate plan with one compact limitation, no candidate details, and no mutation. `hint apply` accepts that exact hidden plan as one undoable change, and a later `hint` continues from the updated authoritative candidate state. The compact value board remains the only board rendering, `hint cancel` can discard the hidden plan, and the line CLI never silently skips candidate deductions.
 
-### 2.10 Complete Hint-Driven Games and Exact Strategy Union
-**Action:** Execute `scripts/e2e_full_game_hints.py` against the built binary. The harness solves the maintained minimal nine-game corpus entirely through repeated public `hint` and `hint apply` commands and collects every displayed strategy.
-**Expected:** Every game starts from its original puzzle, reaches the normal solved completion message, and exits cleanly. The combined trace set equals the exact 23 public strategy names: no registered strategy is absent and no unregistered fallback is needed.
-
-### 2.11 Solve (`solve` / `s`)
+### 2.10 Solve (`solve` / `s`)
 **Input:** `solve` or `s`
 **Expected:** The complete solution is displayed. "Congratulations" message shown.
 
-### 2.12 Quit (`quit` / `q`)
+### 2.11 Quit (`quit` / `q`)
 **Input:** `quit` or `q`
 **Expected:** Game exits cleanly.
 
-### 2.13 Shorthand Digit Input
+### 2.12 Shorthand Digit Input
 **Input:** `1 2 3` (no `add` prefix)
 **Expected:** Treated as `add 1 2 3`. Cell (1,2) is set to 3.
 
-### 2.14 Divergent Input Truncates Redo History
+### 2.13 Divergent Input Truncates Redo History
 **Input:** Add a value, undo it, add a different value, then run `redo`.
 **Expected:** The different value remains in the cell and the abandoned value does not reappear because the new action replaced the old redo branch.
 

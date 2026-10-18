@@ -109,12 +109,12 @@ The project index provides reading chains for common starting points and a compl
 
 ### Running Black-Box E2E Scenarios
 1. `.aidoc/designs/e2e-test-scenarios.md` — discovery map, automation boundaries, and isolation rules
-2. `.aidoc/designs/e2e-play-scenarios.md` — root play, game commands, and every-strategy hint acceptance
+2. `.aidoc/designs/e2e-play-scenarios.md` — compact root play, game commands, and placement-hint acceptance
 3. `.aidoc/designs/e2e-calibration-scenarios.md` — immutable corpus measurement
 4. `.aidoc/designs/e2e-generation-scenarios.md` — generation flags, workers, and storage
 5. `.aidoc/designs/e2e-import-scenarios.md` — import parsing and deduplication
 6. `.aidoc/designs/e2e-database-scenarios.md` — database composition and fallback
-7. `.aidoc/designs/e2e-session-scenarios.md` — notes, explicit save, and restore
+7. `.aidoc/designs/e2e-session-scenarios.md` — explicit save and restore
 8. `.aidoc/designs/e2e-tui-scenarios.md` — pseudo-terminal frontend and recovery
 9. `.aidoc/designs/e2e-api-scenarios.md` — HTTP lifecycle and security
 
@@ -157,7 +157,7 @@ The project index provides reading chains for common starting points and a compl
 | `.aidoc/designs/background-autosave.md` | Background autosave lifecycle, privacy, retention, and conflict design |
 | `.aidoc/designs/automatic-candidates.md` | Automatic-candidate engine contract, TUI interaction, and rendering constraints |
 | `.aidoc/designs/tui-frontend.md` | TUI interaction model, persistence policy, rendering, and dependency boundaries |
-| `.aidoc/designs/cli-sessions.md` | CLI manual notes, rendering, save, and resume design |
+| `.aidoc/designs/cli-sessions.md` | Compact line-CLI rendering, hint degradation, save, and resume design |
 | `.aidoc/designs/game-engine.md` | Engine API, notes, unified history, snapshots, and serialization design |
 | `.aidoc/designs/e2e-test-scenarios.md` | E2E discovery map, automation boundaries, and isolation rules |
 | `.aidoc/designs/e2e-play-scenarios.md` | Root play and game-command acceptance scenarios |
@@ -201,13 +201,12 @@ The project index provides reading chains for common starting points and a compl
 | `core/canonical.go` | Shared canonical representative across digit relabelling and Sudoku-preserving symmetries |
 | `scripts/import_sudoku_exchange_diabolical.sh` | Exact public-domain source download pin and import composition |
 | `scripts/e2e_cli.py` | Built-binary line CLI, session, calibration, import, generation, and SQLite E2E harness |
-| `scripts/e2e_hint_strategies.py` | Built-binary user-perspective hint preview/apply matrix for every registered strategy |
-| `scripts/e2e_full_game_hints.py` | Built-binary minimal corpus of complete hint-driven games covering the exact strategy registry |
 | `tools/export-hint-plans/main.go` | Deterministic API-shaped every-strategy fixture exporter for renderer acceptance tests |
 | `tools/e2e-web-server/main.go` | Isolated deterministic guest HTTP harness for cross-repository full-game browser acceptance |
 | `scripts/e2e_api.py` | Built-binary HTTP lifecycle E2E harness |
 | `scripts/e2e_tui.py` | Built-binary PTY TUI and recovery E2E harness |
 | `scripts/e2e_tui_hint_strategies.py` | Built-binary PTY preview/navigation/apply matrix for every registered strategy |
+| `scripts/e2e_tui_full_game_hints.py` | Built-binary minimum corpus solved through TUI hints with the exact strategy union |
 | `scripts/coverage_report.py` | Package-level Go coverage summary for risk-based CI review |
 | `db/db.go` | SQLite puzzle and account database — open, close, schema migration |
 | `db/accounts.go` | Provider identity, revocable session, and owner-scoped account-game persistence |
