@@ -4,6 +4,7 @@ status: Active
 entry_points:
   - api/openapi.yaml
   - cmd/api.go
+  - cmd/accounts.go
   - webapi/server.go
   - webapi/account_routes.go
 dependencies:
@@ -14,7 +15,7 @@ dependencies:
 
 # HTTP API Backend
 
-The HTTP backend exposes the authoritative game engine only through sealed guest documents and owner-scoped account games. The removed anonymous session registry, transfer endpoints, recovery namespace, and bearer-authenticated `/api/v1/sessions*` surface are not compatibility boundaries.
+The HTTP backend exposes the authoritative game engine only through revisioned sealed guest documents and owner-scoped account games. The current API has no anonymous server-session, transfer, recovery, or application-bearer namespace; acceptance tests keep those unsupported surfaces absent.
 
 ## Related Docs
 

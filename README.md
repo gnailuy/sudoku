@@ -11,12 +11,11 @@ Features:
 - SQLite puzzle database with automatic storage, exact-grade acquisition, balanced reuse, completion statistics, and explicit history reset
 - Batch generation CLI for offline puzzle creation
 - Import CLI for loading puzzles from files
-- Interactive play with manual notes, undo/redo, and technique-aware hints
+- Interactive play with one authoritative candidate grid, undo/redo, and technique-aware hints
 - Explicit atomic session saves with validated resume
-- Opt-in full-screen Bubble Tea interface with keyboard navigation
-- Opt-in automatic legal candidates in the full-screen TUI
+- Opt-in full-screen Bubble Tea interface with keyboard navigation and candidate editing
 - Private background autosave and crash recovery for TUI games
-- Versioned HTTP API with optimistic concurrency, recovery, bearer auth, and explicit CORS allowlisting
+- Sealed guest and owner-scoped account HTTP resources with optimistic revisions, cookie sessions, request proof, and exact-origin CORS
 
 ## Build
 
@@ -60,7 +59,7 @@ The existing line-oriented game remains the default. Launch the optional termina
 
 The TUI autosaves gameplay changes to a private XDG state directory after a one-second pause. A later plain `sudoku tui` start offers valid recent games for recovery; records use random durable identifiers, never process IDs. Explicit `--input`, `--level`, and `--resume` starts bypass recovery selection, and `--no-autosave` disables both writing and discovery.
 
-Use arrows or `h`/`j`/`k`/`l` to move, `1`–`9` to enter a value, `n` to toggle note mode, `a` to show or hide automatic legal candidates, `u`/`r` for history, `i` then Enter to preview/apply a hint, `?` for keyboard help, `S` to save, and `q` to quit. Automatic candidates start hidden and are not saved; manual notes remain player-owned. Unsaved sessions require confirmation.
+Use arrows or `h`/`j`/`k`/`l` to move, `1`–`9` to enter a value, `n` to toggle candidate-entry mode, `a` to show or hide candidates, `u`/`r` for history, `i` then Enter to preview/apply a hint, `?` for keyboard help, `S` to save, and `q` to quit. The candidate grid is engine state and survives save, restore, Undo, and Redo; its visibility is presentation state. Unsaved sessions require confirmation.
 
 The TUI defaults to a deterministic dark palette. Set `SUDOKU_THEME=light` for the light palette or `SUDOKU_THEME=no-color` (also selected by `NO_COLOR`) for an attribute-only accessible fallback.
 
@@ -73,14 +72,15 @@ Start the backend-only API on its safe loopback default:
 ./sudoku api --listen 127.0.0.1:9090
 ```
 
-The API listener is loopback-only. Publish it through a trusted reverse proxy or equivalent deployment boundary, and allow each browser origin explicitly.
+The API listener is loopback-only. Publish it through a trusted reverse proxy or equivalent deployment boundary, and allow each browser origin explicitly. Guest and account routes fail closed until a private mode-restricted `--accounts-config` supplies the guest sealing keys, session policy, request-proof key, and OIDC configuration.
 
 ```bash
 ./sudoku api --listen 127.0.0.1:8080 \
-  --allowed-origin https://sudoku.example.com
+  --allowed-origin https://sudoku.example.com \
+  --accounts-config /private/path/accounts.json
 ```
 
-The OpenAPI 3.1 contract is [`api/openapi.yaml`](api/openapi.yaml). All game operations are under `/api/v1`; `GET /healthz` is payload-free. Guest games use sealed client-held documents, while account games use owner-scoped durable records and optimistic revisions.
+The OpenAPI 3.1 contract is [`api/openapi.yaml`](api/openapi.yaml). All game operations are under `/api/v1`; `GET /healthz` is payload-free. Guest games use revisioned sealed client-held documents. Signed-in games use owner-scoped durable records, opaque `Secure`/`HttpOnly` cookies, same-origin request proof, and optimistic revisions.
 
 ## Portable Deployment
 
@@ -195,8 +195,11 @@ The line CLI always renders the compact value grid. Use `sudoku tui` for candida
 ## Development
 
 ```bash
-go test ./...    # Run tests
-go vet ./...     # Static analysis
+go test ./...                          # Package tests
+
+go vet ./...                           # Static analysis
+python3 scripts/validate_aidoc.py      # Documentation structure and links
+python3 -m unittest scripts/test_validate_aidoc.py
 ```
 
 For AI agents: start with [`AGENT.md`](AGENT.md) → [`.aidoc/INDEX.md`](.aidoc/INDEX.md).

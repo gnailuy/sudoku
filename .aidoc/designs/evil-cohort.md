@@ -9,7 +9,6 @@ dependencies:
   - .aidoc/designs/difficulty-calibration.md
   - .aidoc/designs/difficulty-model.md
   - .aidoc/designs/database-puzzle-selection.md
-  - .aidoc/designs/roadmap.md
 ---
 
 # Evil Serving Cohort
@@ -23,7 +22,6 @@ The Evil serving cohort combines independent upper-tail evidence from Sukaku Exp
 | `.aidoc/designs/difficulty-calibration.md` | Immutable evidence and full-catalog audit contract |
 | `.aidoc/designs/difficulty-model.md` | Authoritative five-grade strategy model |
 | `.aidoc/designs/database-puzzle-selection.md` | Current exact-grade acquisition and reuse behavior |
-| `.aidoc/designs/roadmap.md` | Delivery order and implementation gate |
 
 ## Why a Cohort Exists
 

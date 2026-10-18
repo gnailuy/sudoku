@@ -4,6 +4,7 @@ status: Active
 entry_points:
   - solver/move.go
   - game/contract.go
+  - game/hint_plan.go
   - api/openapi.yaml
 dependencies:
   - .aidoc/architecture/guidelines.md
@@ -26,6 +27,7 @@ The hint presentation protocol turns one solver recommendation into a portable t
 | `.aidoc/designs/hint-reference-plans.md` | Concrete placement and elimination teaching plans |
 | `solver/evidence.go` | Typed candidate, unit, elimination, and placement evidence |
 | `game/contract.go` | Engine hint preview and application boundary |
+| `game/hint_plan.go` | Hint-plan data model, deterministic identity, and family teaching composers |
 
 ## Why a Shared Teaching Contract Exists
 
@@ -98,7 +100,7 @@ Candidate hygiene is a correction plan rather than a strategy conclusion. Correc
 
 One read-only hint query returns the complete `HintPlan`. The client fetches that plan once; Next and Back navigate its ordered steps locally without another request or any puzzle, dirty-state, revision, or history change.
 
-Applying the conclusion is a separate player intent because the player may inspect and decline a hint, the state may change after preview, and one accepted conclusion must become one atomic undoable transition. Application reuses the existing engine action boundary and HTTP `POST /sessions/{id}/actions`; `apply-hint` is an action kind, not a dedicated endpoint or second mutation system. Value placement and note replacement remain the underlying state changes.
+Applying the conclusion is a separate player intent because the player may inspect and decline a hint, the state may change after preview, and one accepted conclusion must become one atomic undoable transition. Application reuses the engine action boundary: sealed guests post to `/api/v1/guest/games/actions`, while authenticated owners post to `/api/v1/account/games/{accountGameId}/actions`. `apply-hint` is an action kind, not a dedicated endpoint or second mutation system. Value placement and authoritative candidate replacement or elimination remain the underlying state changes.
 
 `plan_id` is derived from a canonical source-state digest, strategy ID, ordered evidence, and conclusion. Repeating a hint query against unchanged game state returns the same plan and IDs. An `apply-hint` action carries the previewed `plan_id`, allowing the engine to reject a changed source state or recomputed conclusion instead of applying a deduction different from the one taught. The HTTP revision remains the transport concurrency guard; `plan_id` is the engine identity shared by local and network clients.
 

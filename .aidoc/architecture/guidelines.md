@@ -50,11 +50,11 @@ Violations of these boundaries indicate a design problem.
 
 `game.Game` owns mutable session state and never exposes its internal boards. `game.Game.ProblemBoard`, `game.Game.PlayBoard`, and `game.Game.Snapshot` return detached values so frontend rendering cannot mutate the session accidentally.
 
-Player transitions enter through typed actions in `game/contract.go`. `game.Game.Apply` returns structured value and note changes, applied-hint metadata, and typed `game.EngineError` values; rejected actions leave the complete visible state unchanged. `cli.Controller` uses this boundary for set, clear, reset, repair, solve, hint, undo, and redo operations rather than calling command-shaped helpers.
+Player transitions enter through typed actions in `game/contract.go`. `game.Game.Apply` returns structured value and candidate changes, applied-hint metadata, and typed `game.EngineError` values; rejected actions leave the complete visible state unchanged. `cli.Controller` uses this boundary for set, clear, reset, repair, solve, hint, undo, and redo operations rather than calling command-shaped helpers.
 
-Manual notes are engine state rather than solver candidates. Value actions clear notes on the changed cell and remove the value from peer notes as one atomic transition. The unified history restores boards, invalid markers, and notes together, which prevents frontends from reconstructing note cleanup during undo or redo.
+The game owns one authoritative candidate grid. Value actions clear candidates on the changed cell and remove an accepted value from peer candidates in the same transition. The unified history restores boards, invalid markers, and candidate sets together, which prevents frontends from reconstructing cleanup during Undo or Redo.
 
-`game.Game.Hint` is a query even when a strategy solver uses candidate elimination internally. Hint search operates on a board copy. `game.ApplyHint` records either the recommended value or the exact strategy-derived eliminations from the previewed plan; elimination application reuses `core.Board.EliminateCandidate` and updates manual notes in the same history transition so later hints consume the deduction without treating player annotations as solver facts.
+`game.Game.Hint` is a query even when a strategy solver eliminates candidates internally. Hint search operates on a detached board constrained by the authoritative grid. `game.ApplyHint` records the exact value, complete candidate replacement, or candidate eliminations from the previewed plan as one history transition, so later hints consume the same state every client observes.
 
 ## Solver Interface Contract
 
@@ -65,6 +65,6 @@ Manual notes are engine state rather than solver candidates. Value actions clear
 ## Design Constraints
 
 - **Interface naming:** Types follow Go conventions. Examples: `Solver` (base interface), `StrategySolver`, `CompleteSolver`, `Base`, `Backtracker`, `Store`, `Move`, `Board`, `Game`, `Difficulty`, `Options`, `CandidateSet`.
-- **Candidate computation:** `Board.Candidates(pos)` computes value-derived candidates on the fly by scanning row, column, and box peers, then removes strategy-derived digits from the board's elimination layer. The `CandidateSet` bitfield type provides compact representation (`uint16`, bits 1–9) for both results and stored eliminations. `core.Board.EliminateCandidate` is the single authoritative mutation primitive for trusted solver progress; manual notes remain separate and cannot alter this layer. Strategy solvers and applied elimination hints reuse that primitive, while Undo/Redo and versioned game serialization preserve the resulting board state.
+- **Candidate boundaries:** `Board.Candidates(pos)` computes solver-local candidates from accepted values and the board's elimination layer. `game.Game` stores the player-visible authoritative `CandidateSet` grid, constrains a detached solver board from it for hints, and persists it with history. `core.Board.EliminateCandidate` remains the solver-board mutation primitive; frontends mutate game candidates only through typed engine actions.
 - **Error vs panic:** Methods called with invalid state from within the system `panic` (bug detection). Methods processing user input return errors. This split is intentional.
 - **Geometric distribution stop:** The generator uses `util.RandomBool(0.125)` to probabilistically stop cell removal after reaching the target clue range. This produces natural variation within a difficulty band.

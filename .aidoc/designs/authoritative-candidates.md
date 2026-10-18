@@ -26,7 +26,7 @@ The game owns one candidate grid. Players, strategies, persistence, and every fr
 
 ## Why One Grid Exists
 
-Separate notes and automatic candidates create two truths about the same empty cell. Hints then need adoption rules, applied eliminations must be copied between models, and a renderer can show a grid different from the state the solver uses. One authoritative grid removes that ambiguity.
+Separate annotation and solver-candidate models create two truths about the same empty cell. Hints then need adoption rules, applied eliminations must be copied between models, and a renderer can show a grid different from the state the solver uses. One authoritative grid removes that ambiguity.
 
 A new or restarted game initializes every editable empty cell to its legal candidates under the givens. `SetCandidates` replaces one complete cell set as an atomic player action. Accepted value placement clears the target and removes that digit from candidate peers; invalid visible input clears only its occupied target and never constrains peers. Undo, Redo, reset, restart, save, and restore preserve the exact grid.
 
@@ -56,8 +56,8 @@ Visibility is renderer state rather than game data. The web may persist the mask
 
 A fixed 3×3 mini-grid renders each candidate. Correction scenes distinguish the problematic cell, any locally impossible digits, and the complete locally legal replacement without relying on color alone. The scene never singles out a solution-supporting digit. Filled, given, and invalid-visible cells render their value instead of candidates.
 
-The line CLI uses the same authoritative candidate state and dense candidate renderer. Its existing `note` aliases remain command vocabulary for candidate toggles, but they submit `SetCandidates`; no second note model exists.
+The line CLI preserves the same authoritative candidate state but deliberately renders only values and exposes no candidate-editing commands. `hint` prints and immediately applies one exact plan; candidate corrections and eliminations use a compact capability message, mutate the hidden shared grid, and stop so the next `hint` continues from that state. The TUI and HTTP clients expose the complete candidate surface.
 
 ## Verification
 
-Engine tests prove initialization, direct edits, peer cleanup, invalid-value isolation, exact undo/redo, version-3 round trips, full-cell candidate reset, preservation of valid reduced sets, correction priority, deterministic correction identity, stale rejection, and strategy selection against the candidate grid. TUI, CLI, API, and browser tests prove the single wire/state shape, visibility-only toggles, correction rendering, exact application, and persistence across ownership modes.
+Engine tests prove initialization, direct edits, peer cleanup, invalid-value isolation, exact undo/redo, current-shape round trips, full-cell candidate reset, preservation of valid reduced sets, correction priority, deterministic correction identity, stale rejection, and strategy selection against the candidate grid. TUI, CLI, API, and browser tests prove the single wire/state shape, visibility-only toggles, compact CLI degradation, correction rendering, exact application, and persistence across ownership modes.

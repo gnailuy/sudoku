@@ -7,7 +7,6 @@ entry_points:
   - db/puzzle.go
   - solver/classify.go
 dependencies:
-  - .aidoc/designs/roadmap.md
   - .aidoc/designs/database-concurrency.md
   - .aidoc/designs/difficulty-calibration.md
   - .aidoc/designs/web-api.md
@@ -21,14 +20,13 @@ This document is the only backend location for deliberately deferred product and
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/roadmap.md` | Approved portable build and deployment sequence |
 | `.aidoc/designs/web-api.md` | Current client-neutral API and trust boundary |
 | `.aidoc/designs/database-concurrency.md` | Maintained local SQLite reliability baseline |
 | `.aidoc/designs/difficulty-calibration.md` | Current deterministic strategy-grade evidence |
 
 ## Product Expansion
 
-Possible product directions beyond the approved account milestone include shared games, collaboration, localization, native mobile clients, additional identity providers, and player-facing social features. `.aidoc/designs/user-accounts.md` is the canonical source for the active identity, guest, ownership, and cloud-continuity boundary.
+Possible product directions beyond the implemented account boundary include shared games, collaboration, localization, native mobile clients, additional identity providers, and player-facing social features. `.aidoc/designs/user-accounts.md` is the canonical source for current identity, guest, ownership, and cloud-continuity behavior.
 
 The TypeScript browser client remains a separate repository. This Go repository stays client-neutral unless a reviewed capability is shared by multiple clients and belongs in the engine or API.
 
@@ -36,7 +34,7 @@ The TypeScript browser client remains a separate repository. This Go repository 
 
 The portable deployment milestone deliberately excludes availability objectives, zero-downtime replacement, monitoring platforms, scheduled browser checks, backup drills, and release-management frameworks. A concrete operational failure or recovery requirement must justify any addition and define a proportionate acceptance test.
 
-Public multi-user hosting requires account-scoped authorization, rate limits, abuse controls, tenant-safe observability, privacy and retention policy, capacity objectives, and multi-tenant recovery. Network filesystems, distributed databases, active-active replicas, and multi-region recovery likewise need measured availability or scale requirements; the current local SQLite and single-host contract does not imply support.
+Public multi-user hosting beyond the current owner-scoped authorization boundary requires explicit rate limits, abuse controls, tenant-safe observability, privacy and retention policy, capacity objectives, and multi-tenant recovery. Network filesystems, distributed databases, active-active replicas, and multi-region recovery likewise need measured availability or scale requirements; the current local SQLite and single-host contract does not imply support.
 
 ## Evidence-Gated Database Work
 
@@ -54,4 +52,4 @@ Human observations may support a separately named player-difficulty model. Such 
 
 ## Decision Gate
 
-Deferred work becomes a roadmap candidate only when a concrete user or workload establishes ownership, threat model, data lifecycle, compatibility expectations, measurable acceptance criteria, and test strategy. Until then, the maintained product and portable deployment roadmap remains unchanged.
+A direction becomes approved work only when a concrete user or workload establishes ownership, threat model, data lifecycle, compatibility expectations, measurable acceptance criteria, and test strategy. Until then, this document records only the evidence gate; it does not create a delivery commitment or priority.

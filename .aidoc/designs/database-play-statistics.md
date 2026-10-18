@@ -30,7 +30,6 @@ The database keeps completion and acquisition histories as separate concepts, ex
 | `.aidoc/designs/game-engine.md` | Solved status and typed actions used to detect completion |
 | `.aidoc/designs/e2e-database-scenarios.md` | Black-box statistics and reset acceptance scenarios |
 | `.aidoc/designs/database-concurrency.md` | Mixed-workload snapshot/reset contention and lock bounds |
-| `.aidoc/designs/roadmap.md` | Approved project priorities and maintained quality gates |
 
 ## Why Completion Is Separate From Acquisition
 

@@ -11,10 +11,6 @@ entry_points:
 dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/game-engine.md
-### 4.11 Replenish and Resume an Exact-Grade Batch
-**Action:** Import the repository-owned mixed Expert fixtures into an isolated catalog, run `sudoku replenish` with a fixed seed and classification budget, then rerun the exact command and state file.
-**Expected:** The first run adds one exact-Expert puzzle with derivation provenance in one complete publication. The second reports the already-complete state without adding another row. The catalog remains valid and normal generation/play behavior is unchanged.
-
 ---
 
 # E2E Generation Scenarios
@@ -74,4 +70,6 @@ Generation combines probabilistic puzzle construction with deterministic command
 **Action:** Execute the fixed one-sample manifest in `scripts/e2e_cli.py` through `sudoku experiment generation`, then execute the same command again against the same output directory.
 **Expected:** The first run records one baseline and one candidate observation under equal budgets. The second run appends zero observations, preserves the complete two-arm report, and never creates or opens a puzzle database.
 
----
+### 4.11 Replenish and Resume an Exact-Grade Batch
+**Action:** Import the repository-owned mixed Expert fixtures into an isolated catalog, run `sudoku replenish` with a fixed seed and classification budget, then rerun the exact command and state file.
+**Expected:** The first run adds one exact-Expert puzzle with derivation provenance in one complete publication. The second reports the already-complete state without adding another row. The catalog remains valid and normal generation/play behavior is unchanged.
