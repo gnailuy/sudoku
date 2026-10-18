@@ -18,7 +18,6 @@ The optional full-screen terminal interface is the smallest second frontend for 
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/roadmap.md` | Approved project priorities and sequencing |
 | `.aidoc/designs/game-engine.md` | Canonical actions, snapshots, hints, notes, and serialization |
 | `.aidoc/designs/cli-sessions.md` | Existing CLI behavior and explicit persistence policy |
 | `.aidoc/designs/e2e-tui-scenarios.md` | Black-box compatibility and TUI scenarios |
@@ -31,15 +30,15 @@ The existing CLI remains valuable for scripts, redirected input, and minimal ter
 
 ## Interaction Model
 
-The TUI presents one focused cell, the board, game status, the authoritative cumulative Mistakes count, available history, a concise key guide, and a message area. When focus rests on a placed digit, the status names that active digit, every equal placed value receives a strong match treatment, and that digit is emphasized inside visible candidate cells without coloring the whole cell. A digit with all nine valid placements uses a quieter completed treatment. Arrow keys and `h`/`j`/`k`/`l` move focus within the board without wrapping. Digit keys set values in value mode and toggle manual notes in note mode; `0`, Backspace, or Delete clears the focused value or its notes according to the active mode.
+The TUI presents one focused cell, the board, game status, the authoritative cumulative Mistakes count, available history, a concise key guide, and a message area. When focus rests on a placed digit, the status names that active digit, every equal placed value receives a strong match treatment, and that digit is emphasized inside visible candidate cells without coloring the whole cell. A digit with all nine valid placements uses a quieter completed treatment. Arrow keys and `h`/`j`/`k`/`l` move focus within the board without wrapping. Digit keys set values in value mode and toggle the authoritative candidate set in candidate mode; `0`, Backspace, or Delete clears the focused value or candidate set according to the active mode.
 
 The following global actions remain available when no modal is open:
 
-- `n` toggles value and note input without changing candidate visibility; note input edits the one authoritative candidate set;
+- `n` toggles value and candidate input without changing candidate visibility; candidate input edits the one authoritative set;
 - `a` shows every editable candidate cell or hides every candidate cell without mutating or dirtying the session;
-- the first note digit in a hidden cell reveals only that cell and replaces its stored set from an empty visible baseline, while note input in a visible cell edits the complete displayed set;
+- the first candidate digit in a hidden cell reveals only that cell and replaces its stored set from an empty visible baseline, while candidate input in a visible cell edits the complete displayed set;
 - `u` and `r` submit undo and redo;
-- `i` requests a hint preview and reveals automatic candidates before its first step; Left/Right or `h`/`l` navigate the retained steps locally, Enter applies the exact plan, and Esc cancels it while leaving candidates visible;
+- `i` requests a hint preview and reveals candidates before its first step; Left/Right or `h`/`l` navigate the retained steps locally, Enter applies the exact plan, and Esc cancels it while leaving candidates visible;
 - `?` opens a compact keyboard-help overlay;
 - `c` checks the current status without mutating the game;
 - `R` resets after confirmation;

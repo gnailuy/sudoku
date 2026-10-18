@@ -7,7 +7,6 @@ entry_points:
   - game/serialization.go
 dependencies:
   - .aidoc/architecture/guidelines.md
-  - .aidoc/designs/roadmap.md
   - .aidoc/designs/e2e-play-scenarios.md
 ---
 
@@ -20,8 +19,7 @@ dependencies:
 | Document | Relationship |
 |----------|-------------|
 | `.aidoc/architecture/guidelines.md` | Current package boundaries that the engine must preserve |
-| `.aidoc/designs/roadmap.md` | Approved project priorities and sequencing |
-| `.aidoc/designs/hint-presentation-protocol.md` | Approved renderer-neutral replacement for the current hint shape |
+| `.aidoc/designs/hint-presentation-protocol.md` | Current renderer-neutral hint-plan and exact-application contract |
 | `.aidoc/designs/e2e-play-scenarios.md` | Black-box CLI behavior that must remain compatible |
 
 ## Why the Engine Boundary Exists
