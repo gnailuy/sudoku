@@ -40,8 +40,8 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 **Expected:** The centered board uses clean digits, fixed-position notes, strong 3×3 boundaries, a strong focus background, and subtle peer backgrounds. A small terminal displays only the minimum-size instruction; resizing restores the unchanged game.
 
 ### 9.2 Values, Candidates, and History
-**Action:** Move with arrows or `h`/`j`/`k`/`l`, enter a value, toggle note input with `n`, edit a hidden candidate cell, reveal all candidates with `a`, edit a visible candidate cell, then use `u` and `r`.
-**Expected:** Focus stops at board edges. The hidden-cell edit reveals only that cell and replaces its stored set from an empty baseline; the visible-cell edit starts from its complete displayed set. Keys submit complete candidate actions against one grid, peer cleanup follows accepted values, and Undo/Redo restore whole game transitions without changing the presentation mask.
+**Action:** Move with arrows or `h`/`j`/`k`/`l`, focus a placed digit, enter a value, toggle note input with `n`, edit a hidden candidate cell, reveal all candidates with `a`, edit a visible candidate cell, then use `u` and `r`.
+**Expected:** Focus stops at board edges. Focusing a placed digit names it in the status, strongly emphasizes equal placed values, and emphasizes only that digit inside visible candidate cells; a digit with all nine valid placements is dimmed. Invalid values and hint scenes remain higher priority. The hidden-cell edit reveals only that cell and replaces its stored set from an empty baseline; the visible-cell edit starts from its complete displayed set. Keys submit complete candidate actions against one grid, peer cleanup follows accepted values, and Undo/Redo restore whole game transitions without changing the presentation mask.
 
 ### 9.3 Help, Every-Strategy Hint Navigation, and Apply
 **Action:** Start with automatic candidates hidden, press `?`, inspect and close the keyboard-help overlay, press `i`, navigate Back and Next with Left/Right or `h`/`l`, then press Enter; separately cancel a preview with Esc. Run `scripts/e2e_tui_hint_strategies.py` against the built binary to repeat preview, local step navigation, and apply over the maintained complete-game manifest until each of the 23 registered strategies is reached.
@@ -57,7 +57,7 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 
 ### 9.6 Themes and No-Color Accessibility
 **Action:** Start the known puzzle with the default environment, `SUDOKU_THEME=light`, and `NO_COLOR=1`.
-**Expected:** Dark and light runs use their deterministic palettes. The no-color run emits no color codes while bold givens, underlined invalid values, reverse-video focus, faint peers and globally revealed candidates, visible cell-level notes, clean digits, and heavy box boundaries preserve semantic distinctions.
+**Expected:** Dark and light runs use their deterministic palettes. The no-color run emits no color codes while bold givens and matching values, underlined invalid values and matching visible candidate digits, reverse-video focus, faint peers, completed-digit context and globally revealed candidates, visible cell-level notes, clean digits, and heavy box boundaries preserve semantic distinctions.
 
 ### 9.7 Candidate Visibility Toggle
 **Action:** Start TUI, press `a`, and press `a` again.
