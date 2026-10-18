@@ -3,10 +3,9 @@ domain: Designs
 status: Active
 entry_points:
   - scripts/e2e_cli.py
-  - scripts/e2e_hint_strategies.py
-  - scripts/e2e_full_game_hints.py
   - scripts/e2e_tui.py
   - scripts/e2e_tui_hint_strategies.py
+  - scripts/e2e_tui_full_game_hints.py
   - scripts/e2e_api.py
 dependencies:
   - .aidoc/INDEX.md
@@ -24,7 +23,7 @@ The E2E index maps every black-box acceptance boundary to a focused scenario cat
 |----------|-------------|
 | `.aidoc/INDEX.md` | Project discovery index and reading chains |
 | `.aidoc/designs/game-engine.md` | Engine actions and state exposed through frontends |
-| `.aidoc/designs/cli-sessions.md` | Manual-note rendering and persistence transport contract |
+| `.aidoc/designs/cli-sessions.md` | Compact line-CLI and persistence transport contract |
 | `.aidoc/designs/web-api.md` | HTTP lifecycle, security, and contract boundary |
 | `AGENT.md` | Required verification discipline for feature and bug-fix PRs |
 
@@ -36,18 +35,18 @@ End-to-end tests treat the built Sudoku binary as a user would, outside Go packa
 
 | Boundary | Scenario document | Automated entry point |
 |----------|-------------------|-----------------------|
-| Root play and game commands | `.aidoc/designs/e2e-play-scenarios.md` | `scripts/e2e_cli.py`, `scripts/e2e_hint_strategies.py`, and `scripts/e2e_full_game_hints.py` |
+| Root play and game commands | `.aidoc/designs/e2e-play-scenarios.md` | `scripts/e2e_cli.py` |
 | Calibration | `.aidoc/designs/e2e-calibration-scenarios.md` | `scripts/e2e_cli.py` |
 | Puzzle generation | `.aidoc/designs/e2e-generation-scenarios.md` | `scripts/e2e_cli.py` |
 | Puzzle import | `.aidoc/designs/e2e-import-scenarios.md` | `scripts/e2e_cli.py` |
 | Database composition, acquisition, and play statistics | `.aidoc/designs/e2e-database-scenarios.md` | `scripts/e2e_cli.py`, `scripts/e2e_tui.py`, and `scripts/e2e_api.py` |
-| Notes and durable CLI sessions | `.aidoc/designs/e2e-session-scenarios.md` | `scripts/e2e_cli.py` |
-| Full-screen TUI and recovery | `.aidoc/designs/e2e-tui-scenarios.md` | `scripts/e2e_tui.py` and `scripts/e2e_tui_hint_strategies.py` |
+| Durable CLI sessions | `.aidoc/designs/e2e-session-scenarios.md` | `scripts/e2e_cli.py` |
+| Full-screen TUI and recovery | `.aidoc/designs/e2e-tui-scenarios.md` | `scripts/e2e_tui.py`, `scripts/e2e_tui_hint_strategies.py`, and `scripts/e2e_tui_full_game_hints.py` |
 | HTTP API lifecycle | `.aidoc/designs/e2e-api-scenarios.md` | `scripts/e2e_api.py` and `scripts/check-api-contract.sh` |
 
 ## Automation and Isolation
 
-Every automated black-box entry point builds or receives the repository binary and owns isolated temporary XDG roots. `scripts/e2e_cli.py` covers root play, sessions, calibration, generation, import, and SQLite composition. `scripts/e2e_hint_strategies.py` drives complete valid games through repeated line-CLI preview/apply commands until every registered strategy is observed and applied. `scripts/e2e_full_game_hints.py` solves the smallest maintained fixture subset whose combined complete traces cover the exact 23-strategy registry, proving beginning-to-end completion rather than stopping at the target technique. `scripts/e2e_tui.py` owns general pseudo-terminal behavior and recovery; `scripts/e2e_tui_hint_strategies.py` drives the same maintained 23-case manifest through TUI preview, local step navigation, and exact application. `scripts/e2e_api.py` owns the running HTTP lifecycle, while `scripts/check-api-contract.sh` validates OpenAPI compatibility.
+Every automated black-box entry point builds or receives the repository binary and owns isolated temporary XDG roots. `scripts/e2e_cli.py` covers compact root play, placement hints, candidate-hint redirection, sessions, calibration, generation, import, and SQLite composition. `scripts/e2e_tui.py` owns general pseudo-terminal behavior and recovery; `scripts/e2e_tui_hint_strategies.py` drives the maintained 23-case manifest through TUI preview, local step navigation, and exact application, while `scripts/e2e_tui_full_game_hints.py` solves the maintained minimum corpus through the same public controls. `scripts/e2e_api.py` owns the running HTTP lifecycle, while `scripts/check-api-contract.sh` validates OpenAPI compatibility.
 
 The harnesses use fixed puzzle fixtures whenever deterministic assertions matter. Generation smoke tests bound real generation and verify command, worker, and database composition without asserting a random difficulty result. The public `--from-db` boundary provides deterministic exact-grade acquisition and migration coverage; focused package tests cover generated-fallback accounting. Play-statistics coverage spans the line CLI, TUI, and API so completion semantics cannot drift between frontends.
 

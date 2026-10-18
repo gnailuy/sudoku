@@ -83,9 +83,6 @@ func writeColumnNumbers(result *strings.Builder) {
 func (ctrl *Controller) PrintBoard() { fmt.Print(renderBoard(ctrl.game.Snapshot())) }
 
 func renderBoard(snapshot game.Snapshot) string {
-	if snapshotHasNotes(snapshot) {
-		return renderNoteBoard(snapshot)
-	}
 	var result strings.Builder
 	result.WriteByte('\n')
 	writeColumnNumbers(&result)
@@ -113,83 +110,18 @@ func renderBoard(snapshot game.Snapshot) string {
 	return result.String()
 }
 
-func snapshotHasNotes(snapshot game.Snapshot) bool {
-	for row := range snapshot.Candidates {
-		for column := range snapshot.Candidates[row] {
-			if !snapshot.Candidates[row][column].IsEmpty() {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func renderNoteBoard(snapshot game.Snapshot) string {
-	var result strings.Builder
-	result.WriteString("\n        1   2   3     4   5   6     7   8   9\n")
-	separator := "    +-----------+-----------+-----------+\n"
-	for row := 0; row < 9; row++ {
-		if row%3 == 0 {
-			result.WriteString(separator)
-		}
-		for candidateRow := 0; candidateRow < 3; candidateRow++ {
-			if candidateRow == 1 {
-				fmt.Fprintf(&result, " %d  |", row+1)
-			} else {
-				result.WriteString("    |")
-			}
-			for column := 0; column < 9; column++ {
-				if column > 0 && column%3 == 0 {
-					result.WriteByte('|')
-				}
-				result.WriteString(noteCellLine(snapshot, row, column, candidateRow))
-				if column%3 != 2 {
-					result.WriteByte(' ')
-				}
-			}
-			if candidateRow == 1 {
-				fmt.Fprintf(&result, "|  %d\n", row+1)
-			} else {
-				result.WriteString("|\n")
-			}
-		}
-	}
-	result.WriteString(separator)
-	result.WriteString("        1   2   3     4   5   6     7   8   9\n\n")
-	return result.String()
-}
-
-func noteCellLine(snapshot game.Snapshot, row, column, candidateRow int) string {
-	if value := snapshot.Values[row][column]; value != 0 {
-		if candidateRow == 1 {
-			return fmt.Sprintf(" %d ", value)
-		}
-		return "   "
-	}
-	result := [3]byte{' ', ' ', ' '}
-	for candidateColumn := 0; candidateColumn < 3; candidateColumn++ {
-		candidate := candidateRow*3 + candidateColumn + 1
-		if snapshot.Candidates[row][column].Has(candidate) {
-			result[candidateColumn] = byte('0' + candidate)
-		}
-	}
-	return string(result[:])
-}
-
 // PrintHelp displays the available commands.
 func (ctrl *Controller) PrintHelp() {
 	fmt.Println("Supported commands:")
 	fmt.Println("  - help, h                        : Print this help message.")
 	fmt.Println("  - add, a <row> <column> <value> : Add the value to the cell at (row, column).")
 	fmt.Println("  - clear, d <row> <column>       : Clear the value in a cell at (row, column).")
-	fmt.Println("  - note, n <row> <column> <value>: Toggle a note in an empty cell.")
-	fmt.Println("  - notes-clear, x <row> <column> : Clear all notes in an empty cell.")
 	fmt.Println("  - save <path>                   : Save the complete session atomically.")
 	fmt.Println("  - check, c                      : Check if the current board is correct.")
 	fmt.Println("  - undo, u                       : Undo last move.")
 	fmt.Println("  - redo, r                       : Redo last undo.")
 	fmt.Println("  - repair, f                     : Undo all invalid inputs.")
-	fmt.Println("  - hint, i                       : Preview a teaching hint without changing the game.")
+	fmt.Println("  - hint, i                       : Preview a placement hint; candidate work uses the TUI.")
 	fmt.Println("  - hint apply                   : Apply the exact previewed hint as one action.")
 	fmt.Println("  - hint cancel                  : Discard the previewed hint.")
 	fmt.Println("  - solve, s                      : Solve the problem for me.")
@@ -254,38 +186,6 @@ func (ctrl *Controller) runClearCommand(arguments string) (bool, error) {
 	return ctrl.setValue(values[0], values[1], 0)
 }
 
-func (ctrl *Controller) runNoteCommand(arguments string) (bool, error) {
-	values, err := parseDigitArguments(arguments, 3)
-	if err != nil {
-		return false, err
-	}
-	position, err := core.NewPositionFromInput(values[0], values[1])
-	if err != nil {
-		return false, fmt.Errorf("error in the input position: %w", err)
-	}
-	notes := ctrl.game.Snapshot().Candidates[position.Row][position.Column]
-	if notes.Has(values[2]) {
-		notes.Remove(values[2])
-	} else {
-		notes.Add(values[2])
-	}
-	_, err = ctrl.apply(game.SetCandidates{Position: *position, Values: notes.Values()})
-	return err == nil, err
-}
-
-func (ctrl *Controller) runClearNotesCommand(arguments string) (bool, error) {
-	values, err := parseDigitArguments(arguments, 2)
-	if err != nil {
-		return false, err
-	}
-	position, err := core.NewPositionFromInput(values[0], values[1])
-	if err != nil {
-		return false, fmt.Errorf("error in the input position: %w", err)
-	}
-	_, err = ctrl.apply(game.SetCandidates{Position: *position})
-	return err == nil, err
-}
-
 func (ctrl *Controller) runSaveCommand(path string) (bool, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -335,40 +235,39 @@ func formatHintNarration(step game.HintStep, compact bool) string {
 	return result.String()
 }
 
-func formatHintPlan(plan game.HintPlan) string {
-	var result strings.Builder
-	result.WriteString("Hint preview\n")
-	fmt.Fprintf(&result, "Strategy: %s (%s)\n", plan.Strategy.DisplayName, plan.Strategy.Grade)
-	fmt.Fprintf(&result, "Summary: %s\n", plan.Summary)
-	result.WriteString("Steps:\n")
-	for index, step := range plan.Steps {
-		fmt.Fprintf(&result, "  %d. [%s] %s\n", index+1, step.Kind, formatHintNarration(step, false))
+const candidateHintLimitation = "This hint needs candidate work that the compact CLI does not display. Use `sudoku tui` for the full hint."
+
+func formatPlacementHint(plan game.HintPlan) string {
+	placement := plan.Conclusion.Placement
+	if placement == nil {
+		return candidateHintLimitation + "\n"
 	}
-	fmt.Fprintf(&result, "Conclusion: %s\n", hintConclusionText(plan))
+	var result strings.Builder
+	reason := plan.Summary
+	if len(plan.Steps) > 0 {
+		reason = formatHintNarration(plan.Steps[len(plan.Steps)-1], false)
+	}
+	fmt.Fprintf(&result, "Hint: %s\n", reason)
+	fmt.Fprintf(&result, "Placement: row %d, column %d = %d.\n", placement.Position.Row+1, placement.Position.Column+1, placement.Value)
 	result.WriteString("Run `hint apply` to accept this plan or `hint cancel` to discard it.\n")
 	return result.String()
-}
-
-func hintConclusionText(plan game.HintPlan) string {
-	if placement := plan.Conclusion.Placement; placement != nil {
-		return fmt.Sprintf("Place %d at r%dc%d.", placement.Value, placement.Position.Row+1, placement.Position.Column+1)
-	}
-	parts := make([]string, len(plan.Conclusion.Eliminations))
-	for index, elimination := range plan.Conclusion.Eliminations {
-		parts[index] = fmt.Sprintf("%d from r%dc%d", elimination.Value, elimination.Position.Row+1, elimination.Position.Column+1)
-	}
-	return "Remove candidate " + strings.Join(parts, ", ") + "."
 }
 
 func (ctrl *Controller) runHintCommand(arguments string) bool {
 	switch strings.TrimSpace(arguments) {
 	case "":
-		ctrl.hintPlan = ctrl.game.Hint()
-		if ctrl.hintPlan == nil {
+		plan := ctrl.game.Hint()
+		if plan == nil {
 			printError("Failed to preview hint:", "no hint is available")
 			return false
 		}
-		fmt.Print(formatHintPlan(*ctrl.hintPlan))
+		if plan.Conclusion.Placement == nil {
+			ctrl.hintPlan = nil
+			fmt.Println(candidateHintLimitation)
+			return false
+		}
+		ctrl.hintPlan = plan
+		fmt.Print(formatPlacementHint(*plan))
 		return false
 	case "apply":
 		if ctrl.hintPlan == nil {
@@ -404,10 +303,6 @@ func (ctrl *Controller) runCommandWithArguments(name, arguments string) (bool, e
 		return ctrl.runAddCommand(arguments)
 	case "clear", "d":
 		return ctrl.runClearCommand(arguments)
-	case "note", "n":
-		return ctrl.runNoteCommand(arguments)
-	case "notes-clear", "x":
-		return ctrl.runClearNotesCommand(arguments)
 	case "save":
 		return ctrl.runSaveCommand(arguments)
 	default:
@@ -432,7 +327,7 @@ func (ctrl *Controller) RunCommand(command string) bool {
 	switch name {
 	case "help", "h":
 		ctrl.PrintHelp()
-	case "add", "a", "clear", "d", "note", "n", "notes-clear", "x", "save":
+	case "add", "a", "clear", "d", "save":
 		success, err := ctrl.runCommandWithArguments(name, arguments)
 		if err != nil {
 			printError("Failed to run the", name, "command:", userFacingError(err))

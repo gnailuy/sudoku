@@ -55,8 +55,8 @@ func TestHintPreviewApplyAndCancel(t *testing.T) {
 	if controller.hintPlan == nil || controller.game.Snapshot() != before {
 		t.Fatal("hint preview was not retained read-only")
 	}
-	formatted := formatHintPlan(*controller.hintPlan)
-	for _, marker := range []string{"Strategy:", "Summary:", "Steps:", "1. [", "Conclusion:", "hint apply", "hint cancel"} {
+	formatted := formatPlacementHint(*controller.hintPlan)
+	for _, marker := range []string{"Hint:", "Placement:", "hint apply", "hint cancel"} {
 		if !strings.Contains(formatted, marker) {
 			t.Fatalf("formatted hint missing %q:\n%s", marker, formatted)
 		}
@@ -104,40 +104,41 @@ func TestNoOpAndFailedActionPreserveCachedHintPlan(t *testing.T) {
 	}
 }
 
-func TestHintConclusionTextSupportsEliminations(t *testing.T) {
-	plan := game.HintPlan{Conclusion: game.HintConclusion{Eliminations: []solver.CandidateRef{
-		{Position: core.NewPosition(0, 1), Value: 3},
-		{Position: core.NewPosition(1, 1), Value: 3},
-	}}}
-	if got := hintConclusionText(plan); got != "Remove candidate 3 from r1c2, 3 from r2c2." {
-		t.Fatalf("elimination conclusion=%q", got)
-	}
-}
-
-func TestCandidateCommandsAndRendering(t *testing.T) {
+func TestCandidateWorkRemainsHiddenAndUsesTUI(t *testing.T) {
 	controller := newTestController(t)
-	before := controller.game.Snapshot().Candidates[0][0]
-	if !controller.RunCommand("note 1 1 1") || !controller.RunCommand("n 1 1 9") {
-		t.Fatal("candidate commands did not report a board change")
+	initial := controller.game.Snapshot()
+	if controller.RunCommand("note 1 1 1") || controller.game.Snapshot() != initial {
+		t.Fatal("removed line-CLI note command changed the game")
 	}
-	snapshot := controller.game.Snapshot()
-	if snapshot.Candidates[0][0].Has(1) == before.Has(1) || snapshot.Candidates[0][0].Has(9) == before.Has(9) {
-		t.Fatal("candidates were not toggled")
+	position := core.NewPosition(0, 0)
+	if _, err := controller.game.Apply(game.SetCandidates{Position: position, Values: []int{1}}); err != nil {
+		t.Fatal(err)
 	}
-	rendered := renderBoard(snapshot)
-	if !strings.Contains(rendered, "+-----------+") {
-		t.Fatalf("candidate board was not rendered:\n%s", rendered)
+	before := controller.game.Snapshot()
+	if strings.Contains(renderBoard(before), "+-----------+") {
+		t.Fatal("line CLI rendered candidate cells instead of the compact value board")
 	}
-	if !controller.RunCommand("x 1 1") || !controller.game.Snapshot().Candidates[0][0].IsEmpty() {
-		t.Fatal("candidate clear did not clear the cell")
+	if controller.RunCommand("hint") {
+		t.Fatal("candidate correction hint changed the game")
+	}
+	if controller.hintPlan != nil || controller.game.Snapshot() != before {
+		t.Fatal("candidate correction hint was cached or mutated hidden state")
+	}
+	plan := game.HintPlan{Conclusion: game.HintConclusion{Eliminations: []solver.CandidateRef{{Position: core.NewPosition(0, 1), Value: 3}}}}
+	if got := formatPlacementHint(plan); got != candidateHintLimitation+"\n" {
+		t.Fatalf("candidate hint text=%q", got)
 	}
 }
 
 func TestSaveCommandRoundTrip(t *testing.T) {
 	controller := newTestController(t)
 	before := controller.game.Snapshot().Candidates[0][0].Has(5)
-	if !controller.RunCommand("n 1 1 5") {
-		t.Fatal("candidate command failed")
+	values := []int{5}
+	if before {
+		values = nil
+	}
+	if _, err := controller.game.Apply(game.SetCandidates{Position: core.NewPosition(0, 0), Values: values}); err != nil {
+		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "saved.json")
 	if controller.RunCommand("save " + path) {

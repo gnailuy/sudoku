@@ -249,7 +249,7 @@ def main():
         )
 
         # Real line-controller lifecycle: invalid state, repair, values, clear,
-        # history, hint metadata, reset, notes, and clean quit.
+        # history, compact placement hints, reset, and clean quit.
         commands = "\n".join(
             [
                 "1 1 5",
@@ -259,11 +259,10 @@ def main():
                 "clear 1 1",
                 "undo",
                 "redo",
-                "note 1 1 1",
-                "notes-clear 1 1",
                 "hint",
                 "hint apply",
                 "reset",
+                "help",
                 "q",
                 "",
             ]
@@ -272,13 +271,31 @@ def main():
         contains(
             output,
             "You have entered incorrect value(s).",
-            "Hint preview",
-            "Strategy:",
-            "Steps:",
-            "Conclusion:",
+            "Hint:",
+            "Placement:",
             "Applied hint:",
             "Exiting the game.",
         )
+        excludes(output, "note, n", "notes-clear")
+
+        # Candidate-only deductions stay read-only and direct the player to the TUI.
+        hint_cases = json.loads(
+            (Path(__file__).resolve().parents[1] / "game" / "testdata" / "hint_strategy_games.json").read_text(encoding="utf-8")
+        )["cases"]
+        candidate_case = next(case for case in hint_cases if case["strategy"] == "naked-pair")
+        output = run(
+            binary,
+            ["--input", candidate_case["puzzle"]],
+            root,
+            ("hint\nhint apply\n" * 128) + "q\n",
+        )
+        contains(
+            output,
+            "This hint needs candidate work that the compact CLI does not display.",
+            "Use `sudoku tui` for the full hint.",
+            "Exiting the game.",
+        )
+        excludes(output, "+-----------+")
 
         # A successful non-hint mutation explicitly discards the preview so a
         # stale plan cannot remain available for a later apply attempt.
@@ -310,13 +327,13 @@ def main():
             "Congratulations! You have solved the problem.",
         )
 
-        # Durable sessions preserve notes, invalid values, and redo history.
+        # Durable sessions preserve invalid values and redo history.
         session = root / "session.json"
         output = run(
             binary,
             ["--input", PUZZLE_DOTS],
             root,
-            f"note 1 2 1\n1 1 5\n1 1 4\nu\nsave {session}\nq\n",
+            f"1 1 5\n1 1 4\nu\nsave {session}\nq\n",
         )
         contains(output, f"Session saved to {session}.")
         if stat.S_IMODE(session.stat().st_mode) != 0o600:

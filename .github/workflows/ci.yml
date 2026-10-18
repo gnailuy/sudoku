@@ -115,6 +115,7 @@ jobs:
           go build -o sudoku .
           python3 scripts/e2e_tui.py ./sudoku
           python3 scripts/e2e_tui_hint_strategies.py ./sudoku
+          python3 scripts/e2e_tui_full_game_hints.py ./sudoku
 
   cli-e2e:
     runs-on: ubuntu-latest
@@ -130,8 +131,6 @@ jobs:
         run: |
           go build -o sudoku .
           python3 scripts/e2e_cli.py ./sudoku
-          python3 scripts/e2e_hint_strategies.py ./sudoku
-          python3 scripts/e2e_full_game_hints.py ./sudoku
 
   lint:
     runs-on: ubuntu-latest
