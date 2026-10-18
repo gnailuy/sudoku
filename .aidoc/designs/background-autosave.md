@@ -20,7 +20,6 @@ Background autosave protects active TUI games from process, terminal, and host f
 
 | Document | Relationship |
 |----------|-------------|
-| `.aidoc/designs/roadmap.md` | Approved project priorities and sequencing |
 | `.aidoc/designs/game-engine.md` | Canonical serialized gameplay state restored from recovery data |
 | `.aidoc/designs/tui-frontend.md` | Event-loop, dirty-state, modal, and explicit-save behavior |
 | `.aidoc/designs/cli-sessions.md` | Existing atomic transport and player-owned save contract |

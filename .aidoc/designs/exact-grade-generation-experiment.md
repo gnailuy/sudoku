@@ -25,7 +25,6 @@ The offline Expert/Evil catalog replenisher uses deterministic exact-seed clue a
 | `.aidoc/designs/difficulty-model.md` | Canonical strategy grades and within-grade score contract |
 | `.aidoc/designs/database-catalog.md` | Symmetry-canonical identity and source provenance |
 | `.aidoc/designs/database-puzzle-selection.md` | Current catalog acquisition and fallback behavior |
-| `.aidoc/designs/roadmap.md` | Approved product scope and delivery boundaries |
 
 ## Why Offline Replenishment Is the Product Boundary
 

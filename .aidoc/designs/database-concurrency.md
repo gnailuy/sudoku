@@ -22,7 +22,6 @@ Sudoku treats one SQLite file as a safe local coordination boundary for concurre
 | `.aidoc/designs/database-puzzle-selection.md` | Defines atomic exact-grade acquisition and balanced reuse |
 | `.aidoc/designs/database-play-statistics.md` | Defines completion, snapshot, and atomic reset semantics |
 | `.aidoc/designs/e2e-database-scenarios.md` | Owns black-box multi-process acceptance scenarios |
-| `.aidoc/designs/roadmap.md` | Maintains the quality gates that protect this database baseline |
 
 ## Why Concurrency Needs an Explicit Contract
 
