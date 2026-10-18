@@ -29,7 +29,7 @@ No Draft documents are active. Add every future Draft here with its topic, accou
 1. `.aidoc/designs/game-engine.md` — engine state, actions, history, and serialization.
 2. `.aidoc/designs/authoritative-candidates.md` — one candidate grid across clients.
 3. `.aidoc/designs/hint-presentation-protocol.md` — correction, strategy, preview, and application semantics.
-4. `game/contract.go` and `game/game.go` — authoritative implementation.
+4. `game/contract.go`, `game/game.go`, and `game/hint_plan.go` — authoritative action, orchestration, and hint-plan implementation.
 5. Choose the affected client: `.aidoc/designs/cli-sessions.md`, `.aidoc/designs/tui-frontend.md`, or `.aidoc/designs/web-api.md`.
 
 ### Change Rating, Generation, or Catalog Acquisition
@@ -45,7 +45,7 @@ No Draft documents are active. Add every future Draft here with its topic, accou
 1. `.aidoc/designs/web-api.md` — client-neutral guest and account resources.
 2. `.aidoc/designs/user-accounts.md` — identity, ownership, sessions, and claim semantics.
 3. `.aidoc/designs/deployment-hardening.md` — artifact, loopback, origin, service, and replacement boundaries.
-4. `api/openapi.yaml`, `cmd/api.go`, and `webapi/server.go` — wire and server implementation.
+4. `api/openapi.yaml`, `cmd/api.go`, `cmd/accounts.go`, and `webapi/server.go` — wire, account-runtime composition, and server implementation.
 5. `.aidoc/designs/e2e-api-scenarios.md` — black-box acceptance.
 
 ### Run Black-Box Acceptance

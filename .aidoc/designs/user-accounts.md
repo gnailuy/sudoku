@@ -4,9 +4,10 @@ status: Active
 entry_points:
   - api/openapi.yaml
   - cmd/api.go
+  - cmd/accounts.go
   - accountgame/accountgame.go
   - game/serialization.go
-  - db/catalog.go
+  - db/accounts.go
 dependencies:
   - .aidoc/designs/web-api.md
   - .aidoc/designs/database-catalog.md

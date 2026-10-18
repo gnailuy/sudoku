@@ -4,6 +4,7 @@ status: Active
 entry_points:
   - game/game.go
   - game/contract.go
+  - game/hint_plan.go
   - game/serialization.go
 dependencies:
   - .aidoc/architecture/guidelines.md

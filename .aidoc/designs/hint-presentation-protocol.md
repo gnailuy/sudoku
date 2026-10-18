@@ -4,6 +4,7 @@ status: Active
 entry_points:
   - solver/move.go
   - game/contract.go
+  - game/hint_plan.go
   - api/openapi.yaml
 dependencies:
   - .aidoc/architecture/guidelines.md
@@ -26,6 +27,7 @@ The hint presentation protocol turns one solver recommendation into a portable t
 | `.aidoc/designs/hint-reference-plans.md` | Concrete placement and elimination teaching plans |
 | `solver/evidence.go` | Typed candidate, unit, elimination, and placement evidence |
 | `game/contract.go` | Engine hint preview and application boundary |
+| `game/hint_plan.go` | Hint-plan data model, deterministic identity, and family teaching composers |
 
 ## Why a Shared Teaching Contract Exists
 

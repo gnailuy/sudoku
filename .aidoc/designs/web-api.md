@@ -4,6 +4,7 @@ status: Active
 entry_points:
   - api/openapi.yaml
   - cmd/api.go
+  - cmd/accounts.go
   - webapi/server.go
   - webapi/account_routes.go
 dependencies:
