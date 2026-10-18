@@ -26,6 +26,11 @@ jobs:
       - name: Build
         run: go build ./...
 
+      - name: AI-native documentation contract
+        run: |
+          python3 scripts/validate_aidoc.py
+          python3 -m unittest scripts/test_validate_aidoc.py
+
       - name: Deployment service contract
         run: python3 scripts/check_deployment.py
 
