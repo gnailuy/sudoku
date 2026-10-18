@@ -131,6 +131,22 @@ Generate puzzles and store them in the database:
 ./sudoku generate -n 50 -d expert -t 60s --rounds 20
 ```
 
+## Bootstrap the Puzzle Catalog
+
+Commands without `--db` use the native per-user application data directory and apply the embedded additive catalog release automatically. Linux uses `$XDG_DATA_HOME/sudoku/puzzles.db` or `~/.local/share/sudoku/puzzles.db`; macOS uses `~/Library/Application Support/Sudoku/puzzles.db`; Windows uses `%LOCALAPPDATA%\\Sudoku\\puzzles.db`.
+
+Explicit database paths remain unseeded until requested:
+
+```bash
+# Preview the embedded release without committing it
+./sudoku db bootstrap --check --db puzzles.db
+
+# Apply the release transactionally and idempotently
+./sudoku db bootstrap --db puzzles.db
+```
+
+The foundation release establishes the versioned lifecycle but intentionally contains no starter puzzles; the official five-grade dataset is reviewed separately. Bundle upgrades add validated puzzle/provenance rows without replacing user imports, counters, play history, accounts, sessions, or saved games.
+
 ## Import Puzzles
 
 Import puzzles from a text file (one per line, 81 chars):

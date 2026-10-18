@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,7 +31,7 @@ func init() {
 	generateCmd.Flags().DurationP("timeout", "t", 30*time.Second, "Time limit per puzzle generation attempt")
 	generateCmd.Flags().Int("rounds", 10, "Max generation rounds per puzzle")
 	generateCmd.Flags().IntP("workers", "w", 1, "Number of parallel workers")
-	generateCmd.Flags().String("db", "", "Database path (default: $XDG_DATA_HOME/sudoku/puzzles.db)")
+	generateCmd.Flags().String("db", "", "Database path (defaults to the managed application data directory)")
 
 	rootCmd.AddCommand(generateCmd)
 }
@@ -70,20 +68,11 @@ func runGenerate(cmd *cobra.Command) error {
 	// Validate difficulty level.
 	_ = parseDifficulty(level)
 
-	if dbPath == "" {
-		dbPath = defaultDBPath()
-	}
-
-	// Ensure DB directory exists.
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		return fmt.Errorf("create database directory: %w", err)
-	}
-
-	// Open the database.
-	puzzleDB, err := db.Open(dbPath)
+	puzzleDB, resolvedDBPath, err := openCatalogDatabase(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
+	dbPath = resolvedDBPath
 	defer puzzleDB.Close()
 
 	fmt.Printf("Generating %d puzzles (target: %s, workers: %d, timeout: %s/puzzle, rounds: %d/puzzle)...\n",

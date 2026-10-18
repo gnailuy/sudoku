@@ -151,7 +151,7 @@ func Run(options Options, store solver.Store) (Result, error) {
 	if err := writeJSONL(filepath.Join(options.OutputDir, "evidence.jsonl"), evidence); err != nil {
 		return Result{}, err
 	}
-	report := deriveReport(manifest, manifestHash, options.RepositoryCommit, solverDigest(store), evidence)
+	report := deriveReport(manifest, manifestHash, options.RepositoryCommit, solver.ConfigDigest(store), evidence)
 	if err := writeJSON(filepath.Join(options.OutputDir, "report.json"), report); err != nil {
 		return Result{}, err
 	}
@@ -208,21 +208,6 @@ func measure(index int, puzzle calibration.Puzzle, store solver.Store) (Evidence
 		EvilTechniqueDiversity: len(evilTechniques), LongestAdvancedRun: longest, TechniqueCounts: counts, TraceHash: traceHash(classification.Moves)}, nil
 }
 
-func solverDigest(store solver.Store) string {
-	type entry struct {
-		Technique string `json:"technique"`
-		Tier      string `json:"tier"`
-		Weight    int    `json:"weight"`
-	}
-	var entries []entry
-	for _, key := range store.GetAllStrategySolverKeys() {
-		tier, _, _ := solver.StrategyTierForTechnique(key)
-		entries = append(entries, entry{key, tier, store.GetStrategySolverByKey(key).GetWeight()})
-	}
-	data, _ := json.Marshal(entries)
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}
 func traceHash(moves []solver.Move) string {
 	type traceMove struct {
 		Row             int    `json:"row"`

@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/gnailuy/sudoku/db"
 	"github.com/gnailuy/sudoku/replenisher"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +23,7 @@ live catalog changes only after the complete batch validates and publishes in
 one transaction.`,
 		Args: cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			catalog, err := db.Open(resolveDatabasePath(path))
+			catalog, _, err := openCatalogDatabase(path)
 			if err != nil {
 				return err
 			}
@@ -47,7 +46,7 @@ one transaction.`,
 			return nil
 		},
 	}
-	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the managed application data directory)")
 	command.Flags().StringVarP(&level, "level", "l", "", "Exact seed and candidate grade: expert or evil")
 	command.Flags().IntVarP(&count, "count", "n", 1, "Number of exact-grade additions to publish atomically")
 	command.Flags().Int64Var(&randomSeed, "seed", 1, "Deterministic search seed")

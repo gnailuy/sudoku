@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gnailuy/sudoku/catalogbundle"
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/db"
 	"github.com/gnailuy/sudoku/game"
@@ -374,8 +375,61 @@ func TestDefaultDBPathUsesXDGDataHome(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)
 	want := filepath.Join(dataHome, "sudoku", "puzzles.db")
-	if got := defaultDBPath(); got != want {
-		t.Fatalf("defaultDBPath() = %q, want %q", got, want)
+	got, err := defaultDBPath()
+	if err != nil || got != want {
+		t.Fatalf("defaultDBPath() = %q, %v, want %q", got, err, want)
+	}
+}
+
+func TestDefaultDBPathUsesNativeApplicationDataLocations(t *testing.T) {
+	home := func() (string, error) { return "/home/player", nil }
+	for _, test := range []struct {
+		name, goos string
+		env        map[string]string
+		want       string
+	}{
+		{name: "linux fallback", goos: "linux", want: filepath.Join("/home/player", ".local", "share", "sudoku", "puzzles.db")},
+		{name: "linux xdg", goos: "linux", env: map[string]string{"XDG_DATA_HOME": "/data"}, want: filepath.Join("/data", "sudoku", "puzzles.db")},
+		{name: "macOS", goos: "darwin", want: filepath.Join("/home/player", "Library", "Application Support", "Sudoku", "puzzles.db")},
+		{name: "Windows", goos: "windows", env: map[string]string{"LOCALAPPDATA": "/local"}, want: filepath.Join("/local", "Sudoku", "puzzles.db")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			getenv := func(key string) string { return test.env[key] }
+			got, err := defaultDBPathFor(test.goos, getenv, home)
+			if err != nil || got != test.want {
+				t.Fatalf("path = %q, %v, want %q", got, err, test.want)
+			}
+		})
+	}
+	if _, err := defaultDBPathFor("windows", func(string) string { return "" }, home); err == nil {
+		t.Fatal("missing LOCALAPPDATA did not fail closed")
+	}
+}
+
+func TestManagedDatabaseAppliesBundleButCustomDatabaseDoesNot(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	managed, _, err := openCatalogDatabase("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := catalogbundle.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := release.Apply(managed, false)
+	_ = managed.Close()
+	if err != nil || result.Status != "already-applied" {
+		t.Fatalf("managed release = %+v, %v", result, err)
+	}
+	customPath := filepath.Join(t.TempDir(), "custom.db")
+	custom, _, err := openCatalogDatabase(customPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err = release.Apply(custom, false)
+	_ = custom.Close()
+	if err != nil || result.Status != "applied" {
+		t.Fatalf("custom database was silently seeded: %+v, %v", result, err)
 	}
 }
 

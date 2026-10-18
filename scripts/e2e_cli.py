@@ -111,6 +111,19 @@ def main():
         contains(output, "--level", "--count", "--classifications", "--seed", "--state", "atomically")
         output = run(binary, ["db", "materialize-evil-cohort", "--help"], root)
         contains(output, "--evidence", "--report", "--db")
+        output = run(binary, ["db", "bootstrap", "--help"], root)
+        contains(output, "--check", "--db", "embedded additive puzzle catalog")
+
+        # The managed OS-native database records the embedded release on first
+        # use without requiring a separate initialization command.
+        run(binary, ["db", "stats"], root)
+        managed_database = root / "data" / "sudoku" / "puzzles.db"
+        with sqlite3.connect(managed_database) as connection:
+            release = connection.execute(
+                "SELECT bundle_version, length(artifact_digest), puzzle_count, cohort_count FROM catalog_bundle_releases"
+            ).fetchone()
+        if release != (1, 64, 0, 0):
+            raise AssertionError(f"managed catalog release was not applied: {release}")
 
         # Difficulty measurement is deterministic and resumes without
         # duplicating append-only observations.
@@ -448,6 +461,25 @@ def main():
         if provenance != ("sudoku-exchange-diabolical@fixture", "sha1:00015097c6c3"):
             raise AssertionError(f"unexpected pinned provenance: {provenance}")
 
+        # Explicit databases are never seeded merely by opening them. Check is
+        # rollback-only; explicit bootstrap records the same immutable release.
+        with sqlite3.connect(pinned_database) as connection:
+            releases = connection.execute("SELECT COUNT(*) FROM catalog_bundle_releases").fetchone()[0]
+        if releases != 0:
+            raise AssertionError("custom database was silently bootstrapped")
+        contains(
+            run(binary, ["db", "bootstrap", "--check", "--db", str(pinned_database)], root),
+            "Status: would-apply",
+        )
+        with sqlite3.connect(pinned_database) as connection:
+            releases = connection.execute("SELECT COUNT(*) FROM catalog_bundle_releases").fetchone()[0]
+        if releases != 0:
+            raise AssertionError("bootstrap check recorded a release")
+        contains(
+            run(binary, ["db", "bootstrap", "--db", str(pinned_database)], root),
+            "Status: applied",
+        )
+
         # Default high-grade play uses exact catalog supply without paying the
         # bounded-generation cost, and preserves transformed play-run linkage.
         with sqlite3.connect(pinned_database) as connection:
@@ -542,6 +574,7 @@ def main():
             names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             version = connection.execute("SELECT version FROM schema_metadata WHERE singleton=1").fetchone()[0]
         required_tables = {
+            "catalog_bundle_releases",
             "base_puzzles",
             "puzzle_provenance",
             "play_runs",

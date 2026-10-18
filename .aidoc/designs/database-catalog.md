@@ -8,6 +8,7 @@ entry_points:
 dependencies:
   - .aidoc/designs/difficulty-model.md
   - .aidoc/designs/database-puzzle-selection.md
+  - .aidoc/designs/catalog-bootstrap.md
   - .aidoc/designs/database-play-statistics.md
   - .aidoc/designs/e2e-database-scenarios.md
 ---
@@ -22,6 +23,7 @@ The SQLite schema separates stable base-puzzle identity, independently traceable
 |----------|-------------|
 | `.aidoc/designs/difficulty-model.md` | Defines the authoritative strategy classification stored on a base puzzle |
 | `.aidoc/designs/database-puzzle-selection.md` | Defines acquisition and balanced reuse of base puzzles |
+| `.aidoc/designs/catalog-bootstrap.md` | Defines embedded releases, managed initialization, and additive upgrades |
 | `.aidoc/designs/database-play-statistics.md` | Defines acquisition and completion counters |
 | `.aidoc/designs/e2e-database-scenarios.md` | Owns destructive rebuild and schema-boundary acceptance |
 | `.aidoc/designs/user-accounts.md` | Defines application identity, sessions, owned games, and catalog preservation |
@@ -35,6 +37,8 @@ A published puzzle can appear with relabelled digits, transposed bands, reflecte
 The pinned external corpus is `grantm/sudoku-exchange-puzzle-bank`'s public-domain `diabolical.txt` at commit `d8c8ebaee0c08c412cfba96af1923dfa61c83317`. The import boundary verifies the complete file SHA-256 `08553d0c1145ea4d7c13008040f47ea8205d21fe1eaf8f4ab17a1a6981928b35`, preserves each published record hash as `source_ref`, reclassifies canonical content, and excludes `strategy-unsolved` records from the playable catalog. An optional immutable calibration manifest preserves every structurally valid canonical record and its Sukaku Explainer rating for offline analysis without changing catalog admission.
 
 ## Catalog Contract
+
+`catalog_bundle_releases` records each immutable embedded release without carrying live database state; `.aidoc/designs/catalog-bootstrap.md` owns its application and upgrade contract.
 
 `base_puzzles` stores one row per canonical puzzle. `base_puzzle_id`, `canonical_puzzle`, authoritative strategy grade, score, and maximum technique describe the puzzle itself. Acquisition and completion aggregates remain attached to the base puzzle so existing selection and statistics behavior stays stable during the schema split.
 
@@ -62,6 +66,7 @@ Schema version 3 intentionally does not migrate earlier development schemas. Leg
 
 ## Failure and Integrity Boundaries
 
+- Bundle application rejects conflicting immutable puzzle or cohort metadata and commits its ledger record only with the complete additive release.
 - Foreign keys prevent provenance, cohort membership, and play runs from referring to absent base puzzles.
 - A canonical puzzle and its base-puzzle ID are independently unique.
 - A play-run ID is caller-supplied and globally unique within one database.
@@ -73,4 +78,4 @@ Schema version 3 intentionally does not migrate earlier development schemas. Leg
 
 ## Verification
 
-Package tests prove full symmetry collapse, deterministic base-puzzle IDs, additive provenance on duplicate catalog content, independent transformed presentation storage, atomic run completion, provider-keyed identity, session expiry and revocation, owner-scoped optimistic game updates, account-deletion cascades, explicit legacy rejection, atomic rebuild, and existing acquisition/statistics behavior. Built-binary scenarios prove hash-pinned import and rebuild behavior plus exact presented-board linkage, stable base identity, completion status, and owner-scoped account-game persistence.
+Package tests prove full symmetry collapse, deterministic base-puzzle IDs, additive bundle and import provenance, preserved history across bundle upgrades, conflict rollback, independent transformed presentation storage, atomic run completion, provider-keyed identity, session expiry and revocation, owner-scoped optimistic game updates, account-deletion cascades, explicit legacy rejection, atomic rebuild, and existing acquisition/statistics behavior. Built-binary scenarios prove managed and explicit bootstrap, hash-pinned import, rebuild behavior, exact presented-board linkage, stable base identity, completion status, and owner-scoped account-game persistence.

@@ -7,7 +7,6 @@ import (
 	"io"
 	"math"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,7 +43,7 @@ func init() {
 	importCmd.Flags().String("sha256", "", "Expected lowercase SHA-256 of the complete input file")
 	importCmd.Flags().String("analysis-manifest", "", "Write a new immutable calibration manifest (sudoku-exchange only)")
 	importCmd.Flags().IntP("workers", "w", 1, "Parallel canonicalization/classification workers")
-	importCmd.Flags().String("db", "", "Database path (default: $XDG_DATA_HOME/sudoku/puzzles.db)")
+	importCmd.Flags().String("db", "", "Database path (defaults to the managed application data directory)")
 	_ = importCmd.MarkFlagRequired("file")
 
 	rootCmd.AddCommand(importCmd)
@@ -102,10 +101,6 @@ func runImport(cmd *cobra.Command) error {
 		}
 	}
 
-	if dbPath == "" {
-		dbPath = defaultDBPath()
-	}
-
 	// Open the input file.
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -113,16 +108,11 @@ func runImport(cmd *cobra.Command) error {
 	}
 	defer file.Close()
 
-	// Ensure DB directory exists.
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		return fmt.Errorf("create database directory: %w", err)
-	}
-
-	// Open the database.
-	puzzleDB, err := db.Open(dbPath)
+	puzzleDB, resolvedDBPath, err := openCatalogDatabase(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
+	dbPath = resolvedDBPath
 	defer puzzleDB.Close()
 
 	fmt.Printf("Importing puzzles from: %s\n", filePath)

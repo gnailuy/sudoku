@@ -32,7 +32,7 @@ func newAPICommand() *cobra.Command {
 	}
 	flags := command.Flags()
 	flags.StringVar(&listen, "listen", "127.0.0.1:8080", "HTTP listen address")
-	flags.StringVar(&dbPath, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	flags.StringVar(&dbPath, "db", "", "Puzzle database path (defaults to the managed application data directory)")
 	flags.StringVar(&accountsConfig, "accounts-config", "", "private JSON configuration enabling guest and account routes")
 	flags.StringSliceVar(&origins, "allowed-origin", nil, "allowed browser origin (repeatable)")
 	flags.DurationVar(&readTimeout, "read-timeout", 15*time.Second, "maximum request read time")

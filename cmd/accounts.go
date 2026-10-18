@@ -97,13 +97,11 @@ func loadAccountRuntime(ctx context.Context, path, databasePath string, options 
 	if err != nil {
 		return nil, nil, fmt.Errorf("configure OIDC transactions: %w", err)
 	}
-	if databasePath == "" {
-		databasePath = defaultDBPath()
-	}
-	database, err := db.Open(databasePath)
+	database, resolvedDatabasePath, err := openCatalogDatabase(databasePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open account database: %w", err)
 	}
+	databasePath = resolvedDatabasePath
 	closeDatabase := func() error { return database.Close() }
 	authentication, err := accountauth.New(accountauth.Config{Login: login, Store: database, IdleLifetime: time.Duration(config.SessionIdleSeconds) * time.Second, AbsoluteLifetime: time.Duration(config.SessionAbsoluteSeconds) * time.Second})
 	if err != nil {
