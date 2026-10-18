@@ -64,11 +64,18 @@ type Release struct {
 
 // Default returns the embedded release after verifying both artifact and solver configuration digests.
 func Default() (Release, error) {
-	return Parse(embeddedCatalog, strings.TrimSpace(embeddedDigest), solver.NewStore())
+	// The embedded artifact was canonicalized by the reproducible generator and
+	// is bound by its digest. Avoid repeating the expensive symmetry search on
+	// every process start; Parse retains full validation for external artifacts.
+	return parse(embeddedCatalog, strings.TrimSpace(embeddedDigest), solver.NewStore(), false)
 }
 
 // Parse validates a catalog artifact against its external digest and solver registry.
 func Parse(data []byte, expectedDigest string, store solver.Store) (Release, error) {
+	return parse(data, expectedDigest, store, true)
+}
+
+func parse(data []byte, expectedDigest string, store solver.Store, validateCanonical bool) (Release, error) {
 	sum := sha256.Sum256(data)
 	digest := hex.EncodeToString(sum[:])
 	if len(expectedDigest) != 64 || digest != expectedDigest {
@@ -96,7 +103,7 @@ func Parse(data []byte, expectedDigest string, store solver.Store) (Release, err
 	}
 	seenPuzzles := make(map[string]struct{}, len(manifest.Puzzles))
 	for index, puzzle := range manifest.Puzzles {
-		if len(puzzle.Puzzle) != 81 || core.CanonicalPuzzle(puzzle.Puzzle) != puzzle.Puzzle || db.BasePuzzleID(puzzle.Puzzle) != puzzle.BasePuzzleID {
+		if len(puzzle.Puzzle) != 81 || db.BasePuzzleID(puzzle.Puzzle) != puzzle.BasePuzzleID || (validateCanonical && core.CanonicalPuzzle(puzzle.Puzzle) != puzzle.Puzzle) {
 			return Release{}, fmt.Errorf("catalog puzzle %d is not canonical or has mismatched identity", index)
 		}
 		if !validDifficulty(puzzle.Difficulty) || puzzle.MaxTechnique == "" || puzzle.Source == "" || puzzle.SourceRef == "" || puzzle.License == "" || puzzle.Redistribution == "" {

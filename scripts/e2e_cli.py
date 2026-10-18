@@ -122,8 +122,15 @@ def main():
             release = connection.execute(
                 "SELECT bundle_version, length(artifact_digest), puzzle_count, cohort_count FROM catalog_bundle_releases"
             ).fetchone()
-        if release != (1, 64, 0, 0):
+        if release != (2, 64, 3047, 1):
             raise AssertionError(f"managed catalog release was not applied: {release}")
+        with sqlite3.connect(managed_database) as connection:
+            counts = dict(connection.execute("SELECT difficulty, COUNT(*) FROM base_puzzles GROUP BY difficulty"))
+            cohort = connection.execute(
+                "SELECT member_count FROM serving_cohorts WHERE cohort_name = 'evil-v1'"
+            ).fetchone()
+        if counts != {"easy": 256, "medium": 256, "hard": 256, "expert": 256, "evil": 2023} or cohort != (2023,):
+            raise AssertionError(f"managed official catalog is incomplete: counts={counts}, cohort={cohort}")
 
         # Difficulty measurement is deterministic and resumes without
         # duplicating append-only observations.
@@ -480,29 +487,9 @@ def main():
             "Status: applied",
         )
 
-        # Default high-grade play uses exact catalog supply without paying the
+        # Explicit bootstrap provides exact catalog supply without paying the
         # bounded-generation cost, and preserves transformed play-run linkage.
-        with sqlite3.connect(pinned_database) as connection:
-            catalog_level, catalog_id = connection.execute(
-                "SELECT difficulty, base_puzzle_id FROM base_puzzles"
-            ).fetchone()
-        if catalog_level not in {"hard", "expert", "evil"}:
-            raise AssertionError(f"catalog-first fixture has unexpected grade: {catalog_level}")
-        if catalog_level == "evil":
-            # The public play boundary must fail closed until the approved cohort
-            # has been materialized, even when weaker exact-Evil rows exist.
-            contains(
-                run(binary, ["--from-db", "--level", "evil", "--db", str(pinned_database)], root, expected=1),
-                "approved Evil serving cohort is unavailable",
-            )
-            with sqlite3.connect(pinned_database) as connection:
-                connection.execute(
-                    "INSERT INTO serving_cohorts (cohort_name, difficulty, rule_version, manifest_hash, repository_commit, solver_config_digest, evidence_hash, member_count) VALUES ('evil-v1', 'evil', 1, 'fixture-manifest', 'fixture-commit', 'fixture-solver', 'fixture-evidence', 1)"
-                )
-                connection.execute(
-                    "INSERT INTO serving_cohort_members (cohort_name, base_puzzle_id) VALUES ('evil-v1', ?)",
-                    (catalog_id,),
-                )
+        catalog_level = "hard"
         started = time.monotonic()
         output = run(
             binary,
@@ -516,17 +503,11 @@ def main():
         if elapsed > 2:
             raise AssertionError(f"catalog-first play took {elapsed:.3f}s, want at most 2s")
         with sqlite3.connect(pinned_database) as connection:
-            play_count = connection.execute(
-                "SELECT play_count FROM base_puzzles WHERE base_puzzle_id = ?", (catalog_id,)
-            ).fetchone()[0]
             linked = connection.execute(
-                "SELECT COUNT(*) FROM play_runs WHERE base_puzzle_id = ? AND status = 'active'",
-                (catalog_id,),
-            ).fetchone()[0]
-        if play_count != 1 or linked != 1:
-            raise AssertionError(
-                f"catalog-first linkage is incomplete: play_count={play_count}, active_runs={linked}"
-            )
+                "SELECT p.play_count, COUNT(r.play_run_id) FROM base_puzzles p JOIN play_runs r ON r.base_puzzle_id = p.base_puzzle_id WHERE p.difficulty = 'hard' AND r.status = 'active' GROUP BY p.base_puzzle_id"
+            ).fetchall()
+        if linked != [(1, 1)]:
+            raise AssertionError(f"catalog-first linkage is incomplete: {linked}")
 
         # An unavailable Evil cohort fails closed before bounded generation;
         # it never serves a weaker generated fallback.
