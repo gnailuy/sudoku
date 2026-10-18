@@ -55,7 +55,7 @@ func TestHintPreviewApplyAndCancel(t *testing.T) {
 	if controller.hintPlan == nil || controller.game.Snapshot() != before {
 		t.Fatal("hint preview was not retained read-only")
 	}
-	formatted := formatPlacementHint(*controller.hintPlan)
+	formatted := formatCLIHint(*controller.hintPlan)
 	for _, marker := range []string{"Hint:", "Placement:", "hint apply", "hint cancel"} {
 		if !strings.Contains(formatted, marker) {
 			t.Fatalf("formatted hint missing %q:\n%s", marker, formatted)
@@ -104,7 +104,7 @@ func TestNoOpAndFailedActionPreserveCachedHintPlan(t *testing.T) {
 	}
 }
 
-func TestCandidateWorkRemainsHiddenAndUsesTUI(t *testing.T) {
+func TestCandidateWorkRemainsHiddenButCanBeAppliedToContinue(t *testing.T) {
 	controller := newTestController(t)
 	initial := controller.game.Snapshot()
 	if controller.RunCommand("note 1 1 1") || controller.game.Snapshot() != initial {
@@ -121,11 +121,26 @@ func TestCandidateWorkRemainsHiddenAndUsesTUI(t *testing.T) {
 	if controller.RunCommand("hint") {
 		t.Fatal("candidate correction hint changed the game")
 	}
-	if controller.hintPlan != nil || controller.game.Snapshot() != before {
-		t.Fatal("candidate correction hint was cached or mutated hidden state")
+	if controller.hintPlan == nil || controller.game.Snapshot() != before {
+		t.Fatal("candidate correction hint was not cached read-only")
+	}
+	formatted := formatCLIHint(*controller.hintPlan)
+	for _, marker := range []string{"candidate work", "hint apply", "hint` again", "hint cancel", "sudoku tui"} {
+		if !strings.Contains(formatted, marker) {
+			t.Fatalf("candidate hint missing %q:\n%s", marker, formatted)
+		}
+	}
+	if !controller.RunCommand("hint apply") || controller.game.Snapshot() == before || controller.hintPlan != nil {
+		t.Fatal("candidate correction could not be applied to continue")
+	}
+	if controller.RunCommand("hint") {
+		t.Fatal("next hint preview changed the game")
+	}
+	if controller.hintPlan == nil {
+		t.Fatal("next hint was not available after applying candidate work")
 	}
 	plan := game.HintPlan{Conclusion: game.HintConclusion{Eliminations: []solver.CandidateRef{{Position: core.NewPosition(0, 1), Value: 3}}}}
-	if got := formatPlacementHint(plan); got != candidateHintLimitation+"\n" {
+	if got := formatCLIHint(plan); !strings.Contains(got, candidateHintLimitation) || !strings.Contains(got, "hint` again") {
 		t.Fatalf("candidate hint text=%q", got)
 	}
 }

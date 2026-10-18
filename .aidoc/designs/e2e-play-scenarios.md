@@ -100,9 +100,9 @@ The game-command scenarios verify the stable engine boundary through the real te
 **Input:** Run `hint` or `i` when the authoritative next deduction places a value, inspect the output, then run `hint apply`; separately preview and run `hint cancel`.
 **Expected:** The line CLI prints compact plain-text reasoning and the exact row, column, and value without rendering candidate cells or changing the board. `hint apply` submits the cached `plan_id` as one action and consumes it; `hint cancel` discards it. A successful non-hint mutation discards the preview, while failed and no-op commands preserve it.
 
-### 2.9 Candidate Hint Redirection
-**Input:** Run repeated placement hints against the maintained Naked Pair fixture until the next authoritative deduction is a candidate correction or elimination.
-**Expected:** The line CLI prints one limitation directing the player to `sudoku tui`, does not print or cache the candidate plan, leaves the board and candidate grid unchanged, and continues to render the compact value board. The line CLI does not skip ahead to a later placement.
+### 2.9 Candidate Hint Progression
+**Input:** Run repeated `hint` and `hint apply` commands against the maintained Naked Pair fixture until the next authoritative deduction is a candidate correction or elimination, apply it, then request another hint.
+**Expected:** The line CLI previews the candidate plan with one compact limitation, no candidate details, and no mutation. `hint apply` accepts that exact hidden plan as one undoable change, and a later `hint` continues from the updated authoritative candidate state. The compact value board remains the only board rendering, `hint cancel` can discard the hidden plan, and the line CLI never silently skips candidate deductions.
 
 ### 2.10 Solve (`solve` / `s`)
 **Input:** `solve` or `s`

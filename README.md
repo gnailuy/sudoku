@@ -169,7 +169,7 @@ During play, enter moves as `row col value` (for example, `1 2 5`). Commands acc
 - `clear`, `d <row> <column>` — clear a value
 - `save <path>` — atomically save the complete game and undo/redo history
 - `undo`, `u` / `redo`, `r` — move through game action history
-- `hint`, `i` — preview a value placement; candidate work points to `sudoku tui`
+- `hint`, `i` — preview the next deduction; compact candidate work can be accepted with `hint apply`, while `sudoku tui` shows the complete teaching steps
 - `check`, `c` / `repair`, `f` — inspect or remove invalid entries
 - `reset`, `e` / `solve`, `s` — restart or solve the puzzle
 - `help`, `h` / `quit`, `q` — show command help or exit without saving

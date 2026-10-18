@@ -121,7 +121,7 @@ func (ctrl *Controller) PrintHelp() {
 	fmt.Println("  - undo, u                       : Undo last move.")
 	fmt.Println("  - redo, r                       : Redo last undo.")
 	fmt.Println("  - repair, f                     : Undo all invalid inputs.")
-	fmt.Println("  - hint, i                       : Preview a placement hint; candidate work uses the TUI.")
+	fmt.Println("  - hint, i                       : Preview the next hint in compact form.")
 	fmt.Println("  - hint apply                   : Apply the exact previewed hint as one action.")
 	fmt.Println("  - hint cancel                  : Discard the previewed hint.")
 	fmt.Println("  - solve, s                      : Solve the problem for me.")
@@ -235,12 +235,12 @@ func formatHintNarration(step game.HintStep, compact bool) string {
 	return result.String()
 }
 
-const candidateHintLimitation = "This hint needs candidate work that the compact CLI does not display. Use `sudoku tui` for the full hint."
+const candidateHintLimitation = "This hint needs candidate work that the compact CLI does not display. Run `hint apply` to accept it and continue, or use `sudoku tui` for the full teaching steps."
 
-func formatPlacementHint(plan game.HintPlan) string {
+func formatCLIHint(plan game.HintPlan) string {
 	placement := plan.Conclusion.Placement
 	if placement == nil {
-		return candidateHintLimitation + "\n"
+		return candidateHintLimitation + "\nRun `hint` again after applying to preview the next deduction, or `hint cancel` to discard this plan.\n"
 	}
 	var result strings.Builder
 	reason := plan.Summary
@@ -262,12 +262,12 @@ func (ctrl *Controller) runHintCommand(arguments string) bool {
 			return false
 		}
 		if plan.Conclusion.Placement == nil {
-			ctrl.hintPlan = nil
-			fmt.Println(candidateHintLimitation)
+			ctrl.hintPlan = plan
+			fmt.Print(formatCLIHint(*plan))
 			return false
 		}
 		ctrl.hintPlan = plan
-		fmt.Print(formatPlacementHint(*plan))
+		fmt.Print(formatCLIHint(*plan))
 		return false
 	case "apply":
 		if ctrl.hintPlan == nil {

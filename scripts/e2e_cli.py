@@ -278,7 +278,8 @@ def main():
         )
         excludes(output, "note, n", "notes-clear")
 
-        # Candidate-only deductions stay read-only and direct the player to the TUI.
+        # Candidate-only previews stay read-only, but their exact hidden plan can
+        # be applied so the player can continue requesting compact hints.
         hint_cases = json.loads(
             (Path(__file__).resolve().parents[1] / "game" / "testdata" / "hint_strategy_games.json").read_text(encoding="utf-8")
         )["cases"]
@@ -292,10 +293,12 @@ def main():
         contains(
             output,
             "This hint needs candidate work that the compact CLI does not display.",
-            "Use `sudoku tui` for the full hint.",
-            "Exiting the game.",
+            "Run `hint apply` to accept it and continue",
+            "Run `hint` again after applying to preview the next deduction",
+            "Applied hint:",
+            "Congratulations! You have solved the problem.",
         )
-        excludes(output, "+-----------+")
+        excludes(output, "+-----------+", "preview a hint first")
 
         # A successful non-hint mutation explicitly discards the preview so a
         # stale plan cannot remain available for a later apply attempt.
