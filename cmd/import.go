@@ -108,11 +108,10 @@ func runImport(cmd *cobra.Command) error {
 	}
 	defer file.Close()
 
-	puzzleDB, resolvedDBPath, err := openCatalogDatabase(dbPath)
+	puzzleDB, _, err := openCatalogDatabase(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	dbPath = resolvedDBPath
 	defer puzzleDB.Close()
 
 	fmt.Printf("Importing puzzles from: %s\n", filePath)

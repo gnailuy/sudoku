@@ -68,11 +68,10 @@ func runGenerate(cmd *cobra.Command) error {
 	// Validate difficulty level.
 	_ = parseDifficulty(level)
 
-	puzzleDB, resolvedDBPath, err := openCatalogDatabase(dbPath)
+	puzzleDB, _, err := openCatalogDatabase(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	dbPath = resolvedDBPath
 	defer puzzleDB.Close()
 
 	fmt.Printf("Generating %d puzzles (target: %s, workers: %d, timeout: %s/puzzle, rounds: %d/puzzle)...\n",
