@@ -167,16 +167,14 @@ During play, enter moves as `row col value` (for example, `1 2 5`). Commands acc
 
 - `add`, `a <row> <column> <value>` — set a value
 - `clear`, `d <row> <column>` — clear a value
-- `note`, `n <row> <column> <value>` — toggle a manual candidate note
-- `notes-clear`, `x <row> <column>` — clear a cell's notes
-- `save <path>` — atomically save values, notes, and undo/redo history
-- `undo`, `u` / `redo`, `r` — move through value and note history
-- `hint`, `i` — preview a technique-aware hint; use `hint apply` or `hint cancel`
+- `save <path>` — atomically save the complete game and undo/redo history
+- `undo`, `u` / `redo`, `r` — move through game action history
+- `hint`, `i` — explain and immediately apply exactly one deduction; candidate work stays visually compact, while `sudoku tui` shows the complete teaching steps
 - `check`, `c` / `repair`, `f` — inspect or remove invalid entries
 - `reset`, `e` / `solve`, `s` — restart or solve the puzzle
 - `help`, `h` / `quit`, `q` — show command help or exit without saving
 
-Manual notes use a fixed 3×3 candidate layout. Saving is explicit: use `save` before `quit`, then pass the same file to `--resume` later.
+The line CLI always renders the compact value grid. Use `sudoku tui` for candidate entry and candidate-focused hints. Saving is explicit: use `save` before `quit`, then pass the same file to `--resume` later.
 
 ## Development
 
