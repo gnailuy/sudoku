@@ -310,6 +310,87 @@ func TestSemanticBackgroundsUseDeterministicThemeColors(t *testing.T) {
 	}
 }
 
+func TestFocusedDigitHighlightsPlacementsAndVisibleCandidates(t *testing.T) {
+	model := testModel(t)
+	model.row, model.column = 0, 2 // given 3
+	model.setAllCandidateVisibility(true)
+	if digit := activeDigit(model); digit != 3 {
+		t.Fatalf("active digit=%d", digit)
+	}
+	if view := ansi.Strip(model.View()); !strings.Contains(view, "Digit: 3") {
+		t.Fatalf("status omitted active digit: %q", view)
+	}
+
+	matchingValueRow, matchingValueColumn := -1, -1
+	candidateRow, candidateColumn := -1, -1
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			if model.snapshot.Values[row][column] == 3 && (row != model.row || column != model.column) {
+				matchingValueRow, matchingValueColumn = row, column
+			}
+			if model.snapshot.Values[row][column] == 0 && model.snapshot.Candidates[row][column].Has(3) {
+				candidateRow, candidateColumn = row, column
+			}
+		}
+	}
+	if matchingValueRow < 0 || candidateRow < 0 {
+		t.Fatal("fixture needs another placed 3 and one candidate 3")
+	}
+
+	styles := stylesFor(darkTheme)
+	value := renderCell(model, styles, matchingValueRow, matchingValueColumn, 1)
+	candidate := renderCell(model, styles, candidateRow, candidateColumn, 0)
+	matchColor := regexp.MustCompile(`\x1b\[[0-9;]*38;2;255;209;102(?:;|m)`)
+	if !matchColor.MatchString(value) || !matchColor.MatchString(candidate) {
+		t.Fatalf("dark digit context missing match color: value=%q candidate=%q", value, candidate)
+	}
+	if !regexp.MustCompile(`\x1b\[[0-9;]*4(?:;|m)`).MatchString(candidate) {
+		t.Fatalf("matching candidate is not underlined: %q", candidate)
+	}
+
+	styles = stylesFor(lightTheme)
+	value = renderCell(model, styles, matchingValueRow, matchingValueColumn, 1)
+	candidate = renderCell(model, styles, candidateRow, candidateColumn, 0)
+	lightMatchColor := regexp.MustCompile(`\x1b\[[0-9;]*38;2;121;62;0(?:;|m)`)
+	if !lightMatchColor.MatchString(value) || !lightMatchColor.MatchString(candidate) {
+		t.Fatalf("light digit context missing match color: value=%q candidate=%q", value, candidate)
+	}
+
+	model.theme = noColorTheme
+	styles = stylesFor(noColorTheme)
+	value = renderCell(model, styles, matchingValueRow, matchingValueColumn, 1)
+	candidate = renderCell(model, styles, candidateRow, candidateColumn, 0)
+	if !regexp.MustCompile(`\x1b\[[0-9;]*1(?:;|m)`).MatchString(value) {
+		t.Fatalf("no-color matching value is not bold: %q", value)
+	}
+	if !regexp.MustCompile(`\x1b\[[0-9;]*4(?:;|m)`).MatchString(candidate) {
+		t.Fatalf("no-color matching candidate is not underlined: %q", candidate)
+	}
+	if strings.Contains(value+candidate, "38;") || strings.Contains(value+candidate, "48;") {
+		t.Fatalf("no-color digit context emitted color codes: value=%q candidate=%q", value, candidate)
+	}
+}
+
+func TestCompletedFocusedDigitUsesCompletedContext(t *testing.T) {
+	model := testModel(t)
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			if model.snapshot.Values[row][column] == 3 {
+				model.snapshot.Values[row][column] = 0
+			}
+		}
+		model.snapshot.Values[row][row] = 3
+		model.snapshot.Invalid[row][row] = false
+	}
+	model.row, model.column = 0, 0
+	if !digitIsComplete(model, 3) {
+		t.Fatal("nine valid placements did not complete the active digit")
+	}
+	if view := ansi.Strip(model.View()); !strings.Contains(view, "Digit: 3 complete") {
+		t.Fatalf("status omitted completed digit: %q", view)
+	}
+}
+
 func TestDeterministicThemeSelectionAndNoColorFallback(t *testing.T) {
 	t.Setenv("SUDOKU_THEME", "light")
 	if got := themeFromEnvironment(); got != lightTheme {

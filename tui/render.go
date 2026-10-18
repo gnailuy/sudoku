@@ -24,17 +24,18 @@ const (
 )
 
 type palette struct {
-	name                              themeName
-	background, text, muted, accent   lipgloss.Color
-	given, player, invalid            lipgloss.Color
-	focusBackground, peerBackground   lipgloss.Color
-	border, strongBorder, panelBorder lipgloss.Color
+	name                               themeName
+	background, text, muted, accent    lipgloss.Color
+	given, player, invalid, digitMatch lipgloss.Color
+	focusBackground, peerBackground    lipgloss.Color
+	border, strongBorder, panelBorder  lipgloss.Color
 }
 
 type renderStyles struct {
 	canvas                                         lipgloss.Style
 	title, status, message, guide, modal           lipgloss.Style
 	given, player, invalid, empty, note, candidate lipgloss.Style
+	digitValue, digitCandidate, digitComplete      lipgloss.Style
 	focus, peer, border, strongBorder              lipgloss.Style
 	hintFocus, hintPremise, hintEliminated         lipgloss.Style
 	hintConclusion                                 lipgloss.Style
@@ -49,6 +50,12 @@ func render(m Model) string {
 
 	title := center(m.width, styles.title.Render("SUDOKU"), styles.canvas)
 	status := fmt.Sprintf("%s  •  %s  •  Mistakes: %d  •  r%dc%d", mode, m.snapshot.Status, m.snapshot.Mistakes, m.row+1, m.column+1)
+	if digit := activeDigit(m); digit != 0 {
+		status += fmt.Sprintf("  •  Digit: %d", digit)
+		if digitIsComplete(m, digit) {
+			status += " complete"
+		}
+	}
 	if m.autoCandidates {
 		status = "CANDIDATES ON  •  " + status
 	} else {
@@ -155,6 +162,7 @@ func boardRule(styles renderStyles, left, minor, major, right, fill rune) string
 
 func renderCell(m Model, styles renderStyles, row, column, noteRow int) string {
 	value := m.snapshot.Values[row][column]
+	active := activeDigit(m)
 	if value != 0 {
 		var style lipgloss.Style
 		switch {
@@ -164,6 +172,13 @@ func renderCell(m Model, styles renderStyles, row, column, noteRow int) string {
 			style = styles.given
 		default:
 			style = styles.player
+		}
+		if value == active && !m.snapshot.Invalid[row][column] {
+			if digitIsComplete(m, value) {
+				style = styles.digitComplete.Inherit(style)
+			} else {
+				style = styles.digitValue.Inherit(style)
+			}
 		}
 		style = hintCellStyle(m, styles, row, column, style)
 		return contextualStyle(m, styles, row, column, style).Render(cellContent(m, row, column, noteRow))
@@ -192,12 +207,37 @@ func renderCell(m Model, styles renderStyles, row, column, noteRow int) string {
 				} else {
 					style = styles.candidate
 				}
+				if digit == active {
+					style = styles.digitCandidate.Inherit(style)
+				}
 				content = string(rune('0' + digit))
 			}
 		}
 		out.WriteString(contextualStyle(m, styles, row, column, style).Render(content))
 	}
 	return out.String()
+}
+
+func activeDigit(m Model) int {
+	if m.row < 0 || m.row >= 9 || m.column < 0 || m.column >= 9 {
+		return 0
+	}
+	return m.snapshot.Values[m.row][m.column]
+}
+
+func digitIsComplete(m Model, digit int) bool {
+	if digit < 1 || digit > 9 {
+		return false
+	}
+	count := 0
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			if m.snapshot.Values[row][column] == digit && !m.snapshot.Invalid[row][column] {
+				count++
+			}
+		}
+	}
+	return count == 9
 }
 
 func contextualStyle(m Model, styles renderStyles, row, column int, style lipgloss.Style) lipgloss.Style {
@@ -334,6 +374,7 @@ func renderHelp(styles renderStyles) string {
 		"Move     arrows / h j k l",
 		"Edit     1–9 set or note  •  0 clears  •  n toggles mode",
 		"Display  a shows or hides every candidate cell",
+		"Context  focus a value to highlight matches and visible candidates",
 		"Game     i previews hint  •  ←/→ steps  •  Enter applies  •  Esc cancels",
 		"Hint     bold focus  •  underlined premise  •  struck elimination  •  reversed conclusion",
 		"Session  S saves  •  R resets  •  q quits",
@@ -398,6 +439,9 @@ func stylesFor(name themeName) renderStyles {
 		empty:          base,
 		note:           base.Foreground(p.player).Bold(name == noColorTheme),
 		candidate:      base.Foreground(p.muted).Faint(true),
+		digitValue:     renderer.NewStyle().Foreground(p.digitMatch).Bold(true),
+		digitCandidate: renderer.NewStyle().Foreground(p.digitMatch).Bold(true).Underline(true),
+		digitComplete:  renderer.NewStyle().Foreground(p.digitMatch).Faint(true),
 		focus:          renderer.NewStyle().Background(p.focusBackground).Bold(true).Reverse(name == noColorTheme),
 		peer:           renderer.NewStyle().Background(p.peerBackground).Faint(name == noColorTheme),
 		hintFocus:      renderer.NewStyle().Bold(true),
@@ -412,10 +456,10 @@ func stylesFor(name themeName) renderStyles {
 func paletteFor(name themeName) palette {
 	switch name {
 	case lightTheme:
-		return palette{name: name, background: "#F7F4ED", text: "#25313C", muted: "#52606B", accent: "#087F8C", given: "#17202A", player: "#096B72", invalid: "#B42318", focusBackground: "#F6C453", peerBackground: "#E8F2F3", border: "#9AA6AF", strongBorder: "#40515F", panelBorder: "#087F8C"}
+		return palette{name: name, background: "#F7F4ED", text: "#25313C", muted: "#52606B", accent: "#087F8C", given: "#17202A", player: "#096B72", invalid: "#B42318", digitMatch: "#7A3E00", focusBackground: "#F6C453", peerBackground: "#E8F2F3", border: "#9AA6AF", strongBorder: "#40515F", panelBorder: "#087F8C"}
 	case noColorTheme:
 		return palette{name: name}
 	default:
-		return palette{name: name, background: "#101820", text: "#E7EDF2", muted: "#81909D", accent: "#63D2D5", given: "#F4F7FA", player: "#63D2D5", invalid: "#FF6B6B", focusBackground: "#755B18", peerBackground: "#1B3038", border: "#40515F", strongBorder: "#AAB7C2", panelBorder: "#63D2D5"}
+		return palette{name: name, background: "#101820", text: "#E7EDF2", muted: "#81909D", accent: "#63D2D5", given: "#F4F7FA", player: "#63D2D5", invalid: "#FF6B6B", digitMatch: "#FFD166", focusBackground: "#755B18", peerBackground: "#1B3038", border: "#40515F", strongBorder: "#AAB7C2", panelBorder: "#63D2D5"}
 	}
 }
