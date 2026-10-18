@@ -13,7 +13,7 @@ import (
 
 func newDatabaseCommand() *cobra.Command {
 	command := &cobra.Command{Use: "db", Short: "Inspect and manage puzzle history"}
-	command.AddCommand(newDatabaseStatsCommand(), newDatabaseResetCommand(), newDatabaseRebuildCommand(), newDatabaseRebuildWebCommand(), newDatabaseMaterializeEvilCohortCommand())
+	command.AddCommand(newDatabaseStatsCommand(), newDatabaseBootstrapCommand(), newDatabaseResetCommand(), newDatabaseRebuildCommand(), newDatabaseRebuildWebCommand(), newDatabaseMaterializeEvilCohortCommand())
 	return command
 }
 
@@ -23,13 +23,6 @@ func validDatabaseLevel(level string) error {
 	}
 	_, err := difficultyForLevel(level)
 	return err
-}
-
-func resolveDatabasePath(path string) string {
-	if path == "" {
-		return defaultDBPath()
-	}
-	return path
 }
 
 func displayTime(value string) string {
@@ -49,7 +42,7 @@ func newDatabaseStatsCommand() *cobra.Command {
 			if err := validDatabaseLevel(level); err != nil {
 				return err
 			}
-			puzzleDB, err := db.Open(resolveDatabasePath(path))
+			puzzleDB, _, err := openCatalogDatabase(path)
 			if err != nil {
 				return err
 			}
@@ -65,7 +58,7 @@ func newDatabaseStatsCommand() *cobra.Command {
 			return nil
 		},
 	}
-	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the managed application data directory)")
 	command.Flags().StringVarP(&level, "level", "l", "", "Filter by difficulty level")
 	return command
 }
@@ -84,8 +77,7 @@ func newDatabaseResetCommand() *cobra.Command {
 			if err := validDatabaseLevel(level); err != nil {
 				return err
 			}
-			resolved := resolveDatabasePath(path)
-			puzzleDB, err := db.Open(resolved)
+			puzzleDB, resolved, err := openCatalogDatabase(path)
 			if err != nil {
 				return err
 			}
@@ -136,7 +128,7 @@ func newDatabaseResetCommand() *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&history, "history", "", "History to reset: acquisition, completion, or all")
-	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the managed application data directory)")
 	command.Flags().StringVarP(&level, "level", "l", "", "Filter by difficulty level")
 	command.Flags().BoolVar(&yes, "yes", false, "Confirm reset without an interactive prompt")
 	_ = command.MarkFlagRequired("history")
@@ -151,7 +143,10 @@ func newDatabaseRebuildCommand() *cobra.Command {
 		Short: "Destructively rebuild the development database",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			resolved := resolveDatabasePath(path)
+			resolved, err := resolveDatabasePath(path)
+			if err != nil {
+				return err
+			}
 			fmt.Fprintf(command.OutOrStdout(), "Database: %s\nAll catalog, play-run, account, identity, and application-session rows will be deleted.\n", resolved)
 			if !yes {
 				inputFile, interactive := command.InOrStdin().(*os.File)
@@ -179,7 +174,7 @@ func newDatabaseRebuildCommand() *cobra.Command {
 			return nil
 		},
 	}
-	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the managed application data directory)")
 	command.Flags().BoolVar(&yes, "yes", false, "Confirm destructive rebuild without an interactive prompt")
 	return command
 }
@@ -190,7 +185,10 @@ func newDatabaseRebuildWebCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use: "rebuild-web", Short: "Replace disposable browser identity and game state", Args: cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			resolved := resolveDatabasePath(path)
+			resolved, err := resolveDatabasePath(path)
+			if err != nil {
+				return err
+			}
 			fmt.Fprintf(command.OutOrStdout(), "Database: %s\nUsers, identities, application sessions, account games, and claims will be deleted. Puzzle catalog, cohort evidence, and play-run history will be preserved.\n", resolved)
 			if !yes {
 				return fmt.Errorf("web-state rebuild requires --yes")
@@ -202,7 +200,7 @@ func newDatabaseRebuildWebCommand() *cobra.Command {
 			return nil
 		},
 	}
-	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the managed application data directory)")
 	command.Flags().BoolVar(&yes, "yes", false, "Confirm the web-state rebuild")
 	return command
 }
@@ -218,8 +216,7 @@ func newDatabaseMaterializeEvilCohortCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resolved := resolveDatabasePath(path)
-			puzzleDB, err := db.Open(resolved)
+			puzzleDB, _, err := openCatalogDatabase(path)
 			if err != nil {
 				return err
 			}
@@ -237,7 +234,7 @@ func newDatabaseMaterializeEvilCohortCommand() *cobra.Command {
 			return nil
 		},
 	}
-	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().StringVar(&path, "db", "", "Puzzle database path (defaults to the managed application data directory)")
 	command.Flags().StringVar(&evidencePath, "evidence", "", "Immutable full-catalog evidence JSONL")
 	command.Flags().StringVar(&reportPath, "report", "", "Bound full-catalog audit report JSON")
 	_ = command.MarkFlagRequired("evidence")

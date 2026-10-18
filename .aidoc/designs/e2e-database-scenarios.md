@@ -8,6 +8,7 @@ dependencies:
   - .aidoc/designs/e2e-test-scenarios.md
   - .aidoc/designs/game-engine.md
   - .aidoc/designs/database-catalog.md
+  - .aidoc/designs/catalog-bootstrap.md
   - .aidoc/designs/database-puzzle-selection.md
   - .aidoc/designs/database-play-statistics.md
   - .aidoc/designs/database-concurrency.md
@@ -23,6 +24,7 @@ The database scenario catalog protects root-command database composition, played
 |----------|-------------|
 | `.aidoc/designs/e2e-test-scenarios.md` | E2E discovery, isolation, and automation entry points |
 | `.aidoc/designs/database-catalog.md` | Stable identity, provenance, play-run separation, and destructive rebuild contract |
+| `.aidoc/designs/catalog-bootstrap.md` | Managed locations, embedded releases, and explicit custom initialization |
 | `.aidoc/designs/database-puzzle-selection.md` | Exact-grade acquisition and recycling contract |
 | `.aidoc/designs/database-play-statistics.md` | Completion, statistics, and history-reset contract |
 | `.aidoc/designs/database-concurrency.md` | Mixed-workload, lock-bound, and multi-process contract |
@@ -33,6 +35,10 @@ The database scenario catalog protects root-command database composition, played
 Database behavior crosses generation, classification, persistence, and startup. Deterministic cases use the public default-play and `--from-db` boundaries; generated fallback accounting and deliberate lock exhaustion use the narrowest deterministic package seam.
 
 ## Database and Fallback
+
+### Managed and Explicit Bootstrap
+**Action:** Start `db stats` with a clean managed application-data directory; open a separate explicit database through import; run `db bootstrap --check` and then `db bootstrap` against the explicit path.
+**Expected:** Managed first use creates the OS-native database and records the exact embedded release. Opening the explicit database does not record a release, check rolls back every addition and ledger write, and explicit apply records the same digest exactly once without changing existing catalog rows or history.
 
 ### Auto-Store and Fallback
 **Action:** Run the matching `scripts/e2e_cli.py` cases for automatic play storage, catalog-first high-grade selection, exact-grade database fallback, and an empty requested grade.
@@ -57,7 +63,7 @@ Database behavior crosses generation, classification, persistence, and startup. 
 ### Explicit Destructive Rebuild
 **Setup:** Create an obsolete `puzzles` table with one row.
 **Action:** Open it through `db stats`, attempt an unconfirmed non-interactive rebuild, then run `db rebuild --yes`.
-**Expected:** Normal opening fails closed with rebuild guidance, missing confirmation changes nothing, and confirmed rebuild creates the versioned catalog, play-run, identity, application-session, and account-game tables at schema version 6 without preserving unverifiable legacy rows.
+**Expected:** Normal opening fails closed with rebuild guidance, missing confirmation changes nothing, and confirmed rebuild creates the bundle ledger, versioned catalog, play-run, identity, application-session, and account-game tables at schema version 6 without preserving unverifiable legacy rows.
 
 ### Source and Failure Boundaries
 **Action:** Exercise an empty grade, custom database path, conflicting `--input` or `--resume`, and deterministic generated-fallback accounting.

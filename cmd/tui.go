@@ -21,6 +21,14 @@ func newTUICommand() *cobra.Command {
 			resume, _ := command.Flags().GetString("resume")
 			noAutosave, _ := command.Flags().GetBool("no-autosave")
 			dbPath, _ := command.Flags().GetString("db")
+			if dbPath == "" {
+				catalog, resolvedDBPath, err := openCatalogDatabase("")
+				if err != nil {
+					return err
+				}
+				_ = catalog.Close()
+				dbPath = resolvedDBPath
+			}
 
 			var recoveryOptions front.RecoveryOptions
 			if !noAutosave {
@@ -65,7 +73,7 @@ func newTUICommand() *cobra.Command {
 	command.Flags().StringP("level", "l", "hard", "Difficulty level: easy, medium, hard, expert, evil")
 	command.Flags().String("resume", "", "Resume a saved game session")
 	command.Flags().Bool("no-autosave", false, "Disable TUI background autosave and recovery")
-	command.Flags().String("db", "", "Puzzle database path (defaults to the XDG data directory)")
+	command.Flags().String("db", "", "Puzzle database path (defaults to the managed application data directory)")
 	command.MarkFlagsMutuallyExclusive("resume", "input")
 	command.MarkFlagsMutuallyExclusive("resume", "level")
 	return command

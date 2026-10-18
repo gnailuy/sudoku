@@ -133,18 +133,6 @@ func markStoredPuzzlePlayed(dbPath, puzzle string) {
 	_, _ = puzzleDB.MarkForPlay(puzzle)
 }
 
-func defaultDBPath() string {
-	dataHome := os.Getenv("XDG_DATA_HOME")
-	if dataHome == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "puzzles.db"
-		}
-		dataHome = filepath.Join(home, ".local", "share")
-	}
-	return filepath.Join(dataHome, "sudoku", "puzzles.db")
-}
-
 func capitalize(s string) string {
 	if len(s) == 0 {
 		return s

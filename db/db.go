@@ -119,6 +119,14 @@ func createSchema(conn *sql.Conn) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS schema_metadata (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), version INTEGER NOT NULL)`,
 		`INSERT OR IGNORE INTO schema_metadata (singleton, version) VALUES (1, 6)`,
+		`CREATE TABLE IF NOT EXISTS catalog_bundle_releases (
+			bundle_version INTEGER PRIMARY KEY CHECK (bundle_version > 0),
+			artifact_digest TEXT NOT NULL UNIQUE,
+			solver_config_digest TEXT NOT NULL,
+			puzzle_count INTEGER NOT NULL CHECK (puzzle_count >= 0),
+			cohort_count INTEGER NOT NULL CHECK (cohort_count >= 0),
+			applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
 		`CREATE TABLE IF NOT EXISTS base_puzzles (
 			base_puzzle_id TEXT PRIMARY KEY,
 			canonical_puzzle TEXT NOT NULL UNIQUE,
@@ -335,7 +343,7 @@ func Rebuild(path string) (err error) {
 			_, _ = dedicated.ExecContext(context.Background(), `ROLLBACK`)
 		}
 	}()
-	for _, table := range []string{"guest_claims", "account_games", "web_sessions", "application_sessions", "external_identities", "users", "play_runs", "serving_cohort_members", "serving_cohorts", "puzzle_provenance", "base_puzzles", "puzzles", "schema_metadata"} {
+	for _, table := range []string{"guest_claims", "account_games", "web_sessions", "application_sessions", "external_identities", "users", "play_runs", "serving_cohort_members", "serving_cohorts", "puzzle_provenance", "base_puzzles", "catalog_bundle_releases", "puzzles", "schema_metadata"} {
 		if _, err = dedicated.ExecContext(context.Background(), `DROP TABLE IF EXISTS `+table); err != nil {
 			return fmt.Errorf("drop %s: %w", table, err)
 		}

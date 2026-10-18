@@ -31,7 +31,7 @@ func init() {
 	rootCmd.Flags().StringP("input", "i", "", "Specify a Sudoku problem string to play")
 	rootCmd.Flags().StringP("level", "l", "hard", "Difficulty level: easy, medium, hard, expert, evil")
 	rootCmd.Flags().String("resume", "", "Resume a saved game session")
-	rootCmd.Flags().String("db", "", "Puzzle database path (defaults to the XDG data directory)")
+	rootCmd.Flags().String("db", "", "Puzzle database path (defaults to the managed application data directory)")
 	rootCmd.Flags().Bool("from-db", false, "Select an exact-difficulty puzzle from the database without generating")
 	rootCmd.MarkFlagsMutuallyExclusive("resume", "input")
 	rootCmd.MarkFlagsMutuallyExclusive("resume", "level")

@@ -52,20 +52,29 @@ func createSession(request sessionRequest, output, errorOutput io.Writer) (game.
 			fmt.Fprintf(errorOutput, "The input has %d solutions: %s\n", count, request.input)
 		}
 		problem = *parsed
-		dbPath := request.dbPath
-		if dbPath == "" {
-			dbPath = defaultDBPath()
+		if request.dbPath == "" {
+			catalog, resolvedDBPath, openErr := openCatalogDatabase("")
+			if openErr != nil {
+				return game.Game{}, "", fmt.Errorf("open puzzle database: %w", openErr)
+			}
+			_ = catalog.Close()
+			request.dbPath = resolvedDBPath
 		}
-		_, _ = autoStoreTo(solverStore, problem, "input", dbPath)
+		_, _ = autoStoreTo(solverStore, problem, "input", request.dbPath)
 	} else {
 		difficulty, err := difficultyForLevel(request.level)
 		if err != nil {
 			return game.Game{}, "", err
 		}
-		dbPath := request.dbPath
-		if dbPath == "" {
-			dbPath = defaultDBPath()
+		if request.dbPath == "" {
+			catalog, resolvedDBPath, openErr := openCatalogDatabase("")
+			if openErr != nil {
+				return game.Game{}, "", fmt.Errorf("open puzzle database: %w", openErr)
+			}
+			_ = catalog.Close()
+			request.dbPath = resolvedDBPath
 		}
+		dbPath := request.dbPath
 		if request.fromDB {
 			problem, keys, err = acquireFromDB(solverStore, difficulty, request.level, dbPath)
 		} else if catalogFirstLevel(request.level) {
@@ -158,7 +167,7 @@ func (recorder completionRecorder) RecordCompletion(puzzle string) (bool, error)
 
 func newCompletionTracker(current game.Game, path string, existingRunID ...string) *playrun.Tracker {
 	if path == "" {
-		path = defaultDBPath()
+		path, _ = defaultDBPath()
 	}
 	key := normalizePuzzleForDB(solverStore, current.ProblemBoard())
 	runID := ""
@@ -186,6 +195,14 @@ func newCompletionTracker(current game.Game, path string, existingRunID ...strin
 }
 
 func createTrackedSession(request sessionRequest, output, errorOutput io.Writer) (game.Game, string, *playrun.Tracker, error) {
+	if request.dbPath == "" {
+		catalog, resolvedDBPath, err := openCatalogDatabase("")
+		if err != nil {
+			return game.Game{}, "", nil, fmt.Errorf("open puzzle database: %w", err)
+		}
+		_ = catalog.Close()
+		request.dbPath = resolvedDBPath
+	}
 	current, resumePath, err := createSession(request, output, errorOutput)
 	if err != nil {
 		return game.Game{}, "", nil, err

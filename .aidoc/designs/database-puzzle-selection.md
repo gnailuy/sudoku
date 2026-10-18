@@ -8,6 +8,7 @@ entry_points:
   - db/puzzle.go
 dependencies:
   - .aidoc/designs/database-catalog.md
+  - .aidoc/designs/catalog-bootstrap.md
   - .aidoc/designs/difficulty-model.md
   - .aidoc/designs/database-play-statistics.md
   - .aidoc/designs/database-concurrency.md
@@ -23,6 +24,7 @@ Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, an
 | Document | Relationship |
 |----------|-------------|
 | `.aidoc/designs/database-catalog.md` | Defines base-puzzle identity, provenance, play-run state, and rebuild semantics |
+| `.aidoc/designs/catalog-bootstrap.md` | Defines managed catalog initialization without changing acquisition policy |
 | `.aidoc/designs/difficulty-model.md` | Defines the exact strategy-grade contract used by selection |
 | `.aidoc/designs/database-play-statistics.md` | Keeps completion counters and history reset separate from acquisition semantics |
 | `.aidoc/designs/database-concurrency.md` | Extends atomic acquisition into a mixed-handle and multi-process reliability contract |
@@ -62,12 +64,12 @@ Default play chooses source order from verified catalog supply:
 
 Root play provides `--db <path>` and `--from-db`:
 
-- `--db` selects the play database and defaults to the existing XDG path.
+- `--db` selects an explicit unseeded database; omission uses the OS-native managed application-data path and applies the embedded additive release.
 - `--from-db` skips generation and atomically acquires an exact-grade puzzle.
 - `--from-db` returns a clear error when that grade has no stored puzzle.
 - `--from-db` is mutually exclusive with `--input` and `--resume`.
 
-The explicit database source is useful to players who want an offline stored puzzle and gives built-binary E2E a public, deterministic database boundary. No hidden seed or test-only switch is introduced.
+The explicit database source is useful to players who want an offline stored puzzle and gives built-binary E2E a public, deterministic database boundary. The managed embedded release changes catalog supply only when a reviewed bundle contains puzzle rows; release 1 establishes the lifecycle with no starter dataset.
 
 ## Schema and Indexing
 
