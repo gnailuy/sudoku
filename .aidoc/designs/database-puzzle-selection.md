@@ -29,7 +29,6 @@ Puzzle acquisition prefers an exact strategy grade, avoids immediate repeats, an
 | `.aidoc/designs/database-play-statistics.md` | Keeps completion counters and history reset separate from acquisition semantics |
 | `.aidoc/designs/database-concurrency.md` | Extends atomic acquisition into a mixed-handle and multi-process reliability contract |
 | `.aidoc/designs/e2e-database-scenarios.md` | Owns black-box acceptance scenarios for acquisition and migration |
-| `.aidoc/designs/roadmap.md` | Maintains the quality gates that protect this selection baseline |
 
 ## Why Track Acquisition
 
@@ -52,8 +51,8 @@ The acquisition policy uses the full pool before reuse, keeps reuse balanced ove
 
 Default play chooses source order from verified catalog supply:
 
-1. Hard, Expert, and Evil atomically acquire an exact-grade catalog puzzle before attempting generation. These grades have maintained exact-grade supply, so default starts avoid an unnecessary bounded-generation delay and preserve requested/actual agreement.
-2. Easy and Medium attempt bounded generation first because the maintained catalog has no exact-grade supply for those grades.
+1. Hard, Expert, and Evil atomically acquire an exact-grade catalog puzzle before attempting generation. These grades have maintained supply and poor or intentionally restricted interactive generation behavior, so default starts avoid an unnecessary bounded-generation delay and preserve requested/actual agreement.
+2. Easy and Medium deliberately attempt bounded generation first even though embedded catalog release 2 contains 256 exact-grade puzzles for each grade. Those catalog rows remain the exact-grade fallback when generation misses or times out.
 3. If Hard or Expert catalog-first acquisition is empty or unavailable, play reports the failed catalog boundary and falls back to bounded generation. Evil fails closed when its approved cohort cannot serve and never enters generation.
 4. If generation misses, play stores that candidate unplayed and atomically acquires an exact-grade database puzzle when one is available.
 5. If no exact-grade row exists or the database is unavailable, play may use the generated mismatch, marks it played when storage is available, and preserves the explicit actual-grade warning. If generation completes no puzzle, play reports an error.

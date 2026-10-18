@@ -54,13 +54,13 @@ A player-driven completion atomically changes the active run to `completed` and 
 
 ## Account Ownership
 
-Schema version 6 names digest-only `application_sessions` and requires one explicit browser-private-state rebuild from version 5. Schema version 5 added serving-cohort definition and membership tables through an additive version 4 upgrade. Schema version 3 added `users`, provider-keyed `external_identities`, digest-only `application_sessions`, and owner-scoped `account_games`. Account games reference the shared base puzzle and one presentation-specific play run while storing complete durable engine state and an optimistic revision. Deleting a user cascades identities, sessions, and owned games but preserves the catalog and play-run history.
+Current schema version 6 stores provider-keyed `external_identities`, digest-only `application_sessions`, owner-scoped `account_games`, serving-cohort definitions, and cohort membership. Account games reference the shared base puzzle and one presentation-specific play run while storing complete durable engine state and an optimistic revision. Deleting a user cascades identities, sessions, and owned games but preserves the catalog and play-run history.
 
 The persistence boundary resolves account games with both owner and game identifiers, so another user's game is indistinguishable from an absent game. External identity uses the provider issuer and subject pair; profile email remains mutable metadata and never links accounts.
 
 ## Destructive Schema Boundary
 
-Schema version 3 intentionally does not migrate earlier development schemas. Legacy rows lack enough identity, provenance, or ownership evidence to backfill the current boundaries without guessing. `db.Open` returns `db.ErrRebuildRequired` and names the supported command instead of silently rewriting data.
+Pre-catalog development schemas lack enough identity, provenance, or ownership evidence to backfill the current boundaries without guessing. `db.Open` returns `db.ErrRebuildRequired` and names the supported rebuild command instead of silently rewriting data.
 
 `sudoku db rebuild --db <path> --yes` atomically drops account games, application sessions, external identities, users, catalog, provenance, play-run, and legacy tables, then creates schema version 6. Interactive use requires the exact word `rebuild`; non-interactive use requires `--yes`. The database file remains in place, and any failed transaction leaves the prior schema intact.
 
