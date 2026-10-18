@@ -34,9 +34,9 @@ The engine still owns one authoritative candidate grid. A session created by ano
 
 Interactive commands retain bare three-digit value input, value add/clear, history, check/repair, reset/solve, explicit save, and quit. The root command accepts `--resume <path>` as an alternative to puzzle generation and `--input`.
 
-`hint` or `i` queries the shared engine plan without mutation. A placement plan prints its concluding plain-text reasoning plus the exact row, column, and value. A candidate correction or elimination prints one limitation without rendering candidate details, but retains the exact plan so `hint apply` can accept the hidden candidate change and a later `hint` can continue from the resulting authoritative state. `hint cancel` discards either plan, and `sudoku tui` remains the complete teaching surface. The line CLI never skips candidate deductions or mutates during preview.
+`hint` or `i` queries one shared engine plan, prints its compact explanation, and immediately applies that exact `plan_id` as one atomic action. A placement plan prints its concluding plain-text reasoning plus the exact row, column, and value. A candidate correction or elimination prints one limitation without rendering candidate details, applies the hidden candidate change, and lets the next `hint` continue from the resulting authoritative state. `sudoku tui` remains the complete preview and teaching surface.
 
-A successful non-hint mutation discards a cached plan with a notice. Failed and no-op commands preserve it. Exact `plan_id` application keeps preview, stale-plan validation, atomic history, and Undo semantics aligned with the TUI, API, and browser.
+Each command stops after one authoritative deduction, never skips candidate work or silently chains to a placement, and does not mutate when plan generation or exact-plan application fails. Successful application creates one ordinary Undo entry; stale-plan validation remains aligned with the TUI, API, and browser.
 
 ## Persistence Transport
 
@@ -48,4 +48,4 @@ Restore reads are bounded before `game.Restore` validates the complete document.
 
 `game.Game` owns values, candidates, history, serialization, and semantic validation. `cli.Controller` owns compact rendering, commands, hint degradation, help, and error translation. `cmd` owns root flags and startup selection; `sessionfile` owns bounded reads and atomic writes.
 
-Package tests cover compact rendering despite hidden candidates, placement-hint preview/apply/cancel, candidate-hint preview/apply/continuation, stale-preview discard, complete session round trips, bounded reads, atomic replacement, and error translation. Built-binary scenarios cover command help, compact placement output, hidden candidate-plan progression, save/resume with redo state, corrupt input rejection, flag conflicts, and failed-save preservation.
+Package tests cover compact rendering despite hidden candidates, atomic placement and candidate hints, one-step Undo, continuation from candidate work, rejected legacy hint arguments, complete session round trips, bounded reads, atomic replacement, and error translation. Built-binary scenarios cover command help, compact placement output, hidden candidate-plan progression, save/resume with redo state, corrupt input rejection, flag conflicts, and failed-save preservation.

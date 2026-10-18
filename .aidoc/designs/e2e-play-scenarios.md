@@ -96,13 +96,13 @@ The game-command scenarios verify the stable engine boundary through the real te
 **Input:** After making several moves: `reset` or `e`
 **Expected:** Board returns to the original problem state. All user inputs cleared.
 
-### 2.8 Placement Hint Preview and Apply (`hint` / `i`)
-**Input:** Run `hint` or `i` when the authoritative next deduction places a value, inspect the output, then run `hint apply`; separately preview and run `hint cancel`.
-**Expected:** The line CLI prints compact plain-text reasoning and the exact row, column, and value without rendering candidate cells or changing the board. `hint apply` submits the cached `plan_id` as one action and consumes it; `hint cancel` discards it. A successful non-hint mutation discards the preview, while failed and no-op commands preserve it.
+### 2.8 Atomic Placement Hint (`hint` / `i`)
+**Input:** Run `hint` or `i` when the authoritative next deduction places a value.
+**Expected:** The line CLI prints compact plain-text reasoning and the exact row, column, and value, then submits that exact `plan_id` as one undoable action. The command performs one deduction only. If no plan is available or application fails, the board is unchanged.
 
-### 2.9 Candidate Hint Progression
-**Input:** Run repeated `hint` and `hint apply` commands against the maintained Naked Pair fixture until the next authoritative deduction is a candidate correction or elimination, apply it, then request another hint.
-**Expected:** The line CLI previews the candidate plan with one compact limitation, no candidate details, and no mutation. `hint apply` accepts that exact hidden plan as one undoable change, and a later `hint` continues from the updated authoritative candidate state. The compact value board remains the only board rendering, `hint cancel` can discard the hidden plan, and the line CLI never silently skips candidate deductions.
+### 2.9 Atomic Candidate Hint Progression
+**Input:** Run repeated `hint` commands against the maintained Naked Pair fixture until the next authoritative deduction is a candidate correction or elimination, then request another hint.
+**Expected:** The line CLI prints one compact capability limitation without candidate details, applies that exact hidden plan as one undoable change, and lets the next `hint` continue from the updated authoritative candidate state. The compact value board remains the only board rendering, and the line CLI never silently skips candidate deductions or chains several plans in one command.
 
 ### 2.10 Solve (`solve` / `s`)
 **Input:** `solve` or `s`

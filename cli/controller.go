@@ -20,7 +20,6 @@ type Controller struct {
 	game         *game.Game
 	closeChannel CloseChannel
 	tracker      *playrun.Tracker
-	hintPlan     *game.HintPlan
 }
 
 // NewController creates a CLI controller for the given game.
@@ -32,7 +31,6 @@ func NewTrackedController(g *game.Game, tracker *playrun.Tracker) *Controller {
 }
 
 func (ctrl *Controller) apply(action game.Action) (game.Result, error) {
-	before := ctrl.game.Snapshot()
 	var result game.Result
 	var err error
 	if ctrl.tracker == nil {
@@ -43,24 +41,7 @@ func (ctrl *Controller) apply(action game.Action) (game.Result, error) {
 			printError("Warning:", warning)
 		}
 	}
-	if err == nil {
-		ctrl.discardHintAfterMutation(action, before)
-	}
 	return result, err
-}
-
-func (ctrl *Controller) discardHintAfterMutation(action game.Action, before game.Snapshot) {
-	if ctrl.hintPlan == nil {
-		return
-	}
-	if _, applyingHint := action.(game.ApplyHint); applyingHint {
-		return
-	}
-	if ctrl.game.Snapshot() == before {
-		return
-	}
-	ctrl.hintPlan = nil
-	fmt.Println("Hint preview discarded because the board changed.")
 }
 
 // printError prints an error message with a prefix [ERROR].
@@ -121,9 +102,7 @@ func (ctrl *Controller) PrintHelp() {
 	fmt.Println("  - undo, u                       : Undo last move.")
 	fmt.Println("  - redo, r                       : Redo last undo.")
 	fmt.Println("  - repair, f                     : Undo all invalid inputs.")
-	fmt.Println("  - hint, i                       : Preview the next hint in compact form.")
-	fmt.Println("  - hint apply                   : Apply the exact previewed hint as one action.")
-	fmt.Println("  - hint cancel                  : Discard the previewed hint.")
+	fmt.Println("  - hint, i                       : Explain and apply the next hint as one action.")
 	fmt.Println("  - solve, s                      : Solve the problem for me.")
 	fmt.Println("  - reset, e                      : Reset the game and start over.")
 	fmt.Println("  - quit, q                       : Quit the game.")
@@ -235,12 +214,12 @@ func formatHintNarration(step game.HintStep, compact bool) string {
 	return result.String()
 }
 
-const candidateHintLimitation = "This hint needs candidate work that the compact CLI does not display. Run `hint apply` to accept it and continue, or use `sudoku tui` for the full teaching steps."
+const candidateHintLimitation = "Hint: This deduction updates candidates that the compact CLI does not display. Use `sudoku tui` for the full teaching steps."
 
 func formatCLIHint(plan game.HintPlan) string {
 	placement := plan.Conclusion.Placement
 	if placement == nil {
-		return candidateHintLimitation + "\nRun `hint` again after applying to preview the next deduction, or `hint cancel` to discard this plan.\n"
+		return candidateHintLimitation + "\n"
 	}
 	var result strings.Builder
 	reason := plan.Summary
@@ -249,49 +228,29 @@ func formatCLIHint(plan game.HintPlan) string {
 	}
 	fmt.Fprintf(&result, "Hint: %s\n", reason)
 	fmt.Fprintf(&result, "Placement: row %d, column %d = %d.\n", placement.Position.Row+1, placement.Position.Column+1, placement.Value)
-	result.WriteString("Run `hint apply` to accept this plan or `hint cancel` to discard it.\n")
 	return result.String()
 }
 
 func (ctrl *Controller) runHintCommand(arguments string) bool {
-	switch strings.TrimSpace(arguments) {
-	case "":
-		plan := ctrl.game.Hint()
-		if plan == nil {
-			printError("Failed to preview hint:", "no hint is available")
-			return false
-		}
-		if plan.Conclusion.Placement == nil {
-			ctrl.hintPlan = plan
-			fmt.Print(formatCLIHint(*plan))
-			return false
-		}
-		ctrl.hintPlan = plan
-		fmt.Print(formatCLIHint(*plan))
-		return false
-	case "apply":
-		if ctrl.hintPlan == nil {
-			printError("Failed to apply hint:", "preview a hint first")
-			return false
-		}
-		result, err := ctrl.apply(game.ApplyHint{PlanID: ctrl.hintPlan.PlanID})
-		if err != nil {
-			printError("Failed to apply hint:", userFacingError(err))
-			return false
-		}
-		ctrl.hintPlan = nil
-		if result.Hint != nil {
-			fmt.Printf("Applied hint: %s\n", result.Hint.Summary)
-		}
-		return true
-	case "cancel":
-		ctrl.hintPlan = nil
-		fmt.Println("Hint preview canceled.")
-		return false
-	default:
-		printError("Failed to run the hint command: expected `hint`, `hint apply`, or `hint cancel`")
+	if strings.TrimSpace(arguments) != "" {
+		printError("Failed to run the hint command: expected `hint` without arguments")
 		return false
 	}
+	plan := ctrl.game.Hint()
+	if plan == nil {
+		printError("Failed to apply hint:", "no hint is available")
+		return false
+	}
+	fmt.Print(formatCLIHint(*plan))
+	result, err := ctrl.apply(game.ApplyHint{PlanID: plan.PlanID})
+	if err != nil {
+		printError("Failed to apply hint:", userFacingError(err))
+		return false
+	}
+	if result.Hint != nil {
+		fmt.Printf("Applied hint: %s\n", result.Hint.Summary)
+	}
+	return true
 }
 
 func (ctrl *Controller) runCommandWithArguments(name, arguments string) (bool, error) {
@@ -394,7 +353,7 @@ func userFacingError(err error) string {
 		case game.ErrorNoHint:
 			return "no hint is available"
 		case game.ErrorStaleHint:
-			return "the previewed hint is stale or already consumed; preview a new hint"
+			return "the hint became stale before application; run `hint` again"
 		}
 	}
 	return err.Error()

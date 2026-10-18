@@ -260,7 +260,6 @@ def main():
                 "undo",
                 "redo",
                 "hint",
-                "hint apply",
                 "reset",
                 "help",
                 "q",
@@ -278,8 +277,8 @@ def main():
         )
         excludes(output, "note, n", "notes-clear")
 
-        # Candidate-only previews stay read-only, but their exact hidden plan can
-        # be applied so the player can continue requesting compact hints.
+        # Candidate-only plans remain visually compact, but each hint applies
+        # exactly one hidden candidate deduction so later hints can continue.
         hint_cases = json.loads(
             (Path(__file__).resolve().parents[1] / "game" / "testdata" / "hint_strategy_games.json").read_text(encoding="utf-8")
         )["cases"]
@@ -288,33 +287,26 @@ def main():
             binary,
             ["--input", candidate_case["puzzle"]],
             root,
-            ("hint\nhint apply\n" * 128) + "q\n",
+            ("hint\n" * 128) + "q\n",
         )
         contains(
             output,
-            "This hint needs candidate work that the compact CLI does not display.",
-            "Run `hint apply` to accept it and continue",
-            "Run `hint` again after applying to preview the next deduction",
+            "Hint: This deduction updates candidates that the compact CLI does not display.",
+            "Use `sudoku tui` for the full teaching steps.",
             "Applied hint:",
             "Congratulations! You have solved the problem.",
         )
-        excludes(output, "+-----------+", "preview a hint first")
+        excludes(output, "+-----------+", "hint apply", "hint cancel")
 
-        # A successful non-hint mutation explicitly discards the preview so a
-        # stale plan cannot remain available for a later apply attempt.
+        # The superseded two-step subcommands are rejected without applying a hint.
         output = run(
             binary,
             ["--input", PUZZLE_DOTS],
             root,
-            "hint\nadd 1 1 4\nhint apply\nq\n",
+            "hint apply\nhint cancel\nq\n",
         )
-        contains(
-            output,
-            "Hint preview",
-            "Hint preview discarded because the board changed.",
-            "preview a hint first",
-            "Exiting the game.",
-        )
+        contains(output, "expected `hint` without arguments", "Exiting the game.")
+        excludes(output, "Applied hint:")
 
         # A new action after undo must truncate the abandoned redo branch.
         output = run(
