@@ -31,24 +31,33 @@ type AccountStore interface {
 type CreateAccountGameFunc func(kind, value string) (game.Game, string, string, Difficulty, error)
 type CreateGuestGameFunc func(kind, value string) (game.Game, string, Difficulty, error)
 
+type GuestRuntime struct {
+	Documents *guestdoc.Sealer
+	Create    CreateGuestGameFunc
+	Options   game.Options
+}
+
+func (runtime *GuestRuntime) valid() bool {
+	return runtime != nil && runtime.Documents != nil && runtime.Create != nil
+}
+
 type AccountRuntime struct {
-	Documents   *guestdoc.Sealer
+	Guest       *GuestRuntime
 	OIDC        *oidcauth.Manager
 	Auth        *accountauth.Service
 	Games       *accountgame.Service
 	Claims      *guestclaim.Service
 	Store       AccountStore
-	CreateGuest CreateGuestGameFunc
 	CreateOwned CreateAccountGameFunc
-	Options     game.Options
 	CookiePath  string
 	CSRFKey     []byte
 }
 
 func (runtime *AccountRuntime) valid() bool {
-	return runtime != nil && runtime.Documents != nil && runtime.OIDC != nil && runtime.Auth != nil && runtime.Games != nil && runtime.Claims != nil && runtime.Store != nil && runtime.CreateGuest != nil && runtime.CreateOwned != nil && runtime.CookiePath != "" && len(runtime.CSRFKey) >= 32
+	return runtime != nil && runtime.Guest.valid() && runtime.OIDC != nil && runtime.Auth != nil && runtime.Games != nil && runtime.Claims != nil && runtime.Store != nil && runtime.CreateOwned != nil && runtime.CookiePath != "" && len(runtime.CSRFKey) >= 32
 }
 
+func (s *Server) SetGuestRuntime(runtime *GuestRuntime)     { s.guest = runtime }
 func (s *Server) SetAccountRuntime(runtime *AccountRuntime) { s.accounts = runtime }
 
 func sourceValue(source CreateGameRequest_Source) (string, string, error) {
@@ -70,6 +79,9 @@ func sourceValue(source CreateGameRequest_Source) (string, string, error) {
 
 func unavailable() Error {
 	return apiError(ErrorCodeAccountUnavailable, "account routes are not configured")
+}
+func guestUnavailable() Error {
+	return apiError(ErrorCodeAccountUnavailable, "guest routes are not configured")
 }
 func accountUnauthorized() Error {
 	return apiError(ErrorCodeAccountUnauthorized, "valid application session required")
@@ -106,8 +118,8 @@ func accountGame(state accountgame.State) AccountGame {
 }
 
 func (s *Server) CreateGuestGame(_ context.Context, request CreateGuestGameRequestObject) (CreateGuestGameResponseObject, error) {
-	if !s.accounts.valid() {
-		return CreateGuestGame503JSONResponse{UnavailableJSONResponse(unavailable())}, nil
+	if !s.guest.valid() {
+		return CreateGuestGame503JSONResponse{UnavailableJSONResponse(guestUnavailable())}, nil
 	}
 	if request.Body == nil {
 		return CreateGuestGame400JSONResponse{BadRequestJSONResponse(apiError(ErrorCodeInvalidRequest, "request body is required"))}, nil
@@ -116,11 +128,11 @@ func (s *Server) CreateGuestGame(_ context.Context, request CreateGuestGameReque
 	if err != nil {
 		return CreateGuestGame422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidRequest, "invalid game source"))}, nil
 	}
-	current, baseID, difficulty, err := s.accounts.CreateGuest(kind, value)
+	current, baseID, difficulty, err := s.guest.Create(kind, value)
 	if err != nil {
 		return CreateGuestGame422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidSession, err.Error()))}, nil
 	}
-	token, document, err := s.accounts.Documents.Create(&current, baseID, string(difficulty))
+	token, document, err := s.guest.Documents.Create(&current, baseID, string(difficulty))
 	if err != nil {
 		return CreateGuestGame500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to seal guest game"))}, nil
 	}
@@ -128,8 +140,8 @@ func (s *Server) CreateGuestGame(_ context.Context, request CreateGuestGameReque
 }
 
 func (s *Server) ApplyGuestAction(_ context.Context, request ApplyGuestActionRequestObject) (ApplyGuestActionResponseObject, error) {
-	if !s.accounts.valid() {
-		return ApplyGuestAction503JSONResponse{UnavailableJSONResponse(unavailable())}, nil
+	if !s.guest.valid() {
+		return ApplyGuestAction503JSONResponse{UnavailableJSONResponse(guestUnavailable())}, nil
 	}
 	if request.Body == nil {
 		return ApplyGuestAction400JSONResponse{BadRequestJSONResponse(apiError(ErrorCodeInvalidRequest, "request body is required"))}, nil
@@ -138,7 +150,7 @@ func (s *Server) ApplyGuestAction(_ context.Context, request ApplyGuestActionReq
 	if err != nil {
 		return ApplyGuestAction422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidAction, err.Error()))}, nil
 	}
-	transition, err := s.accounts.Documents.Apply(request.Body.Document, expected, action, s.accounts.Options)
+	transition, err := s.guest.Documents.Apply(request.Body.Document, expected, action, s.guest.Options)
 	if err != nil {
 		var documentError *guestdoc.Error
 		if errors.As(err, &documentError) && documentError.Code == guestdoc.ErrorRevisionConflict {
@@ -506,17 +518,17 @@ func (runtime *AccountRuntime) String() string {
 }
 
 func (s *Server) PreviewGuestHint(_ context.Context, request PreviewGuestHintRequestObject) (PreviewGuestHintResponseObject, error) {
-	if !s.accounts.valid() {
-		return PreviewGuestHint503JSONResponse{UnavailableJSONResponse(unavailable())}, nil
+	if !s.guest.valid() {
+		return PreviewGuestHint503JSONResponse{UnavailableJSONResponse(guestUnavailable())}, nil
 	}
 	if request.Body == nil {
 		return PreviewGuestHint400JSONResponse{BadRequestJSONResponse(apiError(ErrorCodeInvalidRequest, "request body is required"))}, nil
 	}
-	document, err := s.accounts.Documents.Open(request.Body.Document)
+	document, err := s.guest.Documents.Open(request.Body.Document)
 	if err != nil {
 		return PreviewGuestHint422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidSession, "guest document is invalid or expired"))}, nil
 	}
-	current, err := game.Restore(document.EngineState, s.accounts.Options)
+	current, err := game.Restore(document.EngineState, s.guest.Options)
 	if err != nil {
 		return PreviewGuestHint422JSONResponse{UnprocessableEntityJSONResponse(apiError(ErrorCodeInvalidSession, "guest document state is invalid"))}, nil
 	}
@@ -545,7 +557,7 @@ func (s *Server) PreviewAccountGameHint(_ context.Context, request PreviewAccoun
 	if err != nil {
 		return PreviewAccountGameHint500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to load account game"))}, nil
 	}
-	current, err := game.Restore(state.Game.EngineState, s.accounts.Options)
+	current, err := game.Restore(state.Game.EngineState, s.accounts.Guest.Options)
 	if err != nil {
 		return PreviewAccountGameHint500JSONResponse{InternalErrorJSONResponse(apiError(ErrorCodeInternalError, "unable to restore account game"))}, nil
 	}

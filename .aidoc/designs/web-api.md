@@ -4,7 +4,7 @@ status: Active
 entry_points:
   - api/openapi.yaml
   - cmd/api.go
-  - cmd/accounts.go
+  - cmd/web_runtime.go
   - webapi/server.go
   - webapi/account_routes.go
 dependencies:
@@ -37,7 +37,7 @@ Guest and account ownership modes replace anonymous durable server sessions. Gue
 
 ## Process and Contract Boundaries
 
-`cmd.runAPI` owns loopback listener policy, account runtime loading, exact browser origins, timeouts, and graceful shutdown. `webapi.NewHandler` owns strict generated routing, body limits, JSON validation, exact-origin CORS, and stable errors. `webapi.AccountRuntime` supplies sealed guest documents, OIDC, application-session authentication, owner-scoped game services, and explicit guest claim.
+`cmd.runAPI` owns loopback listener policy, independent guest and account runtime loading, exact browser origins, timeouts, and graceful shutdown. `webapi.NewHandler` owns strict generated routing, body limits, JSON validation, exact-origin CORS, and stable errors. `webapi.GuestRuntime` supplies sealed guest documents and game creation. `webapi.AccountRuntime` depends on that guest capability and adds OIDC, application-session authentication, owner-scoped game services, and explicit guest claim. Guest endpoints validate only the guest capability; login, claim, and account endpoints validate the complete account capability.
 
 `api/openapi.yaml` uses OpenAPI 3.1.1 and defines health, guest, authentication, account, and account-game resources. Generated transport models stay inside `webapi/generated.go`; `scripts/check-api-contract.sh` rejects stale generation. Deliberate contract breaks remain acceptable during development but must update the client and both repositories' acceptance catalogs together.
 
@@ -51,7 +51,7 @@ Action requests use the typed engine boundary. `set-candidates` replaces one com
 
 ## Security and Failure Policy
 
-`sudoku api` accepts loopback listeners only. A trusted reverse proxy or equivalent host boundary owns public TLS and routing; exact browser origins remain explicit. Guest documents provide authenticated state, while account routes use a secure HttpOnly application-session cookie plus HMAC request proof for mutations.
+`sudoku api` accepts loopback listeners only. A trusted reverse proxy or equivalent host boundary owns public TLS and routing; exact browser origins remain explicit. Zero-config startup creates or reuses one owner-only 32-byte sealing key in the managed application-data directory, so guest documents survive process restarts without sharing a compiled key. `--web-config` may instead provide a named active guest key plus decrypt-only rotation keys. Google discovery and account storage initialize only when the same private configuration contains complete guest and account sections; partial account configuration fails startup. Account routes use a secure HttpOnly application-session cookie plus HMAC request proof for mutations.
 
 Malformed JSON, unsupported media, oversized bodies, unavailable private configuration, stale revisions, engine rejection, missing ownership, and internal failures use stable error codes plus bounded semantic message descriptors. The API ignores `Accept-Language`; identical state and input produce identical descriptors, fallback text, revisions, and plan IDs. Logs, descriptor arguments, and fallbacks never include sealed documents, cookies, OAuth material, puzzle history, raw internal errors, or profile secrets.
 
@@ -59,4 +59,4 @@ Malformed JSON, unsupported media, oversized bodies, unavailable private configu
 
 Handler tests prove strict decoding, body limits, exact origins, route absence for `/api/v1/sessions*`, sealed guest replacement, login rotation, session-bound request proof, idempotent claim, owner-scoped game access, elapsed-time synchronization, and account deletion. Package tests prove engine translation and persistence semantics.
 
-`scripts/e2e_api.py` starts the built binary, proves health, exact-origin policy, loopback-only startup, graceful shutdown, fail-closed unconfigured guest/account routes, locale-invariant descriptor fallbacks, and the permanent absence of the anonymous session namespace. `scripts/check-api-contract.sh` validates and regenerates the OpenAPI descriptor boundary.
+`scripts/e2e_api.py` starts the built binary and proves zero-config guest creation, account-route failure, managed-key persistence across restart, owner-only key enforcement, configured guest-only startup, account-without-guest rejection, the direct `--web-config` cutover, health, exact-origin policy, loopback-only startup, graceful shutdown, locale-invariant descriptor fallbacks, and permanent absence of the anonymous session namespace. `scripts/check-api-contract.sh` validates and regenerates the OpenAPI descriptor boundary.

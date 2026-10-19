@@ -19,7 +19,7 @@ import (
 )
 
 func newAPICommand() *cobra.Command {
-	var listen, dbPath, accountsConfig string
+	var listen, dbPath, webConfig string
 	var origins []string
 	var readTimeout, writeTimeout, idleTimeout, shutdownTimeout time.Duration
 	command := &cobra.Command{
@@ -27,13 +27,13 @@ func newAPICommand() *cobra.Command {
 		Short: "Serve the versioned Sudoku HTTP API",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runAPI(cmd, apiConfig{listen: listen, dbPath: dbPath, accountsConfig: accountsConfig, origins: origins, readTimeout: readTimeout, writeTimeout: writeTimeout, idleTimeout: idleTimeout, shutdownTimeout: shutdownTimeout})
+			return runAPI(cmd, apiConfig{listen: listen, dbPath: dbPath, webConfig: webConfig, origins: origins, readTimeout: readTimeout, writeTimeout: writeTimeout, idleTimeout: idleTimeout, shutdownTimeout: shutdownTimeout})
 		},
 	}
 	flags := command.Flags()
 	flags.StringVar(&listen, "listen", "127.0.0.1:8080", "HTTP listen address")
 	flags.StringVar(&dbPath, "db", "", "Puzzle database path (defaults to the managed application data directory)")
-	flags.StringVar(&accountsConfig, "accounts-config", "", "private JSON configuration enabling guest and account routes")
+	flags.StringVar(&webConfig, "web-config", "", "private JSON configuration for guest keys and optional accounts")
 	flags.StringSliceVar(&origins, "allowed-origin", nil, "allowed browser origin (repeatable)")
 	flags.DurationVar(&readTimeout, "read-timeout", 15*time.Second, "maximum request read time")
 	flags.DurationVar(&writeTimeout, "write-timeout", 30*time.Second, "maximum response write time")
@@ -43,7 +43,7 @@ func newAPICommand() *cobra.Command {
 }
 
 type apiConfig struct {
-	listen, dbPath, accountsConfig                          string
+	listen, dbPath, webConfig                               string
 	origins                                                 []string
 	readTimeout, writeTimeout, idleTimeout, shutdownTimeout time.Duration
 }
@@ -65,11 +65,12 @@ func runAPI(command *cobra.Command, config apiConfig) error {
 	options := game.NewDefaultOptions(solverStore)
 	options.StrategySolverKeys = solverStore.GetAllStrategySolverKeys()
 	server := webapi.NewServer()
-	accounts, closeAccounts, err := loadAccountRuntime(command.Context(), config.accountsConfig, config.dbPath, options)
+	guest, accounts, closeRuntime, err := loadWebRuntime(command.Context(), config.webConfig, config.dbPath, options)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = closeAccounts() }()
+	defer func() { _ = closeRuntime() }()
+	server.SetGuestRuntime(guest)
 	server.SetAccountRuntime(accounts)
 
 	httpServer := &http.Server{Addr: config.listen, Handler: webapi.NewHandler(server, config.origins), ReadTimeout: config.readTimeout, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: config.writeTimeout, IdleTimeout: config.idleTimeout, MaxHeaderBytes: 32 << 10}

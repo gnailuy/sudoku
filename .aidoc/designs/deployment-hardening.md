@@ -32,7 +32,7 @@ Sudoku may share a machine and reverse proxy with unrelated applications. Sudoku
 
 The API binds to loopback by default. A reverse proxy may expose the static client and API at an origin root or normalized path prefix, forwarding only the selected API namespace and removing the mount prefix when required.
 
-Guest and account routes fail closed unless `--accounts-config` names a private regular file that supplies guest-document keys, cookie and lifetime policy, request-proof key, and Google OIDC configuration. Account sessions use opaque `Secure`, `HttpOnly`, `SameSite=Lax` cookies; state-changing account requests require same-origin proof. The backend remains loopback-only, exact browser origins are explicit, and a trusted reverse proxy or equivalent host boundary owns public routing. A reverse-proxy access gate, VPN, or allowlist may add host policy but never substitutes for the application ownership boundary.
+Guest routes are available in every valid mode. Plain startup creates or reuses an owner-only sealing key in private managed application data. An owner-only `--web-config` can supply explicit named guest keys for rotation; adding accounts requires complete nested guest and account sections. Guest-only startup does not initialize Google or make provider calls, while partial or account-only configuration fails before listening. Account sessions use opaque `Secure`, `HttpOnly`, `SameSite=Lax` cookies; state-changing account requests require same-origin proof. The backend remains loopback-only, exact browser origins are explicit, and a trusted reverse proxy or equivalent host boundary owns public routing. A reverse-proxy access gate, VPN, or allowlist may add host policy but never substitutes for the application ownership boundary.
 
 Repository examples use generic values only. Public files contain no operator hostname, external URL, private address assignment, live port, absolute host layout, credential, or neighboring-site route.
 
@@ -56,7 +56,7 @@ The service starts after the user's service manager starts and can be enabled fo
 
 ## Replacement and Failure Handling
 
-A serialized host-side flow downloads or receives the selected artifacts, verifies their checksums, stages the pair away from the active files, and starts the backend on its private listener. The flow verifies payload-free backend health, fail-closed behavior without account configuration, and representative configured guest/account creation, mutation, ownership, cookie, exact-origin, and request-proof boundaries before selecting the new pair.
+A serialized host-side flow downloads or receives the selected artifacts, verifies their checksums, stages the pair away from the active files, and starts the backend on its private listener. The flow verifies payload-free backend health, zero-config guest creation with persistent owner-only key material, fail-closed account routes in guest-only mode, and representative configured guest/account creation, mutation, ownership, cookie, exact-origin, and request-proof boundaries before selecting the new pair.
 
 The companion browser verification checks the shell, referenced assets, health route, session creation, and one desktop/mobile gameplay journey with no unexpected request, page, or console errors. A shared host additionally checks that representative neighboring routes remain unchanged before and after Sudoku replacement.
 

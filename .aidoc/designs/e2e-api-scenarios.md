@@ -37,9 +37,9 @@ OpenAPI validation cannot prove listener safety, generated routing, middleware o
 
 **Expected:** Health returns 200 and every removed anonymous-session path returns 404. No recovery directory, anonymous gameplay row, or compatibility redirect is created.
 
-**Action:** Start without private account configuration and call guest create plus the current-account probe.
+**Action:** Start without a web configuration, create and mutate a guest game, restart against the same managed application-data directory, mutate the original document again, and probe the current-account route. Repeat startup with a private guest-only configuration. Then attempt account-only configuration and a managed key with group-readable permissions.
 
-**Expected:** Both routes fail closed with the bounded `account-unavailable` response. Startup remains healthy so operators can distinguish missing private configuration from process failure.
+**Expected:** Zero-config and configured guest-only modes create sealed guest games without Google setup. The generated 32-byte key is owner-only and remains stable across restart, so the original guest document stays valid. Account routes return the bounded `account-unavailable` response. Account-only configuration fails before startup because account mode depends on a complete guest section, and unsafe key permissions fail closed.
 
 **Action:** Send one request from the configured exact origin and one preflight from another origin.
 

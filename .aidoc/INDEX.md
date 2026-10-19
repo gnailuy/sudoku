@@ -47,7 +47,7 @@ There is no current Draft work. Drafts remain discoverable here when present and
 2. `.aidoc/designs/localization-contract.md` — semantic message and English fallback boundary.
 3. `.aidoc/designs/user-accounts.md` — identity, ownership, sessions, and claim semantics.
 4. `.aidoc/designs/deployment-hardening.md` — artifact, loopback, origin, service, and replacement boundaries.
-5. `api/openapi.yaml`, `cmd/api.go`, `cmd/accounts.go`, `webapi/server.go`, and `message/` — wire, account-runtime, descriptor, and server implementation.
+5. `api/openapi.yaml`, `cmd/api.go`, `cmd/web_runtime.go`, `webapi/server.go`, and `message/` — wire, account-runtime, descriptor, and server implementation.
 6. `.aidoc/designs/e2e-api-scenarios.md` — black-box acceptance.
 
 ### Run Black-Box Acceptance

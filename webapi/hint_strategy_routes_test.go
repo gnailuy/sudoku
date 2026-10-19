@@ -179,20 +179,21 @@ func hintStrategyRouteHandler(t *testing.T) (http.Handler, func()) {
 		board.FromString(puzzle)
 		return game.NewGame(board, options)
 	}
+	guest := &GuestRuntime{Documents: documents, Options: options, Create: func(kind, value string) (game.Game, string, Difficulty, error) {
+		if kind != "puzzle" {
+			return game.Game{}, "", "", fmt.Errorf("unexpected source kind %q", kind)
+		}
+		return newGame(value), db.BasePuzzleID(value), Easy, nil
+	}}
 	runtime := &AccountRuntime{
-		Documents: documents, OIDC: login, Auth: authentication, Games: games, Claims: claims, Store: database,
-		Options: options, CookiePath: "/app/", CSRFKey: append([]byte(nil), key...),
-		CreateGuest: func(kind, value string) (game.Game, string, Difficulty, error) {
-			if kind != "puzzle" {
-				return game.Game{}, "", "", fmt.Errorf("unexpected source kind %q", kind)
-			}
-			return newGame(value), db.BasePuzzleID(value), Easy, nil
-		},
+		Guest: guest, OIDC: login, Auth: authentication, Games: games, Claims: claims, Store: database,
+		CookiePath: "/app/", CSRFKey: append([]byte(nil), key...),
 		CreateOwned: func(kind, value string) (game.Game, string, string, Difficulty, error) {
 			return newGame(value), db.BasePuzzleID(value), "test-run", Easy, nil
 		},
 	}
 	server := NewServer()
+	server.SetGuestRuntime(guest)
 	server.SetAccountRuntime(runtime)
 	return NewHandler(server, nil), func() { _ = database.Close() }
 }

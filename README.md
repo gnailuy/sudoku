@@ -72,12 +72,36 @@ Start the backend-only API on its safe loopback default:
 ./sudoku api --listen 127.0.0.1:9090
 ```
 
-The API listener is loopback-only. Publish it through a trusted reverse proxy or equivalent deployment boundary, and allow each browser origin explicitly. Guest and account routes fail closed until a private mode-restricted `--accounts-config` supplies the guest sealing keys, session policy, request-proof key, and OIDC configuration.
+The API listener is loopback-only. Publish it through a trusted reverse proxy or equivalent deployment boundary, and allow each browser origin explicitly. Plain `sudoku api` enables guest gameplay immediately: the first start creates a private 32-byte sealing key in the managed application-data directory, and later starts reuse it so active guest games remain valid. Account routes stay disabled and Google is never initialized.
+
+Use an owner-only `--web-config` to supply rotatable guest keys and, optionally, a complete account section. An account section without a guest section is rejected.
 
 ```bash
 ./sudoku api --listen 127.0.0.1:8080 \
   --allowed-origin https://sudoku.example.com \
-  --accounts-config /private/path/accounts.json
+  --web-config /private/path/web.json
+```
+
+```json
+{
+  "guest": {
+    "active_key_id": "operator-v1",
+    "keys": { "operator-v1": "<32 base64url bytes>" },
+    "lifetime_seconds": 2592000
+  },
+  "account": {
+    "csrf_key": "<at least 32 base64url bytes>",
+    "google": {
+      "client_id": "<client ID>",
+      "client_secret": "<client secret>",
+      "redirect_url": "https://sudoku.example.com/api/v1/auth/google/callback"
+    },
+    "return_path_prefix": "/",
+    "cookie_path": "/",
+    "session_idle_seconds": 2592000,
+    "session_absolute_seconds": 7776000
+  }
+}
 ```
 
 The OpenAPI 3.1 contract is [`api/openapi.yaml`](api/openapi.yaml). All game operations are under `/api/v1`; `GET /healthz` is payload-free. Guest games use revisioned sealed client-held documents. Signed-in games use owner-scoped durable records, opaque `Secure`/`HttpOnly` cookies, same-origin request proof, and optimistic revisions.
