@@ -77,12 +77,12 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 		board.FromString(knownPuzzle)
 		return game.NewGame(board, options)
 	}
+	guestRuntime := &GuestRuntime{Documents: documents, Options: options, Create: func(_, _ string) (game.Game, string, Difficulty, error) {
+		return newGame(), baseID, Easy, nil
+	}}
 	runtime := &AccountRuntime{
-		Documents: documents, OIDC: login, Auth: authentication, Games: games, Claims: claims, Store: database,
-		Options: options, CookiePath: "/app/", CSRFKey: append([]byte(nil), key...),
-		CreateGuest: func(_, _ string) (game.Game, string, Difficulty, error) {
-			return newGame(), baseID, Easy, nil
-		},
+		Guest: guestRuntime, OIDC: login, Auth: authentication, Games: games, Claims: claims, Store: database,
+		CookiePath: "/app/", CSRFKey: append([]byte(nil), key...),
 		CreateOwned: func(_, _ string) (game.Game, string, string, Difficulty, error) {
 			runID, err := recovery.NewID()
 			if err != nil {
@@ -95,6 +95,7 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 		},
 	}
 	server := NewServer()
+	server.SetGuestRuntime(guestRuntime)
 	server.SetAccountRuntime(runtime)
 	handler := NewHandler(server, nil)
 

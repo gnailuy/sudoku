@@ -26,6 +26,7 @@ var canonicalEnglishMessages = func() *usermessage.Catalog {
 const MaxRequestBytes = 1 << 20
 
 type Server struct {
+	guest    *GuestRuntime
 	accounts *AccountRuntime
 }
 

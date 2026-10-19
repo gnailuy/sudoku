@@ -108,16 +108,17 @@ func main() {
 		classification := solver.ClassifyPuzzle(store, board)
 		return current, db.BasePuzzleID(puzzle), webapi.Difficulty(classification.Difficulty), nil
 	}
+	guest := &webapi.GuestRuntime{Documents: documents, Options: options, Create: func(_, _ string) (game.Game, string, webapi.Difficulty, error) { return create() }}
 	runtime := &webapi.AccountRuntime{
-		Documents: documents, OIDC: login, Auth: authentication, Games: games, Claims: claims, Store: database,
-		Options: options, CookiePath: "/", CSRFKey: append([]byte(nil), key...),
-		CreateGuest: func(_, _ string) (game.Game, string, webapi.Difficulty, error) { return create() },
+		Guest: guest, OIDC: login, Auth: authentication, Games: games, Claims: claims, Store: database,
+		CookiePath: "/", CSRFKey: append([]byte(nil), key...),
 		CreateOwned: func(_, _ string) (game.Game, string, string, webapi.Difficulty, error) {
 			current, baseID, difficulty, err := create()
 			return current, baseID, "e2e-run", difficulty, err
 		},
 	}
 	server := webapi.NewServer()
+	server.SetGuestRuntime(guest)
 	server.SetAccountRuntime(runtime)
 	httpServer := &http.Server{Addr: *listen, Handler: webapi.NewHandler(server, []string{*origin}), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
