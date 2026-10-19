@@ -462,7 +462,8 @@ func apiHintEffect(effect game.HintEffect) HintEffect {
 	return out
 }
 
-func apiError(code ErrorCode, message string) Error {
+func apiError(code ErrorCode, _ string) Error {
+	message := mustAPIMessageDescriptor(canonicalEnglishMessages.Render("error." + string(code)))
 	return Error{Error: ErrorDetail{Code: code, Message: message}}
 }
 func engineAPIError(e *game.EngineError) Error {

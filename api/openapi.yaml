@@ -552,7 +552,7 @@ components:
           example:
             error:
               code: invalid-request
-              message: source must select exactly one supported kind
+              message: { id: error.invalid-request, arguments: [], text: The request is invalid. }
               field: source
     PayloadTooLarge:
       description: The request exceeds the configured body limit.
@@ -563,7 +563,7 @@ components:
           example:
             error:
               code: payload-too-large
-              message: request body exceeds the maximum size
+              message: { id: error.payload-too-large, arguments: [], text: The request is too large. }
     UnsupportedMediaType:
       description: The request Content-Type is not supported by this operation.
       content:
@@ -573,7 +573,7 @@ components:
           example:
             error:
               code: unsupported-media-type
-              message: the request Content-Type is not supported
+              message: { id: error.unsupported-media-type, arguments: [], text: The request Content-Type is not supported. }
     UnprocessableEntity:
       description: The request is well formed but cannot be applied.
       content:
@@ -585,7 +585,7 @@ components:
               value:
                 error:
                   code: immutable-cell
-                  message: cannot change a problem cell
+                  message: { id: error.immutable-cell, arguments: [], text: A given cell cannot be changed. }
                   cell:
                     row: 1
                     column: 3
@@ -593,7 +593,7 @@ components:
               value:
                 error:
                   code: invalid-session
-                  message: serialized session validation failed
+                  message: { id: error.invalid-session, arguments: [], text: The game session is invalid. }
     InternalError:
       description: An unexpected or durability failure occurred without leaking internals.
       content:
@@ -603,7 +603,7 @@ components:
           example:
             error:
               code: internal-error
-              message: the request could not be completed
+              message: { id: error.internal-error, arguments: [], text: The request could not be completed. }
 
   schemas:
     SealedGuestDocument:
@@ -1609,9 +1609,7 @@ components:
         code:
           $ref: "#/components/schemas/ErrorCode"
         message:
-          type: string
-          minLength: 1
-          maxLength: 1000
+          $ref: "#/components/schemas/MessageDescriptor"
         field:
           type: string
           minLength: 1

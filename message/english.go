@@ -35,6 +35,32 @@ var englishConstantMessages = map[string]string{
 
 	"hint.value-correction.title":     "Fix this value",
 	"hint.candidate-correction.title": "Fix this candidate cell",
+
+	"error.invalid-request":         "The request is invalid.",
+	"error.invalid-json":            "The request contains invalid JSON.",
+	"error.unsupported-media-type":  "The request Content-Type is not supported.",
+	"error.payload-too-large":       "The request is too large.",
+	"error.unauthorized":            "Authorization is required.",
+	"error.forbidden-origin":        "This request origin is not allowed.",
+	"error.session-not-found":       "The game session was not found.",
+	"error.revision-conflict":       "The game changed before this action was applied.",
+	"error.invalid-session":         "The game session is invalid.",
+	"error.invalid-action":          "This game action is invalid.",
+	"error.invalid-cell":            "This cell is invalid.",
+	"error.immutable-cell":          "A given cell cannot be changed.",
+	"error.note-not-allowed":        "Candidates cannot be changed in this cell.",
+	"error.no-undo":                 "There is no action to undo.",
+	"error.no-redo":                 "There is no action to redo.",
+	"error.no-hint":                 "No hint is available.",
+	"error.stale-hint":              "The puzzle changed after this hint was prepared.",
+	"error.persistence-failed":      "The game could not be saved.",
+	"error.internal-error":          "The request could not be completed.",
+	"error.account-unavailable":     "Account features are unavailable.",
+	"error.account-unauthorized":    "A valid application session is required.",
+	"error.csrf-failed":             "The request proof is invalid.",
+	"error.account-game-not-found":  "The saved game was not found.",
+	"error.guest-revision-conflict": "The local game changed before this action was applied.",
+	"error.guest-claim-conflict":    "This local game was already saved to an account.",
 }
 
 // NewEnglishCatalog returns the canonical English catalog shared by API and terminal adapters.

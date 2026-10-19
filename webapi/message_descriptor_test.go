@@ -44,6 +44,23 @@ func TestAPIHintPlanUsesCorrectionTitleDescriptors(t *testing.T) {
 	}
 }
 
+func TestAPIErrorsUseCanonicalDescriptorsAndIgnoreRawDetails(t *testing.T) {
+	codes := []ErrorCode{
+		ErrorCodeInvalidRequest, ErrorCodeInvalidJson, ErrorCodeUnsupportedMediaType, ErrorCodePayloadTooLarge,
+		ErrorCodeUnauthorized, ErrorCodeForbiddenOrigin, ErrorCodeSessionNotFound, ErrorCodeRevisionConflict,
+		ErrorCodeInvalidSession, ErrorCodeInvalidAction, ErrorCodeInvalidCell, ErrorCodeImmutableCell,
+		ErrorCodeNoteNotAllowed, ErrorCodeNoUndo, ErrorCodeNoRedo, ErrorCodeNoHint, ErrorCodeStaleHint,
+		ErrorCodePersistenceFailed, ErrorCodeInternalError, ErrorCodeAccountUnavailable, ErrorCodeAccountUnauthorized,
+		ErrorCodeCsrfFailed, ErrorCodeAccountGameNotFound, ErrorCodeGuestRevisionConflict, ErrorCodeGuestClaimConflict,
+	}
+	for _, code := range codes {
+		detail := apiError(code, "sensitive internal detail").Error
+		if detail.Message.Id != "error."+string(code) || detail.Message.Text == "" || detail.Message.Text == "sensitive internal detail" || len(detail.Message.Arguments) != 0 {
+			t.Fatalf("error %q = %#v", code, detail.Message)
+		}
+	}
+}
+
 func TestAPIMessageDescriptorPreservesClosedArgumentKinds(t *testing.T) {
 	text, integer, digit, row, column, box, difficulty, strategy, count := "safe", 42, 9, 1, 2, 3, "easy", "naked-single", 4
 	descriptor := usermessage.Descriptor{ID: "test.arguments", Text: "fallback", Arguments: []usermessage.Argument{
