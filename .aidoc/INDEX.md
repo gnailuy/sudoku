@@ -20,7 +20,11 @@ This index is the complete registry for durable project knowledge and a set of s
 
 ## Draft Work
 
-No Draft documents are active. Add every future Draft here with its topic, accountable owner, status, and link before using it as a planning dependency; current-state routes must not depend on Drafts.
+| Topic | Owner | Status | Document |
+|---|---|---|---|
+| Locale-neutral API messages and shared English terminal rendering | Product owner | Draft | `.aidoc/designs/localization-contract.md` |
+
+Draft work is discoverable for planning but is not current-state authority and does not appear in current-state reading chains.
 
 ## Reading Chains
 
@@ -71,6 +75,7 @@ No Draft documents are active. Add every future Draft here with its topic, accou
 | `.aidoc/designs/web-api.md` | Guest/account HTTP resources and revision boundaries |
 | `.aidoc/designs/user-accounts.md` | Identity, ownership, claim, session, and account security |
 | `.aidoc/designs/deployment-hardening.md` | Portable artifact, service, isolation, and replacement contract |
+| `.aidoc/designs/localization-contract.md` | Draft locale-neutral messages with deterministic English fallback |
 | `.aidoc/designs/future-directions.md` | Evidence gates for unapproved product expansion |
 
 ### Rating, Generation, and Persistence
