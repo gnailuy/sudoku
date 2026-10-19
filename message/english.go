@@ -26,7 +26,7 @@ var englishConstantMessages = map[string]string{
 	"strategy.xyz-wing.name":           "XYZ-Wing",
 	"strategy.jellyfish.name":          "Jellyfish",
 	"strategy.bug-plus-one.name":       "BUG+1",
-	"strategy.unique-rectangle.name":   "Unique Rectangle",
+	"strategy.unique-rectangle.name":   "Unique Rectangle Type 1",
 	"strategy.unique-rectangle-2.name": "Unique Rectangle Type 2",
 	"strategy.unique-rectangle-3.name": "Unique Rectangle Type 3",
 	"strategy.unique-rectangle-4.name": "Unique Rectangle Type 4",
