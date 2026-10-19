@@ -17,6 +17,14 @@ import (
 	"github.com/gnailuy/sudoku/sessionfile"
 )
 
+var canonicalEnglishMessages = func() *usermessage.Catalog {
+	catalog, err := usermessage.NewEnglishCatalog()
+	if err != nil {
+		panic(fmt.Sprintf("construct canonical English catalog: %v", err))
+	}
+	return catalog
+}()
+
 const (
 	minWidth  = 72
 	minHeight = 40
@@ -485,13 +493,11 @@ func hintStepMessage(plan game.HintPlan, index int) string {
 	}
 	step := plan.Steps[index]
 	strategyName, gradeName := plan.Strategy.DisplayName, plan.Strategy.Grade
-	if catalog, err := usermessage.NewEnglishCatalog(); err == nil {
-		if descriptor, renderErr := usermessage.RenderEnglishName(catalog, "strategy", plan.Strategy.ID); renderErr == nil {
-			strategyName = descriptor.Text
-		}
-		if descriptor, renderErr := usermessage.RenderEnglishName(catalog, "difficulty", plan.Strategy.Grade); renderErr == nil {
-			gradeName = descriptor.Text
-		}
+	if descriptor, err := usermessage.RenderEnglishName(canonicalEnglishMessages, "strategy", plan.Strategy.ID); err == nil {
+		strategyName = descriptor.Text
+	}
+	if descriptor, err := usermessage.RenderEnglishName(canonicalEnglishMessages, "difficulty", plan.Strategy.Grade); err == nil {
+		gradeName = descriptor.Text
 	}
 	return fmt.Sprintf("Hint — %s (%s)  •  Step %d of %d [%s]: %s", strategyName, gradeName, index+1, len(plan.Steps), step.Kind, formatTUIHintNarration(step))
 }
