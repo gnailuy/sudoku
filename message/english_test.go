@@ -13,8 +13,8 @@ func TestEnglishCatalogRendersCanonicalNames(t *testing.T) {
 		"strategy.naked-single.name":       "Naked Single",
 		"strategy.pointing-pair.name":      "Pointing Pairs / Box-Line Reduction",
 		"strategy.unique-rectangle-4.name": "Unique Rectangle Type 4",
-		"hint.value-correction.title":      "Correct a value first",
-		"hint.candidate-correction.title":  "Reset one candidate cell first",
+		"hint.value-correction.title":      "Fix this value",
+		"hint.candidate-correction.title":  "Fix this candidate cell",
 	}
 	for id, want := range cases {
 		descriptor, err := catalog.Render(id)

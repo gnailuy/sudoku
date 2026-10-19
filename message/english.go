@@ -33,8 +33,8 @@ var englishConstantMessages = map[string]string{
 	"strategy.x-cycles.name":           "X-Cycles",
 	"strategy.xy-chain.name":           "XY-Chain",
 
-	"hint.value-correction.title":     "Correct a value first",
-	"hint.candidate-correction.title": "Reset one candidate cell first",
+	"hint.value-correction.title":     "Fix this value",
+	"hint.candidate-correction.title": "Fix this candidate cell",
 }
 
 // NewEnglishCatalog returns the canonical English catalog shared by API and terminal adapters.
