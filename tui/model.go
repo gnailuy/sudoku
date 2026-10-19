@@ -11,19 +11,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
-	usermessage "github.com/gnailuy/sudoku/message"
 	"github.com/gnailuy/sudoku/playrun"
 	"github.com/gnailuy/sudoku/recovery"
 	"github.com/gnailuy/sudoku/sessionfile"
 )
-
-var canonicalEnglishMessages = func() *usermessage.Catalog {
-	catalog, err := usermessage.NewEnglishCatalog()
-	if err != nil {
-		panic(fmt.Sprintf("construct canonical English catalog: %v", err))
-	}
-	return catalog
-}()
 
 const (
 	minWidth  = 72
@@ -492,14 +483,7 @@ func hintStepMessage(plan game.HintPlan, index int) string {
 		return "Hint preview: " + plan.Summary
 	}
 	step := plan.Steps[index]
-	strategyName, gradeName := plan.Strategy.DisplayName, plan.Strategy.Grade
-	if descriptor, err := usermessage.RenderEnglishName(canonicalEnglishMessages, "strategy", plan.Strategy.ID); err == nil {
-		strategyName = descriptor.Text
-	}
-	if descriptor, err := usermessage.RenderEnglishName(canonicalEnglishMessages, "difficulty", plan.Strategy.Grade); err == nil {
-		gradeName = descriptor.Text
-	}
-	return fmt.Sprintf("Hint — %s (%s)  •  Step %d of %d [%s]: %s", strategyName, gradeName, index+1, len(plan.Steps), step.Kind, formatTUIHintNarration(step))
+	return fmt.Sprintf("Hint — %s (%s)  •  Step %d of %d [%s]: %s", plan.Strategy.DisplayName, plan.Strategy.Grade, index+1, len(plan.Steps), step.Kind, formatTUIHintNarration(step))
 }
 
 func (m *Model) scheduleRecovery() tea.Cmd {
