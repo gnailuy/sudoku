@@ -437,7 +437,7 @@ func (s *Server) ApplyAccountGameAction(_ context.Context, request ApplyAccountG
 	transition, err := s.accounts.Games.Apply(session.UserID, request.AccountGameId, expected, action)
 	var conflict *accountgame.RevisionConflictError
 	if errors.As(err, &conflict) {
-		return ApplyAccountGameAction409JSONResponse{AccountRevisionConflictJSONResponse(AccountRevisionConflict{Error: ErrorDetail{Code: ErrorCodeRevisionConflict, Message: conflict.Error()}, CurrentRevision: conflict.CurrentRevision})}, nil
+		return ApplyAccountGameAction409JSONResponse{AccountRevisionConflictJSONResponse(AccountRevisionConflict{Error: apiError(ErrorCodeRevisionConflict, conflict.Error()).Error, CurrentRevision: conflict.CurrentRevision})}, nil
 	}
 	if errors.Is(err, accountgame.ErrNotFound) {
 		return ApplyAccountGameAction404JSONResponse{AccountGameNotFoundJSONResponse(accountNotFound())}, nil

@@ -9,6 +9,7 @@ entry_points:
   - tools/e2e-web-server/main.go
 dependencies:
   - .aidoc/designs/web-api.md
+  - .aidoc/designs/localization-contract.md
   - .aidoc/designs/user-accounts.md
 ---
 
@@ -21,6 +22,7 @@ The API acceptance catalog protects the composed guest/account boundary against 
 | Document | Relationship |
 |----------|--------------|
 | `.aidoc/designs/web-api.md` | Canonical resource, revision, and security boundary |
+| `.aidoc/designs/localization-contract.md` | Descriptor inventory, typed arguments, and canonical English fallback |
 | `.aidoc/designs/user-accounts.md` | Guest, login, ownership, and claim invariants |
 | `.aidoc/designs/e2e-test-scenarios.md` | Repository-wide black-box discovery map |
 | `api/openapi.yaml` | Exact wire contract |
@@ -59,7 +61,7 @@ OpenAPI validation cannot prove listener safety, generated routing, middleware o
 
 **Action:** Exercise hint plans, complete candidate replacement, invalid-value mistake counting, repeated Undo/Redo, a manual mutation from a historical point, elapsed-time synchronization, and revision conflict in guest and account modes. Before requesting a strategy, enter one wrong value and corrupt one candidate cell.
 
-**Expected:** Both ownership modes expose identical game-engine semantics. A restart preserves puzzle identity, givens, and actual difficulty while clearing values, invalid entries, history, mistakes, solved status, and account elapsed time while restoring the initial legal candidate grid. Read-only hints do not mutate state. The wrong value produces a typed value-correction plan before strategy selection; after application, the corrupted candidate cell produces a typed candidate-correction plan that restores the complete locally legal set without identifying the solved digit. Each exact correction advances one revision and is undoable. A later strategy elimination mutates the same grid, persists in the replacement document, and cannot reappear after restore or a later placement. Each persisted Undo restores the exact prior board and candidate snapshot, Redo follows the original path, and a manual mutation from that historical point truncates the abandoned Redo branch. Accepted actions advance once; stale writes never overwrite authoritative state.
+**Expected:** Both ownership modes expose identical game-engine semantics and the same descriptor wire shape. Engine catalog coverage proves every emitted plan title, summary, step, narration message, strategy name, and difficulty name has a known ID, valid typed arguments, and bounded canonical English fallback; the guest HTTP strategy matrix proves those descriptors cross the handler with one-based coordinates. Built-binary acceptance proves `Accept-Language` does not vary the bounded unavailable-error descriptor. A restart preserves puzzle identity, givens, and actual difficulty while clearing values, invalid entries, history, mistakes, solved status, and account elapsed time while restoring the initial legal candidate grid. Read-only hints do not mutate state. The wrong value produces a typed value-correction plan before strategy selection; after application, the corrupted candidate cell produces a typed candidate-correction plan that restores the complete locally legal set without identifying the solved digit. Each exact correction advances one revision and is undoable. A later strategy elimination mutates the same grid, persists in the replacement document, and cannot reappear after restore or a later placement. Each persisted Undo restores the exact prior board and candidate snapshot, Redo follows the original path, and a manual mutation from that historical point truncates the abandoned Redo branch. Accepted actions advance once; stale writes never overwrite authoritative state.
 
 ## Cross-Repository Browser Harness
 

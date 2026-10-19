@@ -7,6 +7,7 @@ import (
 
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
+	"github.com/gnailuy/sudoku/message"
 	"github.com/gnailuy/sudoku/sessionfile"
 	"github.com/gnailuy/sudoku/solver"
 )
@@ -186,12 +187,14 @@ func TestSaveCommandRoundTrip(t *testing.T) {
 
 func TestFormatHintNarrationUsesCLICoordinates(t *testing.T) {
 	position := core.NewPosition(3, 6)
+	prefix := message.Descriptor{ID: "test.prefix", Arguments: []message.Argument{}, Text: "Look at "}
+	suffix := message.Descriptor{ID: "test.suffix", Arguments: []message.Argument{}, Text: "."}
 	step := game.HintStep{
-		Message: "fallback",
+		Message: message.Descriptor{ID: "test.fallback", Arguments: []message.Argument{}, Text: "fallback"},
 		Narration: []game.HintNarrationChunk{
-			{Kind: game.HintNarrationText, Text: "Look at "},
+			{Kind: game.HintNarrationMessage, Message: &prefix},
 			{Kind: game.HintNarrationTarget, Target: &game.HintTarget{Kind: game.HintTargetCell, Position: &position}},
-			{Kind: game.HintNarrationText, Text: "."},
+			{Kind: game.HintNarrationMessage, Message: &suffix},
 		},
 	}
 	if got := formatHintNarration(step, false); got != "Look at row 4, column 7." {
@@ -203,14 +206,15 @@ func TestFormatHintNarrationUsesCLICoordinates(t *testing.T) {
 }
 
 func TestFormatHintNarrationFallsBackForInvalidVariant(t *testing.T) {
+	conflict := message.Descriptor{ID: "test.conflict", Arguments: []message.Argument{}, Text: "conflicting payload"}
 	step := game.HintStep{
-		Message: "complete fallback",
+		Message: message.Descriptor{ID: "test.fallback", Arguments: []message.Argument{}, Text: "complete fallback"},
 		Narration: []game.HintNarrationChunk{{
-			Kind: game.HintNarrationTarget,
-			Text: "conflicting payload",
+			Kind:    game.HintNarrationTarget,
+			Message: &conflict,
 		}},
 	}
-	if got := formatHintNarration(step, false); got != step.Message {
-		t.Fatalf("invalid narration = %q, want fallback %q", got, step.Message)
+	if got := formatHintNarration(step, false); got != step.Message.Text {
+		t.Fatalf("invalid narration = %q, want fallback %q", got, step.Message.Text)
 	}
 }

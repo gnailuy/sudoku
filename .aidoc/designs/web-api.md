@@ -10,6 +10,7 @@ entry_points:
 dependencies:
   - .aidoc/designs/game-engine.md
   - .aidoc/designs/e2e-api-scenarios.md
+  - .aidoc/designs/localization-contract.md
   - .aidoc/designs/user-accounts.md
 ---
 
@@ -23,6 +24,7 @@ The HTTP backend exposes the authoritative game engine only through revisioned s
 |----------|--------------|
 | `.aidoc/designs/game-engine.md` | Canonical state, action, hint, and serialization contract |
 | `.aidoc/designs/hint-presentation-protocol.md` | Semantic teaching plan and exact application contract |
+| `.aidoc/designs/localization-contract.md` | Message descriptors, canonical English fallback, and client localization boundary |
 | `.aidoc/designs/user-accounts.md` | Guest documents, identity, ownership, and claim boundary |
 | `.aidoc/designs/e2e-api-scenarios.md` | Built-binary and handler acceptance coverage |
 | `.aidoc/architecture/guidelines.md` | Package dependency boundaries |
@@ -45,16 +47,16 @@ Guest create returns one authenticated encrypted document, authoritative revisio
 
 Account-game create, list, read, action, hint, presentation-time synchronization, and deletion derive ownership from the authenticated application session. Mutations require the session-bound request proof, include the expected gameplay revision when applicable, and never accept a user identifier from the client.
 
-Action requests use the typed engine boundary. `set-candidates` replaces one complete cell set, and `apply-hint` accepts only the deterministic `plan_id` from the current read-only preview. Snapshots expose one candidate grid and no parallel notes field. Hint plans identify correction or strategy kind, use an optional strategy descriptor, and carry a typed clear, candidate replacement, placement, or elimination conclusion. `restart` begins a revision-checked fresh attempt on the same puzzle; account games persist the clean engine state and zero elapsed presentation time atomically. Guest presentation time remains browser-owned and resets only after the replacement sealed document is accepted. Presentation preferences remain client-owned.
+Action requests use the typed engine boundary. `set-candidates` replaces one complete cell set, and `apply-hint` accepts only the deterministic `plan_id` from the current read-only preview. Snapshots expose one candidate grid and no parallel notes field. Hint plans identify correction or strategy kind; expose descriptor-valued title, summary, step messages, narration messages, strategy names, and difficulty names; and carry a typed clear, candidate replacement, placement, or elimination conclusion. Every descriptor includes its deterministic canonical English fallback, and digit, coordinate, candidate, unit, strategy, difficulty, and count semantics remain typed. `restart` begins a revision-checked fresh attempt on the same puzzle; account games persist the clean engine state and zero elapsed presentation time atomically. Guest presentation time remains browser-owned and resets only after the replacement sealed document is accepted. Presentation preferences remain client-owned.
 
 ## Security and Failure Policy
 
 `sudoku api` accepts loopback listeners only. A trusted reverse proxy or equivalent host boundary owns public TLS and routing; exact browser origins remain explicit. Guest documents provide authenticated state, while account routes use a secure HttpOnly application-session cookie plus HMAC request proof for mutations.
 
-Malformed JSON, unsupported media, oversized bodies, unavailable private configuration, stale revisions, engine rejection, missing ownership, and internal failures use bounded stable errors. Logs and errors never include sealed documents, cookies, OAuth material, puzzle history, or profile secrets.
+Malformed JSON, unsupported media, oversized bodies, unavailable private configuration, stale revisions, engine rejection, missing ownership, and internal failures use stable error codes plus bounded semantic message descriptors. The API ignores `Accept-Language`; identical state and input produce identical descriptors, fallback text, revisions, and plan IDs. Logs, descriptor arguments, and fallbacks never include sealed documents, cookies, OAuth material, puzzle history, raw internal errors, or profile secrets.
 
 ## Verification
 
 Handler tests prove strict decoding, body limits, exact origins, route absence for `/api/v1/sessions*`, sealed guest replacement, login rotation, session-bound request proof, idempotent claim, owner-scoped game access, elapsed-time synchronization, and account deletion. Package tests prove engine translation and persistence semantics.
 
-`scripts/e2e_api.py` starts the built binary, proves health, exact-origin policy, loopback-only startup, graceful shutdown, fail-closed unconfigured guest/account routes, and the permanent absence of the anonymous session namespace. `scripts/check-api-contract.sh` validates and regenerates the OpenAPI boundary.
+`scripts/e2e_api.py` starts the built binary, proves health, exact-origin policy, loopback-only startup, graceful shutdown, fail-closed unconfigured guest/account routes, locale-invariant descriptor fallbacks, and the permanent absence of the anonymous session namespace. `scripts/check-api-contract.sh` validates and regenerates the OpenAPI descriptor boundary.

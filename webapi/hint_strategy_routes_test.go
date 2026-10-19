@@ -68,12 +68,20 @@ func TestGuestHTTPRoutesPreviewAndApplyEveryRegisteredHintStrategy(t *testing.T)
 				}
 				matched := hint.Hint.Strategy.Id == testCase.Strategy
 				if matched {
-					if hint.Hint.Strategy.DisplayName != testCase.DisplayName || hint.Hint.Strategy.Grade != testCase.Grade || len(hint.Hint.Steps) < 2 {
-						t.Fatalf("public strategy = %+v steps=%d", hint.Hint.Strategy, len(hint.Hint.Steps))
+					strategy := hint.Hint.Strategy
+					if strategy.Name.Id != "strategy."+testCase.Strategy+".name" || strategy.Name.Text != testCase.DisplayName || len(strategy.Name.Arguments) != 0 ||
+						string(strategy.Grade) != testCase.Grade || strategy.GradeName.Id != "difficulty."+testCase.Grade+".name" || strategy.GradeName.Text == "" || len(strategy.GradeName.Arguments) != 0 || len(hint.Hint.Steps) < 2 {
+						t.Fatalf("public strategy = %+v steps=%d", strategy, len(hint.Hint.Steps))
+					}
+					if hint.Hint.Summary.Id != "hint.strategy.summary" || hint.Hint.Summary.Text == "" || len(hint.Hint.Summary.Arguments) != 2 {
+						t.Fatalf("summary descriptor = %+v", hint.Hint.Summary)
 					}
 					marks := 0
 					for _, step := range hint.Hint.Steps {
 						marks += len(step.Marks)
+						if step.Message.Id == "" || step.Message.Text == "" {
+							t.Fatalf("step message descriptor = %+v", step.Message)
+						}
 					}
 					if marks == 0 {
 						t.Fatal("API hint exposed no typed semantic marks")
@@ -81,6 +89,18 @@ func TestGuestHTTPRoutesPreviewAndApplyEveryRegisteredHintStrategy(t *testing.T)
 					for index, step := range hint.Hint.Steps {
 						if step.Narration == nil || len(*step.Narration) == 0 {
 							t.Fatalf("structured narration missing from HTTP step: %+v", step)
+						}
+						for _, chunk := range *step.Narration {
+							kind, err := chunk.Discriminator()
+							if err != nil {
+								t.Fatal(err)
+							}
+							if kind == "message" {
+								value, err := chunk.AsHintNarrationMessage()
+								if err != nil || value.Message.Id == "" || value.Message.Text == "" {
+									t.Fatalf("narration message descriptor = %+v, %v", value, err)
+								}
+							}
 						}
 						switch testCase.Strategy {
 						case "xy-wing":

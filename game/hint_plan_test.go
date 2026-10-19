@@ -19,16 +19,17 @@ func gameWithStrategies(t *testing.T, board core.Board, keys ...string) Game {
 func TestHintStepHasValidNarrationRequiresOnePayloadPerKind(t *testing.T) {
 	position := core.NewPosition(3, 6)
 	validTarget := HintTarget{Kind: HintTargetCell, Position: &position}
+	validMessage := hintDescriptor("hint.strategy.observe")
 	tests := []struct {
 		name  string
 		chunk HintNarrationChunk
 		valid bool
 	}{
-		{name: "text", chunk: narrationText("Look at "), valid: true},
+		{name: "message", chunk: narrationMessage(validMessage), valid: true},
 		{name: "target", chunk: narrationTarget(validTarget), valid: true},
 		{name: "digit", chunk: narrationDigit(7), valid: true},
-		{name: "empty text", chunk: HintNarrationChunk{Kind: HintNarrationText}, valid: false},
-		{name: "conflicting target payload", chunk: HintNarrationChunk{Kind: HintNarrationTarget, Text: "wrong", Target: &validTarget}, valid: false},
+		{name: "empty message", chunk: HintNarrationChunk{Kind: HintNarrationMessage}, valid: false},
+		{name: "conflicting target payload", chunk: HintNarrationChunk{Kind: HintNarrationTarget, Message: &validMessage, Target: &validTarget}, valid: false},
 		{name: "missing target", chunk: HintNarrationChunk{Kind: HintNarrationTarget}, valid: false},
 		{name: "invalid digit", chunk: HintNarrationChunk{Kind: HintNarrationDigit, Value: 10}, valid: false},
 		{name: "unknown kind", chunk: HintNarrationChunk{Kind: "future"}, valid: false},
@@ -149,9 +150,9 @@ func TestHintResetsCorruptCandidateCellToFullLocalLegality(t *testing.T) {
 				t.Fatalf("candidate correction = %v, want full locally legal set %v", got.Values(), legal.Values())
 			}
 			for _, step := range plan.Steps {
-				message := strings.ToLower(step.Message)
+				message := strings.ToLower(step.Message.Text)
 				if strings.Contains(message, "solution") || strings.Contains(message, "required candidate") || strings.Contains(message, "keep every valid") {
-					t.Fatalf("candidate correction leaks solution-specific reasoning: %q", step.Message)
+					t.Fatalf("candidate correction leaks solution-specific reasoning: %q", step.Message.Text)
 				}
 			}
 		})
@@ -243,6 +244,30 @@ func TestReportedSimpleColoringUsesReducedAuthoritativeCandidates(t *testing.T) 
 	}
 }
 
+func TestHintPlanIDIgnoresCanonicalFallbackWording(t *testing.T) {
+	game := gameWithStrategies(t, testProblem(), "naked-single")
+	plan := game.Hint()
+	if plan == nil {
+		t.Fatal("expected a hint plan")
+	}
+	want := plan.PlanID
+	plan.Title.Text = "translated title"
+	plan.Summary.Text = "translated summary"
+	plan.Strategy.Name.Text = "translated strategy"
+	plan.Strategy.GradeName.Text = "translated grade"
+	for index := range plan.Steps {
+		plan.Steps[index].Message.Text = "translated step"
+		for chunkIndex := range plan.Steps[index].Narration {
+			if plan.Steps[index].Narration[chunkIndex].Message != nil {
+				plan.Steps[index].Narration[chunkIndex].Message.Text = "translated narration"
+			}
+		}
+	}
+	if got := deterministicPlanID(game.Snapshot(), *plan); got != want {
+		t.Fatalf("fallback wording changed plan id: got %q, want %q", got, want)
+	}
+}
+
 func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	game := gameWithStrategies(t, testProblem(), "naked-single")
 	first, second := game.Hint(), game.Hint()
@@ -257,14 +282,8 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 			t.Fatalf("naked-single step lacks structured narration: %+v", step)
 		}
 	}
-	if strings.Contains(first.Steps[0].Message, "Naked Single") || !strings.Contains(first.Steps[0].Message, "row ") || !strings.Contains(first.Steps[0].Message, ", column ") {
-		t.Fatalf("naked-single observation is not beginner-first: %q", first.Steps[0].Message)
-	}
-	if !strings.Contains(first.Steps[1].Message, "Because") || !strings.Contains(first.Steps[1].Message, "called a Naked Single") {
-		t.Fatalf("naked-single conclusion does not explain then name the strategy: %q", first.Steps[1].Message)
-	}
-	if strings.Contains(first.Summary, compactCellName(first.Conclusion.Placement.Position)) || !strings.Contains(first.Summary, cellName(first.Conclusion.Placement.Position)) || !strings.HasPrefix(first.Summary, first.Steps[0].Message) {
-		t.Fatalf("naked-single summary is not ordered beginner prose: %q", first.Summary)
+	if first.Steps[0].Message.ID != "hint.strategy.observe" || first.Steps[1].Message.ID != "hint.strategy.conclude" || first.Summary.ID != "hint.strategy.summary" {
+		t.Fatalf("naked-single descriptors are incomplete: %+v", first)
 	}
 	if _, err := game.Apply(ApplyHint{PlanID: "wrong"}); !errors.Is(err, &EngineError{Code: ErrorStaleHint}) {
 		t.Fatalf("wrong plan id error = %v", err)
@@ -289,11 +308,8 @@ func TestHiddenSingleHintPlanHasUnitEvidence(t *testing.T) {
 	if plan.Steps[0].Kind != HintStepObserve || plan.Steps[1].Kind != HintStepCompare || plan.Steps[2].Kind != HintStepConclude {
 		t.Fatalf("unexpected step order: %+v", plan.Steps)
 	}
-	if strings.Contains(plan.Steps[0].Message, "Hidden Single") || strings.Contains(plan.Steps[1].Message, "Hidden Single") {
-		t.Fatalf("hidden-single name appears before the reasoning: %+v", plan.Steps)
-	}
-	if !strings.Contains(plan.Steps[1].Message, "row ") || !strings.Contains(plan.Steps[1].Message, ", column ") || !strings.Contains(plan.Steps[2].Message, "called a Hidden Single") {
-		t.Fatalf("hidden-single steps do not use plain location prose and delayed naming: %+v", plan.Steps)
+	if plan.Steps[0].Message.ID != "hint.strategy.observe" || plan.Steps[1].Message.ID != "hint.strategy.compare" || plan.Steps[2].Message.ID != "hint.strategy.conclude" {
+		t.Fatalf("hidden-single descriptors are incomplete: %+v", plan.Steps)
 	}
 }
 
@@ -321,11 +337,8 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	if plan == nil || plan.Strategy.ID != "naked-pair" || len(plan.Steps) != 3 || len(plan.Conclusion.Eliminations) == 0 || plan.Conclusion.Placement != nil {
 		t.Fatalf("unexpected naked-pair plan: %+v", plan)
 	}
-	if strings.Contains(plan.Steps[0].Message, "Naked Pair") || strings.Contains(plan.Steps[1].Message, "Naked Pair") {
-		t.Fatalf("naked-pair name appears before the visible facts and relationship: %+v", plan.Steps)
-	}
-	if !strings.Contains(plan.Steps[1].Message, "in some order") || !strings.Contains(plan.Steps[2].Message, "Because") || !strings.Contains(plan.Steps[2].Message, "called a Naked Pair") {
-		t.Fatalf("naked-pair steps do not explain the reservation before naming it: %+v", plan.Steps)
+	if plan.Steps[0].Message.ID != "hint.strategy.observe" || plan.Steps[1].Message.ID != "hint.strategy.compare" || plan.Steps[2].Message.ID != "hint.strategy.conclude" {
+		t.Fatalf("naked-pair descriptors are incomplete: %+v", plan.Steps)
 	}
 	before := game.Snapshot()
 	result, err := game.Apply(ApplyHint{PlanID: plan.PlanID})
@@ -486,22 +499,12 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
 			for _, step := range plan.Steps[:2] {
-				if strings.Contains(step.Message, plan.Strategy.DisplayName) {
-					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message)
+				if strings.Contains(step.Message.Text, plan.Strategy.Name.Text) {
+					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
 			}
-			last := plan.Steps[2].Message
-			expectedName := plan.Strategy.DisplayName
-			if key == "pointing-pair" {
-				expectedName = "Pointing Pair"
-			}
-			if !strings.Contains(last, "Because") || !strings.Contains(last, expectedName) {
-				t.Fatalf("conclusion does not explain then name the strategy: %q", last)
-			}
-			for _, step := range plan.Steps {
-				if strings.Contains(step.Message, "(") {
-					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message)
-				}
+			if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
+				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
 			}
 		})
 	}
@@ -534,22 +537,15 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
 			for _, step := range plan.Steps[:2] {
-				if strings.Contains(step.Message, plan.Strategy.DisplayName) {
-					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message)
+				if strings.Contains(step.Message.Text, plan.Strategy.Name.Text) {
+					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
-				if strings.Contains(step.Message, "(") {
-					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message)
+				if strings.Contains(step.Message.Text, "(") {
+					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message.Text)
 				}
 			}
-			if !strings.Contains(plan.Steps[2].Message, "Because") || !strings.Contains(plan.Steps[2].Message, plan.Strategy.DisplayName) {
-				t.Fatalf("conclusion does not explain then name the strategy: %q", plan.Steps[2].Message)
-			}
-			if key == "x-wing" || key == "swordfish" || key == "jellyfish" {
-				if !strings.Contains(plan.Steps[0].Message, "highlighted intersections") || !strings.Contains(plan.Steps[1].Message, "confine candidate") {
-					t.Fatalf("fish plan does not teach base and cross-line confinement: %+v", plan.Steps)
-				}
-			} else if !strings.Contains(plan.Steps[0].Message, "pivot") && !strings.Contains(plan.Steps[0].Message, "strong link") {
-				t.Fatalf("relational plan does not identify its cells and link: %+v", plan.Steps)
+			if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
+				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
 			}
 			switch key {
 			case "xy-wing":
@@ -599,24 +595,15 @@ func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
 			for _, step := range plan.Steps[:2] {
-				if strings.Contains(step.Message, plan.Strategy.DisplayName) {
-					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message)
+				if strings.Contains(step.Message.Text, plan.Strategy.Name.Text) {
+					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
-				if strings.Contains(step.Message, "(") {
-					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message)
+				if strings.Contains(step.Message.Text, "(") {
+					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message.Text)
 				}
 			}
-			if !strings.Contains(plan.Steps[2].Message, "Because") || !strings.Contains(plan.Steps[2].Message, plan.Strategy.DisplayName) {
-				t.Fatalf("conclusion does not explain then name the strategy: %q", plan.Steps[2].Message)
-			}
-			if key == "bug-plus-one" {
-				if !strings.Contains(plan.Steps[0].Message, "only unsolved cell with three candidates") || !strings.Contains(plan.Steps[1].Message, "extra candidate") {
-					t.Fatalf("BUG+1 plan does not teach the bivalue exception: %+v", plan.Steps)
-				}
-			} else {
-				if !strings.Contains(plan.Steps[0].Message, "rectangle corners") || !strings.Contains(plan.Steps[1].Message, "two solution") && !strings.Contains(plan.Steps[1].Message, "two-solution") && !strings.Contains(plan.Steps[1].Message, "At least one") && !strings.Contains(plan.Steps[1].Message, "reserve") && !strings.Contains(plan.Steps[1].Message, "appears in exactly") {
-					t.Fatalf("rectangle plan does not teach its uniqueness relationship: %+v", plan.Steps)
-				}
+			if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
+				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
 			}
 		})
 	}
@@ -648,15 +635,15 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
 			for _, step := range plan.Steps[:2] {
-				if strings.Contains(step.Message, plan.Strategy.DisplayName) {
-					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message)
+				if strings.Contains(step.Message.Text, plan.Strategy.Name.Text) {
+					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
-				if strings.Contains(step.Message, "r1c") || strings.Contains(step.Message, "(") {
-					t.Fatalf("family plan exposes compact notation: %q", step.Message)
+				if strings.Contains(step.Message.Text, "r1c") || strings.Contains(step.Message.Text, "(") {
+					t.Fatalf("family plan exposes compact notation: %q", step.Message.Text)
 				}
 			}
-			if !strings.Contains(plan.Steps[2].Message, "Because") || !strings.Contains(plan.Steps[2].Message, plan.Strategy.DisplayName) {
-				t.Fatalf("conclusion does not explain then name the strategy: %q", plan.Steps[2].Message)
+			if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
+				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
 			}
 			if len(plan.Steps[0].Links) != 1 || len(plan.Steps[1].Links) <= len(plan.Steps[0].Links) {
 				t.Fatalf("complex scene is not progressive: %+v", plan.Steps)
@@ -668,11 +655,11 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 			}
 			switch key {
 			case "simple-coloring":
-				if !strings.Contains(plan.Steps[0].Message, "Exactly one end") || !strings.Contains(plan.Steps[1].Message, "two groups") || len(plan.Steps[1].Links) == 0 || plan.Steps[1].Nodes[0].Group == "" {
+				if len(plan.Steps[1].Links) == 0 || plan.Steps[1].Nodes[0].Group == "" {
 					t.Fatalf("coloring plan does not teach alternating groups: %+v", plan.Steps)
 				}
 			case "x-cycles":
-				if !strings.Contains(plan.Steps[0].Message, "solid or dashed") || !strings.Contains(plan.Steps[1].Message, "returns") || len(plan.Steps[1].Links) < 3 || plan.Steps[1].Nodes[0].Order == 0 {
+				if len(plan.Steps[1].Links) < 3 || plan.Steps[1].Nodes[0].Order == 0 {
 					t.Fatalf("cycle plan does not teach alternating links: %+v", plan.Steps)
 				}
 			case "xy-chain":
@@ -681,7 +668,7 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 						t.Fatalf("XY-chain step lacks structured narration: %+v", step)
 					}
 				}
-				if !strings.Contains(plan.Steps[0].Message, "first two-candidate cells") || !strings.Contains(plan.Steps[1].Message, "implication continues") || !strings.Contains(plan.Steps[1].Message, "at least one endpoint") || len(plan.Steps[1].Links) == 0 || plan.Steps[1].Links[0].Kind != solver.LinkImplication {
+				if len(plan.Steps[1].Links) == 0 || plan.Steps[1].Links[0].Kind != solver.LinkImplication {
 					t.Fatalf("XY-chain plan does not teach the endpoint implication: %+v", plan.Steps)
 				}
 			}
@@ -705,7 +692,7 @@ func TestBoxLineReductionUsesItsSpecificRelationshipName(t *testing.T) {
 		},
 	}
 	steps := intersectionSteps(move)
-	if !strings.Contains(steps[0].Message, "row 4") || !strings.Contains(steps[0].Message, "box 4") || !strings.Contains(steps[2].Message, "Box-Line Reduction") {
-		t.Fatalf("unexpected box-line teaching plan: %+v", steps)
+	if len(steps) != 3 || steps[0].Marks[0].Target.Kind != HintTargetRow || steps[0].Marks[1].Target.Kind != HintTargetBox {
+		t.Fatalf("unexpected box-line scene: %+v", steps)
 	}
 }

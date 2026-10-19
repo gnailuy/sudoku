@@ -455,13 +455,15 @@ func (m *Model) apply(action game.Action) tea.Cmd {
 
 func formatTUIHintNarration(step game.HintStep) string {
 	if !step.HasValidNarration() {
-		return step.Message
+		return step.Message.Text
 	}
 	var result strings.Builder
 	for _, chunk := range step.Narration {
 		switch chunk.Kind {
-		case game.HintNarrationText:
-			result.WriteString(chunk.Text)
+		case game.HintNarrationMessage:
+			if chunk.Message != nil {
+				result.WriteString(chunk.Message.Text)
+			}
 		case game.HintNarrationTarget:
 			if chunk.Target == nil {
 				continue
@@ -480,10 +482,10 @@ func formatTUIHintNarration(step game.HintStep) string {
 
 func hintStepMessage(plan game.HintPlan, index int) string {
 	if len(plan.Steps) == 0 {
-		return "Hint preview: " + plan.Summary
+		return "Hint preview: " + plan.Summary.Text
 	}
 	step := plan.Steps[index]
-	return fmt.Sprintf("Hint — %s (%s)  •  Step %d of %d [%s]: %s", plan.Strategy.DisplayName, plan.Strategy.Grade, index+1, len(plan.Steps), step.Kind, formatTUIHintNarration(step))
+	return fmt.Sprintf("Hint — %s (%s)  •  Step %d of %d [%s]: %s", plan.Strategy.Name.Text, plan.Strategy.GradeName.Text, index+1, len(plan.Steps), step.Kind, formatTUIHintNarration(step))
 }
 
 func (m *Model) scheduleRecovery() tea.Cmd {

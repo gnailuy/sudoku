@@ -98,8 +98,8 @@ func wirePlan(plan *game.HintPlan) map[string]any {
 			narration := make([]map[string]any, len(step.Narration))
 			for j, chunk := range step.Narration {
 				narration[j] = map[string]any{"kind": chunk.Kind}
-				if chunk.Text != "" {
-					narration[j]["text"] = chunk.Text
+				if chunk.Message != nil {
+					narration[j]["message"] = chunk.Message
 				}
 				if chunk.Target != nil {
 					narration[j]["target"] = wireTarget(*chunk.Target)
@@ -118,7 +118,7 @@ func wirePlan(plan *game.HintPlan) map[string]any {
 		"plan_id":  plan.PlanID,
 		"kind":     plan.Kind,
 		"title":    plan.Title,
-		"strategy": map[string]any{"id": plan.Strategy.ID, "display_name": plan.Strategy.DisplayName, "grade": plan.Strategy.Grade},
+		"strategy": map[string]any{"id": plan.Strategy.ID, "name": plan.Strategy.Name, "grade": plan.Strategy.Grade, "grade_name": plan.Strategy.GradeName},
 		"summary":  plan.Summary,
 		"steps":    steps,
 		"conclusion": wireEffect(game.HintEffect{

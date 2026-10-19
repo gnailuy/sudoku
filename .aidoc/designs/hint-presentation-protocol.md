@@ -10,6 +10,7 @@ dependencies:
   - .aidoc/architecture/guidelines.md
   - .aidoc/designs/game-engine.md
   - .aidoc/designs/web-api.md
+  - .aidoc/designs/localization-contract.md
   - .aidoc/designs/hint-reference-plans.md
 ---
 
@@ -24,6 +25,7 @@ The hint presentation protocol turns one solver recommendation into a portable t
 | `.aidoc/architecture/guidelines.md` | Solver and package dependency boundaries |
 | `.aidoc/designs/game-engine.md` | Authoritative hint query and action semantics |
 | `.aidoc/designs/web-api.md` | Revisioned transport and client-neutral contract |
+| `.aidoc/designs/localization-contract.md` | Semantic message descriptors and shared English fallback |
 | `.aidoc/designs/hint-reference-plans.md` | Concrete placement and elimination teaching plans |
 | `solver/evidence.go` | Typed candidate, unit, elimination, and placement evidence |
 | `game/contract.go` | Engine hint preview and application boundary |
@@ -41,9 +43,9 @@ The project is still in development, so the protocol replaces superseded hint sh
 
 A strategy produces typed evidence for one deduction: examined units, candidate constraints, eliminations, placements, and the technique identity. Placement and candidate elimination are equally valid conclusions; elimination strategies are not duplicated as hint-only variants. Strategy evidence contains no colors, animation timing, widget commands, prose parsing requirements, or transport models.
 
-A shared engine composer converts typed evidence into one `HintPlan`. The composer owns default teaching order and wording so 23 strategies do not duplicate client choreography. Naked Single and Hidden Single establish direct and unit-scoped placement teaching. Naked/Hidden Pair–Quad and Pointing Pair/Box-Line Reduction establish subset and intersection teaching. Fish and wing families identify their typed lines, intersections, pivots, wings, and candidate links before explaining the consequence. XY-Wing records the two pivot-to-wing implications explicitly: the first step introduces one arrow, and the comparison and conclusion preserve both arrows. W-Wing records its conjugate pair as one strong link throughout the plan. BUG+1 and Unique Rectangle Types 1–4 identify their candidate exceptions and uniqueness relationships. Simple Coloring records alternating candidate partitions and must-contain links; X-Cycles records an ordered loop of must-contain and cannot-both links; XY-Chain records ordered bivalue cells and their shared-candidate implications. Every family reveals formal strategy vocabulary only in the concluding because-clause.
+A shared engine composer converts typed evidence into one `HintPlan`. The composer owns default teaching order plus descriptor selection and arguments, while the canonical message catalog owns English wording, so 23 strategies do not duplicate client choreography or prose. Naked Single and Hidden Single establish direct and unit-scoped placement teaching. Naked/Hidden Pair–Quad and Pointing Pair/Box-Line Reduction establish subset and intersection teaching. Fish and wing families identify their typed lines, intersections, pivots, wings, and candidate links before explaining the consequence. XY-Wing records the two pivot-to-wing implications explicitly: the first step introduces one arrow, and the comparison and conclusion preserve both arrows. W-Wing records its conjugate pair as one strong link throughout the plan. BUG+1 and Unique Rectangle Types 1–4 identify their candidate exceptions and uniqueness relationships. Simple Coloring records alternating candidate partitions and must-contain links; X-Cycles records an ordered loop of must-contain and cannot-both links; XY-Chain records ordered bivalue cells and their shared-candidate implications. Every family reveals formal strategy vocabulary only in the concluding because-clause.
 
-A renderer consumes a complete plan and never infers Sudoku reasoning from technique names or fallback prose. The hint narration IR is a renderer-neutral token stream that separates literal text, digits, and typed semantic targets, allowing each interface to name the same cell, candidate, or unit naturally without parsing a message. Each token is one closed discriminated-union variant with exactly one required payload; invalid or unknown variants invalidate the whole stream for that step so the renderer uses the complete fallback message instead of guessing. Every step for all 23 strategies carries valid structured narration, and every concluding stream identifies its exact digit and cell target. Specialized placement and chain wording may expose additional targets while the complete plain-text message remains available as a defensive fallback. Limited renderers receive the same fallback messages joined in order as `summary`.
+A renderer consumes a complete plan and never infers Sudoku reasoning from technique names or fallback prose. The hint narration IR is a renderer-neutral token stream that separates semantic message descriptors, digits, and typed targets, allowing each interface to name the same cell, candidate, or unit naturally without parsing prose. Each token is one closed discriminated-union variant with exactly one required payload; invalid or unknown variants invalidate the whole stream for that step so the renderer uses the complete fallback descriptor instead of guessing. Every step for all 23 strategies carries valid structured narration, and every concluding stream identifies its exact digit and cell target. Specialized placement and chain wording may expose additional targets while the complete step descriptor remains available as a defensive fallback. Limited renderers receive the plan's complete summary descriptor.
 
 ## HintPlan Contract
 
@@ -53,13 +55,13 @@ Every plan contains:
 |-------|---------|
 | `plan_id` | Deterministic identity bound to the source game state and conclusion |
 | `kind` | `value-correction`, `candidate-correction`, or `strategy` |
-| `title` | Presentation title valid for corrections and strategies |
-| `strategy` | Optional strategy ID, display name, and grade; present only for strategy plans |
-| `summary` | Complete plain-text fallback |
+| `title` | Semantic presentation-title descriptor valid for corrections and strategies |
+| `strategy` | Optional strategy ID, name descriptor, grade ID, and grade-name descriptor; present only for strategy plans |
+| `summary` | Complete semantic summary descriptor with canonical English fallback |
 | `steps` | Ordered, independently renderable teaching steps |
 | `conclusion` | Typed clear, candidate replacement, placement, or elimination effect |
 
-Every step contains a stable ID, a semantic kind, a complete fallback message, optional structured narration, a declarative scene, and an optional logical effect. Structured narration never replaces the fallback: every emitted stream contains only valid text, target, or digit variants; every referenced target is valid in the source plan; and an unsupported stream is discarded as a whole. Scenes carry `marks`, stable candidate `nodes`, and typed `links`; each step sends complete arrays, including empty arrays, so a renderer never retains stale visual state. Initial step kinds are `observe`, `compare`, `eliminate`, and `conclude`; changing their meaning requires a coordinated contract replacement across the engine and clients.
+Every step contains a stable ID, a semantic kind, a complete message descriptor, structured narration, a declarative scene, and an optional logical effect. Structured narration never replaces the fallback: every emitted stream contains only valid descriptor, target, or digit variants; every descriptor matches the canonical argument contract; every referenced target is valid in the source plan; and an unsupported stream is discarded as a whole. Scenes carry `marks`, stable candidate `nodes`, and typed `links`; each step sends complete arrays, including empty arrays, so a renderer never retains stale visual state. Initial step kinds are `observe`, `compare`, `eliminate`, and `conclude`; changing their meaning requires a coordinated contract replacement across the engine and clients.
 
 Every scene is a complete snapshot for that step rather than a delta from the previous scene. A client can therefore move forward or backward, render one step, skip unsupported visual reinforcement, or recover after interruption without retaining hidden highlight state.
 
@@ -78,7 +80,7 @@ Scene marks pair one target with one semantic role:
 | `problem` | Cell whose current value or candidate set is inconsistent |
 | `extra` | Candidate ruled out by accepted values |
 
-Semantic roles carry no palette or animation requirement. Color cannot be the sole carrier of meaning, motion is optional, and the fallback message names every fact needed to understand the step.
+Semantic roles carry no palette or animation requirement. Color cannot be the sole carrier of meaning, motion is optional, and the descriptor fallback remains understandable alongside the step's typed targets, scene, and effect without requiring prose parsing.
 
 Candidate nodes provide stable IDs and may carry an `A`/`B` alternating-group label or a one-based chain order. Typed links connect node IDs as `strong`, `weak`, or `implication`; renderers express those meanings with solid lines, dashed lines, or arrows and provide an equivalent legend or accessible description. Unit marks communicate scope only when the unit itself is the fact under examination. Chain and coloring scenes therefore avoid painting every cell in every participating unit.
 
@@ -112,13 +114,13 @@ Elimination application never places a value even when one candidate remains. La
 
 ## Graceful Degradation and Accessibility
 
-A fully capable renderer presents each scene and renders available narration chunks in order, withholding formal strategy metadata until the concluding step. The TUI uses compact `rNcN` locators, and the browser uses direct highlighted references with a visible secondary locator plus a fully expanded accessible name. Renderers fall back to `message` when narration is absent. A limited renderer presents the same ordered messages and conclusion while ignoring unsupported marks or target types. The line CLI is deliberately narrower: it renders the concluding placement narration as row-and-column prose; for candidate corrections and eliminations it retains the exact plan but shows only a capability limitation. The player may explicitly apply that hidden candidate conclusion and request the next hint, while `sudoku tui` remains the complete teaching surface. The simplest renderer may present `summary`, which joins those messages in teaching order, and the conclusion, but must not invent omitted reasoning.
+A fully capable renderer presents each scene and renders narration chunks in order, withholding formal strategy metadata until the concluding step. Family-specific facts remain in typed marks, nodes, links, targets, digits, and effects; shared semantic descriptors provide the translatable teaching instruction instead of duplicating a preformatted English reconstruction of that evidence. The TUI uses compact `rNcN` locators, and the browser uses direct highlighted references with a visible secondary locator plus a fully expanded accessible name. Renderers fall back to `message.text` only when structured narration cannot be consumed. A limited renderer presents the same ordered descriptor fallbacks and conclusion while ignoring unsupported marks or target types. The line CLI is deliberately narrower: it renders the concluding placement narration as row-and-column prose; for candidate corrections and eliminations it retains the exact plan but shows only a capability limitation. The player may explicitly apply that hidden candidate conclusion and request the next hint, while `sudoku tui` remains the complete teaching surface. The simplest renderer may present `summary.text` and the conclusion, but must not invent omitted reasoning.
 
 Step order, messages, roles, and explicit effects carry the meaning independently of color, position, or motion. Renderers expose the active step and step count to assistive technology, preserve user-controlled pacing, and avoid automatic animation that blocks reading or input.
 
 Unsupported semantic data is ignored visibly rather than guessed. A renderer may report reduced presentation capability, but protocol consumption remains successful when fallback text and conclusion are supported.
 
-Localization is a required later evolution, not a reason to duplicate translated token arrays now. When a second locale is introduced, the literal text layer becomes locale message IDs plus typed digit and target arguments, using ICU MessageFormat 2 or Fluent semantics for translator-controlled ordering and grammar; the Sudoku target, scene, teaching-order, fallback, and effect contracts remain unchanged.
+Localization consumes stable descriptor IDs and typed arguments without duplicating narration arrays or reconstructing Sudoku logic. Browser catalogs control translated ordering and grammar; the target, scene, teaching-order, canonical English fallback, and effect contracts remain unchanged.
 
 ## Reference Teaching Plans
 
@@ -126,7 +128,7 @@ Localization is a required later evolution, not a reason to duplicate translated
 
 ## Delivery Boundary
 
-`game.Game.Hint` returns the complete plan, `game.ApplyHint` requires its deterministic `plan_id`, and the engine applies a value correction, candidate correction, placement, or multi-cell candidate elimination as one undoable transition. `game.completeTeachingEvidence` preserves strategy-authored evidence and completes missing typed candidate neighborhoods, affected units, ruled-out candidates, and exact elimination effects from the solver board transition. All 23 registered strategies therefore produce ordered semantic steps and a machine-readable conclusion; fallback prose remains presentation text rather than a client parsing contract.
+`game.Game.Hint` returns the complete plan, `game.ApplyHint` requires its deterministic `plan_id`, and the engine applies a value correction, candidate correction, placement, or multi-cell candidate elimination as one undoable transition. `game.completeTeachingEvidence` preserves strategy-authored evidence and completes missing typed candidate neighborhoods, affected units, ruled-out candidates, and exact elimination effects from the solver board transition. All 23 registered strategies therefore produce ordered semantic descriptor steps and a machine-readable conclusion; canonical English fallback remains presentation text rather than a client parsing contract.
 
 The line CLI obtains one plan, renders placement narration and the exact cell or one candidate-capability limitation, then immediately submits that exact `plan_id`. Each command applies one conclusion as one Undo entry and stops; generation or application failure leaves state unchanged, and a later `hint` queries the resulting state. The TUI keeps every complete plan during read-only preview, navigates its steps locally, uses color-independent semantic marks, and submits its identity on Enter. The HTTP contract returns the complete plan with one-based transport coordinates, requires its explicit `plan_id` on `apply-hint`, and returns the applied plan in the action result. Built-binary terminal and API acceptance proves line-CLI degradation and progression, complete TUI hint-driven games, exact-plan application, stale-plan rejection at engine boundaries, and one revision or undo record per accepted conclusion.
 

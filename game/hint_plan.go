@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gnailuy/sudoku/core"
+	"github.com/gnailuy/sudoku/message"
 	"github.com/gnailuy/sudoku/solver"
 )
 
@@ -52,18 +53,18 @@ type HintTarget struct {
 type HintNarrationKind string
 
 const (
-	HintNarrationText   HintNarrationKind = "text"
-	HintNarrationTarget HintNarrationKind = "target"
-	HintNarrationDigit  HintNarrationKind = "digit"
+	HintNarrationMessage HintNarrationKind = "message"
+	HintNarrationTarget  HintNarrationKind = "target"
+	HintNarrationDigit   HintNarrationKind = "digit"
 )
 
 // HintNarrationChunk carries renderer-neutral language without requiring a
 // client to parse fallback prose. Exactly one payload matches Kind.
 type HintNarrationChunk struct {
-	Kind   HintNarrationKind
-	Text   string
-	Target *HintTarget
-	Value  int
+	Kind    HintNarrationKind
+	Message *message.Descriptor
+	Target  *HintTarget
+	Value   int
 }
 
 // HasValidNarration reports whether every chunk is one well-formed variant.
@@ -74,16 +75,16 @@ func (step HintStep) HasValidNarration() bool {
 	}
 	for _, chunk := range step.Narration {
 		switch chunk.Kind {
-		case HintNarrationText:
-			if chunk.Text == "" || chunk.Target != nil || chunk.Value != 0 {
+		case HintNarrationMessage:
+			if chunk.Message == nil || chunk.Message.Validate() != nil || chunk.Target != nil || chunk.Value != 0 {
 				return false
 			}
 		case HintNarrationTarget:
-			if chunk.Text != "" || chunk.Target == nil || chunk.Value != 0 || !validHintNarrationTarget(*chunk.Target) {
+			if chunk.Message != nil || chunk.Target == nil || chunk.Value != 0 || !validHintNarrationTarget(*chunk.Target) {
 				return false
 			}
 		case HintNarrationDigit:
-			if chunk.Text != "" || chunk.Target != nil || chunk.Value < 1 || chunk.Value > 9 {
+			if chunk.Message != nil || chunk.Target != nil || chunk.Value < 1 || chunk.Value > 9 {
 				return false
 			}
 		default:
@@ -136,7 +137,7 @@ type HintEffect struct {
 type HintStep struct {
 	ID        string
 	Kind      HintStepKind
-	Message   string
+	Message   message.Descriptor
 	Narration []HintNarrationChunk
 	Marks     []HintMark
 	Nodes     []HintNode
@@ -145,9 +146,10 @@ type HintStep struct {
 }
 
 type HintStrategy struct {
-	ID          string
-	DisplayName string
-	Grade       string
+	ID        string
+	Name      message.Descriptor
+	Grade     string
+	GradeName message.Descriptor
 }
 
 type CandidateReplacement struct {
@@ -173,19 +175,15 @@ const (
 type HintPlan struct {
 	PlanID     string
 	Kind       HintKind
-	Title      string
+	Title      message.Descriptor
 	Strategy   HintStrategy
-	Summary    string
+	Summary    message.Descriptor
 	Steps      []HintStep
 	Conclusion HintConclusion
 }
 
 // String returns the complete plain-text fallback for limited renderers.
-func (plan HintPlan) String() string { return plan.Summary }
-
-func cellName(position core.Position) string {
-	return fmt.Sprintf("row %d, column %d", position.Row+1, position.Column+1)
-}
+func (plan HintPlan) String() string { return plan.Summary.Text }
 
 func compactCellName(position core.Position) string {
 	return fmt.Sprintf("r%dc%d", position.Row+1, position.Column+1)
@@ -214,8 +212,9 @@ func unitTarget(unit *solver.UnitRef) (HintTarget, bool) {
 	return HintTarget{Kind: kind, Index: unit.Index}, true
 }
 
-func narrationText(text string) HintNarrationChunk {
-	return HintNarrationChunk{Kind: HintNarrationText, Text: text}
+func narrationMessage(descriptor message.Descriptor) HintNarrationChunk {
+	copy := descriptor
+	return HintNarrationChunk{Kind: HintNarrationMessage, Message: &copy}
 }
 
 func narrationTarget(target HintTarget) HintNarrationChunk {
@@ -227,16 +226,47 @@ func narrationDigit(value int) HintNarrationChunk {
 	return HintNarrationChunk{Kind: HintNarrationDigit, Value: value}
 }
 
+var canonicalEnglishMessages = func() *message.Catalog {
+	catalog, err := message.NewEnglishCatalog()
+	if err != nil {
+		panic(err)
+	}
+	return catalog
+}()
+
+func hintDescriptor(id string, arguments ...message.Argument) message.Descriptor {
+	descriptor, err := canonicalEnglishMessages.Render(id, arguments...)
+	if err != nil {
+		panic(err)
+	}
+	return descriptor
+}
+
+func cellArgument(name string, position core.Position) message.Argument {
+	cell := message.Cell{Row: position.Row + 1, Column: position.Column + 1}
+	return message.Argument{Name: name, Kind: message.ArgumentCell, Cell: &cell}
+}
+
+func strategyArgument(name, strategy string) message.Argument {
+	return message.Argument{Name: name, Kind: message.ArgumentStrategy, Strategy: &strategy}
+}
+
+func countArgument(name string, count int) message.Argument {
+	return message.Argument{Name: name, Kind: message.ArgumentCount, Count: &count}
+}
+
 func composeValueCorrectionPlan(snapshot Snapshot, position core.Position) *HintPlan {
 	positionCopy := position
 	conclusion := HintConclusion{ClearValue: &positionCopy}
+	observe := hintDescriptor("hint.value-correction.observe", cellArgument("cell", position))
+	conclude := hintDescriptor("hint.value-correction.conclude", cellArgument("cell", position))
 	plan := &HintPlan{
 		Kind:    HintKindValueCorrection,
-		Title:   "Fix this value",
-		Summary: fmt.Sprintf("The value at %s conflicts with the puzzle. Clear it before continuing.", cellName(position)),
+		Title:   hintDescriptor("hint.value-correction.title"),
+		Summary: hintDescriptor("hint.value-correction.summary", cellArgument("cell", position)),
 		Steps: []HintStep{
-			{ID: "find-wrong-value", Kind: HintStepObserve, Message: fmt.Sprintf("Look at %s. Its entered value conflicts with the puzzle.", cellName(position)), Narration: []HintNarrationChunk{narrationText("Look at "), narrationTarget(cellTarget(position)), narrationText(". Its entered value conflicts with the puzzle.")}, Marks: []HintMark{{Target: cellTarget(position), Role: HintRoleProblem}}, Nodes: []HintNode{}, Links: []HintLink{}},
-			{ID: "clear-wrong-value", Kind: HintStepConclude, Message: "Clear this value so the candidate grid can be checked next.", Narration: []HintNarrationChunk{narrationText("Clear the value at "), narrationTarget(cellTarget(position)), narrationText(" so the candidate grid can be checked next.")}, Marks: []HintMark{{Target: cellTarget(position), Role: HintRoleConclusion}}, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{ClearValue: &positionCopy}},
+			{ID: "find-wrong-value", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationID("hint.narration.look-at"), narrationTarget(cellTarget(position)), narrationID("hint.narration.value-conflict")}, Marks: []HintMark{{Target: cellTarget(position), Role: HintRoleProblem}}, Nodes: []HintNode{}, Links: []HintLink{}},
+			{ID: "clear-wrong-value", Kind: HintStepConclude, Message: conclude, Narration: []HintNarrationChunk{narrationID("hint.narration.clear-value"), narrationTarget(cellTarget(position)), narrationID("hint.narration.clear-value-tail")}, Marks: []HintMark{{Target: cellTarget(position), Role: HintRoleConclusion}}, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{ClearValue: &positionCopy}},
 		},
 		Conclusion: conclusion,
 	}
@@ -253,18 +283,17 @@ func composeCandidateCorrectionPlan(snapshot Snapshot, position core.Position, c
 	for _, value := range legal.Values() {
 		correctionMarks = append(correctionMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: position, Value: value}), Role: HintRoleConclusion})
 	}
-	problemText := "Its candidate state is inconsistent with the puzzle."
-	if !(current &^ legal).IsEmpty() {
-		problemText = "It contains candidates ruled out by the accepted row, column, or box values."
-	}
+	observe := hintDescriptor("hint.candidate-correction.observe", cellArgument("cell", position))
+	compare := hintDescriptor("hint.candidate-correction.compare")
+	conclude := hintDescriptor("hint.candidate-correction.conclude", cellArgument("cell", position))
 	plan := &HintPlan{
 		Kind:    HintKindCandidateCorrection,
-		Title:   "Fix this candidate cell",
-		Summary: fmt.Sprintf("Reset the candidate set at %s from the accepted row, column, and box values before continuing.", cellName(position)),
+		Title:   hintDescriptor("hint.candidate-correction.title"),
+		Summary: hintDescriptor("hint.candidate-correction.summary", cellArgument("cell", position)),
 		Steps: []HintStep{
-			{ID: "find-candidate-problem", Kind: HintStepObserve, Message: fmt.Sprintf("Look at %s. %s", cellName(position), problemText), Narration: []HintNarrationChunk{narrationText("Look at "), narrationTarget(cellTarget(position)), narrationText(". " + problemText)}, Marks: append([]HintMark{{Target: cellTarget(position), Role: HintRoleProblem}}, problemMarks...), Nodes: []HintNode{}, Links: []HintLink{}},
-			{ID: "compare-candidate-cell", Kind: HintStepCompare, Message: "This cell's candidates are unreliable. Discard its deductions and rebuild them from the accepted row, column, and box values.", Narration: []HintNarrationChunk{narrationText("This cell's candidates are unreliable. Discard its deductions and rebuild them from the accepted row, column, and box values.")}, Marks: problemMarks, Nodes: []HintNode{}, Links: []HintLink{}},
-			{ID: "set-candidate-cell", Kind: HintStepConclude, Message: fmt.Sprintf("Reset the candidate set at %s to every locally allowed digit: %v.", cellName(position), legal.Values()), Narration: []HintNarrationChunk{narrationText("Reset the candidate set at "), narrationTarget(cellTarget(position)), narrationText(" to every digit allowed by the accepted row, column, and box values.")}, Marks: correctionMarks, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{SetCandidates: replacement}},
+			{ID: "find-candidate-problem", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationID("hint.narration.look-at"), narrationTarget(cellTarget(position)), narrationID("hint.narration.candidate-inconsistent")}, Marks: append([]HintMark{{Target: cellTarget(position), Role: HintRoleProblem}}, problemMarks...), Nodes: []HintNode{}, Links: []HintLink{}},
+			{ID: "compare-candidate-cell", Kind: HintStepCompare, Message: compare, Narration: []HintNarrationChunk{narrationMessage(compare)}, Marks: problemMarks, Nodes: []HintNode{}, Links: []HintLink{}},
+			{ID: "set-candidate-cell", Kind: HintStepConclude, Message: conclude, Narration: []HintNarrationChunk{narrationID("hint.narration.reset-candidates"), narrationTarget(cellTarget(position)), narrationID("hint.narration.reset-candidates-tail")}, Marks: correctionMarks, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{SetCandidates: replacement}},
 		},
 		Conclusion: HintConclusion{SetCandidates: replacement},
 	}
@@ -277,15 +306,19 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		return nil
 	}
 	grade, _, _ := solver.StrategyTierForTechnique(move.Technique)
+	if grade == "" {
+		grade = "evil"
+	}
 	display := move.Technique
 	if strategy != nil {
 		display = strategy.GetDisplayName()
 	}
+	name := hintDescriptor("strategy." + move.Technique + ".name")
+	gradeName := hintDescriptor("difficulty." + grade + ".name")
 	plan := &HintPlan{
 		Kind:     HintKindStrategy,
-		Title:    display,
-		Strategy: HintStrategy{ID: move.Technique, DisplayName: display, Grade: grade},
-		Summary:  move.Reason,
+		Title:    name,
+		Strategy: HintStrategy{ID: move.Technique, Name: name, Grade: grade, GradeName: gradeName},
 	}
 	if move.IsPlacement() {
 		cell := move.Cell
@@ -323,9 +356,7 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		plan.Steps = evidenceSteps(move, plan.Conclusion)
 	}
 	for index := range plan.Steps {
-		if !plan.Steps[index].HasValidNarration() {
-			plan.Steps[index].Narration = completeStepNarration(plan.Steps[index], display)
-		}
+		populateStrategyStep(&plan.Steps[index], index, len(plan.Steps), move.Technique)
 		if plan.Steps[index].Marks == nil {
 			plan.Steps[index].Marks = []HintMark{}
 		}
@@ -336,37 +367,40 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 			plan.Steps[index].Links = []HintLink{}
 		}
 	}
-	plan.Summary = hintSummary(plan.Steps)
+	plan.Summary = hintDescriptor("hint.strategy.summary", countArgument("steps", len(plan.Steps)), strategyArgument("strategy", move.Technique))
 	plan.PlanID = deterministicPlanID(snapshot, *plan)
 	return plan
 }
 
-// completeStepNarration guarantees that every strategy exposes a closed,
-// renderer-neutral narration stream. Teaching steps without specialized
-// wording retain their complete authored message as one text token; final
-// deductions additionally expose typed digits and targets so clients can
-// render the result without parsing prose.
-func completeStepNarration(step HintStep, display string) []HintNarrationChunk {
-	if step.Effect == nil {
-		return []HintNarrationChunk{narrationText(step.Message)}
+// populateStrategyStep attaches catalog-backed wording after the composer has
+// built the renderer-neutral scene and effect.
+func populateStrategyStep(step *HintStep, index, total int, strategy string) {
+	id := "hint.strategy.compare"
+	if index == 0 {
+		id = "hint.strategy.observe"
 	}
-	conclusion := HintConclusion{
-		Placement:    step.Effect.Placement,
-		Eliminations: step.Effect.Eliminations,
+	if index == total-1 {
+		id = "hint.strategy.conclude"
+		step.Message = hintDescriptor(id, strategyArgument("strategy", strategy))
+		if !step.HasValidNarration() {
+			conclusion := HintConclusion{}
+			if step.Effect != nil {
+				conclusion.Placement = step.Effect.Placement
+				conclusion.Eliminations = step.Effect.Eliminations
+			}
+			step.Narration = []HintNarrationChunk{narrationID("hint.narration.apply")}
+			step.Narration = append(step.Narration, conclusionNarration(conclusion)...)
+			step.Narration = append(step.Narration, narrationMessage(hintDescriptor("hint.narration.strategy-result", strategyArgument("strategy", strategy))))
+		}
+		return
 	}
-	chunks := []HintNarrationChunk{narrationText("Apply the deduction: ")}
-	chunks = append(chunks, conclusionNarration(conclusion)...)
-	chunks = append(chunks, narrationText(". This is the "+display+" result."))
-	return chunks
+	step.Message = hintDescriptor(id)
+	if !step.HasValidNarration() {
+		step.Narration = []HintNarrationChunk{narrationMessage(step.Message)}
+	}
 }
 
-func hintSummary(steps []HintStep) string {
-	messages := make([]string, len(steps))
-	for index, step := range steps {
-		messages[index] = step.Message
-	}
-	return strings.Join(messages, " ")
-}
+func narrationID(id string) HintNarrationChunk { return narrationMessage(hintDescriptor(id)) }
 
 func evidenceSteps(move *solver.Move, conclusion HintConclusion) []HintStep {
 	evidence := move.Evidence
@@ -390,22 +424,15 @@ func evidenceSteps(move *solver.Move, conclusion HintConclusion) []HintStep {
 		comparisonMarks = append(comparisonMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleEliminated})
 	}
 	steps := []HintStep{
-		{ID: "observe-candidate-pattern", Kind: HintStepObserve, Message: "Look at the highlighted cells and candidates.", Marks: premiseMarks},
-		{ID: "compare-candidate-constraints", Kind: HintStepCompare, Message: move.Reason, Marks: append(append([]HintMark(nil), premiseMarks...), comparisonMarks...)},
+		{ID: "observe-candidate-pattern", Kind: HintStepObserve, Marks: premiseMarks},
+		{ID: "compare-candidate-constraints", Kind: HintStepCompare, Marks: append(append([]HintMark(nil), premiseMarks...), comparisonMarks...)},
 	}
 	kind := HintStepConclude
 	if conclusion.Placement == nil {
 		kind = HintStepEliminate
 	}
-	steps = append(steps, HintStep{ID: "apply-deduction", Kind: kind, Message: conclusionMessage(conclusion), Marks: conclusionMarks(conclusion), Effect: conclusionEffect(conclusion)})
+	steps = append(steps, HintStep{ID: "apply-deduction", Kind: kind, Marks: conclusionMarks(conclusion), Effect: conclusionEffect(conclusion)})
 	return steps
-}
-
-func conclusionMessage(conclusion HintConclusion) string {
-	if conclusion.Placement != nil {
-		return fmt.Sprintf("Therefore %s must be %d.", cellName(conclusion.Placement.Position), conclusion.Placement.Value)
-	}
-	return eliminationMessage(conclusion.Eliminations)
 }
 
 func nakedSingleSteps(move *solver.Move) []HintStep {
@@ -417,8 +444,8 @@ func nakedSingleSteps(move *solver.Move) []HintStep {
 	}
 	observeMarks := append(units, HintMark{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, HintMark{Target: candidateTarget(ref), Role: HintRolePremise})
 	return []HintStep{
-		{ID: "inspect-" + compactCellName(move.Cell.Position), Kind: HintStepObserve, Message: fmt.Sprintf("Look at %s. It has only one candidate: %d.", cellName(move.Cell.Position), move.Cell.Value), Narration: []HintNarrationChunk{narrationText("Look at "), narrationTarget(cellTarget(move.Cell.Position)), narrationText(". It has only one candidate: "), narrationDigit(move.Cell.Value), narrationText(".")}, Marks: observeMarks},
-		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Message: fmt.Sprintf("Because no other digit can go in %s, place %d there. This is called a Naked Single.", cellName(move.Cell.Position), move.Cell.Value), Narration: []HintNarrationChunk{narrationText("Because no other digit can go in "), narrationTarget(cellTarget(move.Cell.Position)), narrationText(", place "), narrationDigit(move.Cell.Value), narrationText(" there. This is called a Naked Single.")}, Marks: []HintMark{{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
+		{ID: "inspect-" + compactCellName(move.Cell.Position), Kind: HintStepObserve, Narration: []HintNarrationChunk{narrationID("hint.narration.look-at"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.only-candidate"), narrationDigit(move.Cell.Value), narrationID("hint.narration.period")}, Marks: observeMarks},
+		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Narration: []HintNarrationChunk{narrationID("hint.narration.no-other-digit"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.place"), narrationDigit(move.Cell.Value), narrationID("hint.narration.naked-single-tail")}, Marks: []HintMark{{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
 	}
 }
 
@@ -432,62 +459,45 @@ func hiddenSingleSteps(move *solver.Move) []HintStep {
 	}
 	unitName := fmt.Sprintf("%s %d", move.Evidence.Unit.Kind, move.Evidence.Unit.Index+1)
 	return []HintStep{
-		{ID: fmt.Sprintf("scan-%s-for-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepObserve, Message: fmt.Sprintf("In %s, consider where %d can appear.", unitName, move.Cell.Value), Narration: []HintNarrationChunk{narrationText("In "), narrationTarget(unit), narrationText(", consider where "), narrationDigit(move.Cell.Value), narrationText(" can appear.")}, Marks: marks},
-		{ID: fmt.Sprintf("compare-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepCompare, Message: fmt.Sprintf("Every other empty cell in %s cannot contain %d, leaving only %s.", unitName, move.Cell.Value, cellName(move.Cell.Position)), Narration: []HintNarrationChunk{narrationText("Every other empty cell in "), narrationTarget(unit), narrationText(" cannot contain "), narrationDigit(move.Cell.Value), narrationText(", leaving only "), narrationTarget(cellTarget(move.Cell.Position)), narrationText(".")}, Marks: compare},
-		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Message: fmt.Sprintf("Because %s still needs %d and %s is the only possible cell, place %d there. This is called a Hidden Single.", unitName, move.Cell.Value, cellName(move.Cell.Position), move.Cell.Value), Narration: []HintNarrationChunk{narrationText("Because "), narrationTarget(unit), narrationText(" still needs "), narrationDigit(move.Cell.Value), narrationText(" and "), narrationTarget(cellTarget(move.Cell.Position)), narrationText(" is the only possible cell, place "), narrationDigit(move.Cell.Value), narrationText(" there. This is called a Hidden Single.")}, Marks: []HintMark{{Target: unit, Role: HintRoleFocus}, {Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
+		{ID: fmt.Sprintf("scan-%s-for-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepObserve, Narration: []HintNarrationChunk{narrationID("hint.narration.in-unit"), narrationTarget(unit), narrationID("hint.narration.consider-digit"), narrationDigit(move.Cell.Value), narrationID("hint.narration.can-appear")}, Marks: marks},
+		{ID: fmt.Sprintf("compare-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepCompare, Narration: []HintNarrationChunk{narrationID("hint.narration.other-cells"), narrationTarget(unit), narrationID("hint.narration.cannot-contain"), narrationDigit(move.Cell.Value), narrationID("hint.narration.leaving-only"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.period")}, Marks: compare},
+		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Narration: []HintNarrationChunk{narrationID("hint.narration.because-unit"), narrationTarget(unit), narrationID("hint.narration.still-needs"), narrationDigit(move.Cell.Value), narrationID("hint.narration.only-cell"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.hidden-single-tail"), narrationDigit(move.Cell.Value), narrationID("hint.narration.hidden-single-name")}, Marks: []HintMark{{Target: unit, Role: HintRoleFocus}, {Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
 	}
 }
 
-func nakedSubsetSteps(move *solver.Move, display string) []HintStep {
+func nakedSubsetSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	unit, _ := unitTarget(evidence.Unit)
 	premiseMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
-	var cells []string
 	var cellIDs []string
-	valueSet := make(map[int]struct{})
 	for _, premise := range evidence.Premises {
-		cells = append(cells, cellName(premise.Position))
 		cellIDs = append(cellIDs, compactCellName(premise.Position))
 		for _, value := range premise.Values {
-			valueSet[value] = struct{}{}
 			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: value}), Role: HintRolePremise})
 		}
 	}
-	values := sortedValues(valueSet)
-	valueText := intsText(values)
-	unitName := namedUnit(evidence.Unit)
-	count := len(evidence.Premises)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	finalMessage := fmt.Sprintf("Because those %d cells reserve %s, %s This pattern is called a %s.", count, valueText, deductionPhrase(conclusion), display)
 	return []HintStep{
-		{ID: "find-" + strings.Join(cellIDs, "-"), Kind: HintStepObserve, Message: fmt.Sprintf("In %s, look at %s. Together, those %d cells contain only %s.", unitName, joinNatural(cells), count, valueText), Marks: premiseMarks},
-		{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepCompare, Message: fmt.Sprintf("Those %d cells must contain %s in some order, so no other cell in %s can use those digits.", count, valueText, unitName), Marks: premiseMarks},
-		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: finalMessage, Marks: append(premiseMarks[1:], conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-" + strings.Join(cellIDs, "-"), Kind: HintStepObserve, Marks: premiseMarks},
+		{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepCompare, Marks: premiseMarks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(premiseMarks[1:], conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 
-func hiddenSubsetSteps(move *solver.Move, display string) []HintStep {
+func hiddenSubsetSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	unit, _ := unitTarget(evidence.Unit)
 	premiseMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
-	var cells []string
-	valueSet := make(map[int]struct{})
 	for _, premise := range evidence.Premises {
-		cells = append(cells, cellName(premise.Position))
 		for _, value := range premise.Values {
-			valueSet[value] = struct{}{}
 			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: value}), Role: HintRolePremise})
 		}
 	}
-	values := sortedValues(valueSet)
-	valueText := intsText(values)
-	unitName := namedUnit(evidence.Unit)
-	count := len(values)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	return []HintStep{
-		{ID: "find-confined-" + move.Technique, Kind: HintStepObserve, Message: fmt.Sprintf("In %s, the digits %s can appear only in %s.", unitName, valueText, joinNatural(cells)), Marks: premiseMarks},
-		{ID: "compare-confined-" + move.Technique, Kind: HintStepCompare, Message: fmt.Sprintf("Those %d digits must fill those %d cells in some order, so every other candidate in the cells can be removed.", count, len(cells)), Marks: premiseMarks},
-		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because %s are confined to those cells, %s This pattern is called a %s.", valueText, deductionPhrase(conclusion), display), Marks: append(premiseMarks[1:], conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-confined-" + move.Technique, Kind: HintStepObserve, Marks: premiseMarks},
+		{ID: "compare-confined-" + move.Technique, Kind: HintStepCompare, Marks: premiseMarks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(premiseMarks[1:], conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 
@@ -499,107 +509,76 @@ func intersectionSteps(move *solver.Move) []HintStep {
 		target, _ := unitTarget(&unit)
 		premiseMarks = append(premiseMarks, HintMark{Target: target, Role: HintRoleFocus})
 	}
-	var cells []string
-	value := 0
 	for _, premise := range evidence.Premises {
-		cells = append(cells, cellName(premise.Position))
 		for _, candidate := range premise.Values {
-			value = candidate
 			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: candidate}), Role: HintRolePremise})
 		}
 	}
-	source := namedUnit(evidence.Unit)
-	other := "the intersecting unit"
-	if len(evidence.Units) > 1 {
-		other = namedUnit(&evidence.Units[1])
-	}
-	name := "Pointing Pair"
-	relation := fmt.Sprintf("Within %s, candidate %d appears only in %s, all on %s.", source, value, joinNatural(cells), other)
-	if evidence.Unit != nil && evidence.Unit.Kind != solver.UnitBox {
-		name = "Box-Line Reduction"
-		relation = fmt.Sprintf("Within %s, candidate %d appears only in %s, all inside %s.", source, value, joinNatural(cells), other)
-	}
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	return []HintStep{
-		{ID: "find-intersection", Kind: HintStepObserve, Message: relation, Marks: premiseMarks},
-		{ID: "compare-intersection", Kind: HintStepCompare, Message: fmt.Sprintf("Candidate %d is therefore unavailable in the rest of %s outside %s.", value, other, source), Marks: premiseMarks},
-		{ID: "apply-intersection", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because candidate %d is confined to that intersection, %s This is called %s.", value, deductionPhrase(conclusion), name), Marks: append(premiseMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-intersection", Kind: HintStepObserve, Marks: premiseMarks},
+		{ID: "compare-intersection", Kind: HintStepCompare, Marks: premiseMarks},
+		{ID: "apply-intersection", Kind: conclusionKind(conclusion), Marks: append(premiseMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 
-func fishSteps(move *solver.Move, display string) []HintStep {
+func fishSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
-	size := map[string]int{"x-wing": 2, "swordfish": 3, "jellyfish": 4}[move.Technique]
-	baseUnits, crossUnits := evidence.Units[:size], evidence.Units[size:size*2]
-	digit := evidence.Premises[0].Values[0]
 	marks := unitAndPremiseMarks(evidence)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	return []HintStep{
-		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: fmt.Sprintf("For candidate %d, look at %s and %s. In each selected %s, %d appears only at the highlighted intersections.", digit, groupedUnits(baseUnits), groupedUnits(crossUnits), baseUnits[0].Kind, digit), Marks: marks},
-		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: fmt.Sprintf("Those %d %s confine candidate %d to the same %d %s, so other cells in those %s cannot contain %d.", size, pluralUnit(baseUnits[0].Kind), digit, size, pluralUnit(crossUnits[0].Kind), pluralUnit(crossUnits[0].Kind), digit), Marks: marks},
-		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because candidate %d is locked into those intersections, %s This pattern is called %s.", digit, deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-" + move.Technique, Kind: HintStepObserve, Marks: marks},
+		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Marks: marks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 
-func relationalSteps(move *solver.Move, display string) []HintStep {
+func relationalSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
-	premises := evidence.Premises
 	marks := unitAndPremiseMarks(evidence)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	var observe, compare string
 	var firstNodes, nodes []HintNode
 	var firstLinks, links []HintLink
 	switch move.Technique {
 	case "xy-wing":
-		shared := sharedCandidate(premises[1].Values, premises[2].Values)
-		observe = fmt.Sprintf("Look at pivot %s with candidates %s and its two wings, %s with %s and %s with %s.", cellName(premises[0].Position), intsText(premises[0].Values), cellName(premises[1].Position), intsText(premises[1].Values), cellName(premises[2].Position), intsText(premises[2].Values))
-		compare = fmt.Sprintf("Whichever value the pivot takes, one wing must contain %d, so any cell that sees both wings cannot contain %d.", shared, shared)
 		if len(evidence.Links) == 2 {
 			nodes = visualNodes(evidence, false)
 			links = visualLinks(evidence)
 			firstNodes, firstLinks = visualPrefix(nodes, links)
 		}
 	case "w-wing":
-		link := premises[2].Values[0]
-		pair := intsText(premises[0].Values)
-		observe = fmt.Sprintf("Look at %s and %s. Both contain only %s, and candidate %d has a strong link between %s and %s.", cellName(premises[0].Position), cellName(premises[1].Position), pair, link, cellName(premises[2].Position), cellName(premises[3].Position))
-		compare = "The strong link guarantees that one of the two outer cells takes the other candidate, so a cell that sees both outer cells cannot use it."
 		if len(evidence.Links) == 1 {
 			nodes = visualNodes(evidence, false)
 			links = visualLinks(evidence)
 			firstNodes, firstLinks = nodes, links
 		}
 	case "xyz-wing":
-		shared := sharedCandidate(premises[0].Values, premises[1].Values, premises[2].Values)
-		observe = fmt.Sprintf("Look at pivot %s with candidates %s and its two wings, %s with %s and %s with %s.", cellName(premises[0].Position), intsText(premises[0].Values), cellName(premises[1].Position), intsText(premises[1].Values), cellName(premises[2].Position), intsText(premises[2].Values))
-		compare = fmt.Sprintf("One of those three cells must contain %d, so any cell that sees the pivot and both wings cannot contain %d.", shared, shared)
 	}
 	observeMarks := marks
 	if len(firstNodes) > 0 {
 		observeMarks = marksForNodes(firstNodes)
 	}
 	return []HintStep{
-		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: observe, Marks: observeMarks, Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: compare, Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because that candidate relationship holds, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+		{ID: "find-" + move.Technique, Kind: HintStepObserve, Marks: observeMarks, Nodes: firstNodes, Links: firstLinks},
+		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
 
-func bugPlusOneSteps(move *solver.Move, display string) []HintStep {
+func bugPlusOneSteps(move *solver.Move, _ string) []HintStep {
 	if move.Evidence == nil || len(move.Evidence.Premises) == 0 || !move.IsPlacement() {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
 	}
-	premise := move.Evidence.Premises[0]
 	marks := unitAndPremiseMarks(move.Evidence)
 	conclusion := HintConclusion{Placement: placement(move)}
 	return []HintStep{
-		{ID: "find-trivalue-cell", Kind: HintStepObserve, Message: fmt.Sprintf("Look at %s. It is the only unsolved cell with three candidates: %s; every other unsolved cell has two.", cellName(premise.Position), intsText(premise.Values)), Marks: marks},
-		{ID: "compare-extra-candidate", Kind: HintStepCompare, Message: fmt.Sprintf("Candidate %d is the extra candidate that keeps the row, column, and box candidate counts from forming a two-solution loop.", move.Cell.Value), Marks: marks},
-		{ID: "apply-bug-plus-one", Kind: HintStepConclude, Message: fmt.Sprintf("Because removing that extra candidate would leave two interchangeable solutions, place %d at %s. This pattern is called %s.", move.Cell.Value, cellName(move.Cell.Position), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-trivalue-cell", Kind: HintStepObserve, Marks: marks},
+		{ID: "compare-extra-candidate", Kind: HintStepCompare, Marks: marks},
+		{ID: "apply-bug-plus-one", Kind: HintStepConclude, Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 
-func uniquenessSteps(move *solver.Move, display string) []HintStep {
+func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	if evidence == nil {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
@@ -608,47 +587,19 @@ func uniquenessSteps(move *solver.Move, display string) []HintStep {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
 	}
 	premises := evidence.Premises
-	pair := sharedValues(premises[:4]...)
-	if len(pair) < 2 {
+	if len(sharedValues(premises[:4]...)) < 2 {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
-	}
-	pair = pair[:2]
-	locations := make([]string, 4)
-	for index := range locations {
-		locations[index] = cellName(premises[index].Position)
 	}
 	marks := unitAndPremiseMarks(evidence)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	observe := fmt.Sprintf("Look at the rectangle corners %s. They span two rows, two columns, and two boxes, and all four contain candidates %s.", joinNatural(locations), intsText(pair))
-	compare := ""
-	switch move.Technique {
-	case "unique-rectangle":
-		compare = fmt.Sprintf("Three corners contain only %s. The fourth must use another candidate; otherwise the two digits could swap around the rectangle and create two solutions.", intsText(pair))
-	case "unique-rectangle-2":
-		extra := firstValueOutside(premises[2].Values, pair)
-		compare = fmt.Sprintf("The other two corners contain only %s, while the two expanded corners both contain candidate %d. At least one expanded corner must use %d, so any cell that sees both cannot use it.", intsText(pair), extra, extra)
-	case "unique-rectangle-3":
-		unitName := namedUnit(evidence.Unit)
-		compare = fmt.Sprintf("The extra candidates in the expanded corners join the highlighted cells in %s to reserve those digits, so the same candidates can be removed elsewhere in that unit.", unitName)
-	case "unique-rectangle-4":
-		removed := 0
-		if len(evidence.Eliminations) > 0 {
-			removed = evidence.Eliminations[0].Value
-		}
-		conjugate := pair[0]
-		if conjugate == removed {
-			conjugate = pair[1]
-		}
-		compare = fmt.Sprintf("In %s, candidate %d appears in exactly the two expanded corners. One of them must contain %d, so candidate %d can be removed from both.", namedUnit(evidence.Unit), conjugate, conjugate, removed)
-	}
 	return []HintStep{
-		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: observe, Marks: marks},
-		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Message: compare, Marks: marks},
-		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because the alternative would make the solution non-unique, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-" + move.Technique, Kind: HintStepObserve, Marks: marks},
+		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Marks: marks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 
-func coloringSteps(move *solver.Move, display string) []HintStep {
+func coloringSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	if evidence == nil {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
@@ -656,35 +607,19 @@ func coloringSteps(move *solver.Move, display string) []HintStep {
 	if len(evidence.Partitions) != 2 || len(evidence.Premises) == 0 {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
 	}
-	digit := evidence.Premises[0].Values[0]
 	marks := premiseCandidateMarks(evidence)
 	nodes := visualNodes(evidence, false)
 	links := visualLinks(evidence)
 	firstNodes, firstLinks := visualPrefix(nodes, links)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	compare := fmt.Sprintf("Alternating that either-or choice separates the highlighted candidates into two groups. Each highlighted target sees one cell from each group, so whichever group is true, the target cannot contain %d.", digit)
-	if partitionConflict(evidence.Partitions[0]) || partitionConflict(evidence.Partitions[1]) {
-		compare = "Alternating that either-or choice separates the highlighted candidates into two groups. Two cells in one group share a unit, so that group cannot be true and the other group must be true."
-	}
 	return []HintStep{
-		{ID: "find-simple-coloring", Kind: HintStepObserve, Message: fmt.Sprintf("Start with one linked pair for candidate %d. Exactly one end can contain %d.", digit, digit), Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-simple-coloring", Kind: HintStepCompare, Message: compare, Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-simple-coloring", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because the alternating groups settle the highlighted candidates, %s This method is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+		{ID: "find-simple-coloring", Kind: HintStepObserve, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
+		{ID: "compare-simple-coloring", Kind: HintStepCompare, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "apply-simple-coloring", Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
 
-func partitionConflict(partition solver.CandidatePartition) bool {
-	for left := 0; left < len(partition.Candidates); left++ {
-		for right := left + 1; right < len(partition.Candidates); right++ {
-			if sharesTeachingUnit(partition.Candidates[left].Position, partition.Candidates[right].Position) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func xCycleSteps(move *solver.Move, display string) []HintStep {
+func xCycleSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	if evidence == nil {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
@@ -692,38 +627,33 @@ func xCycleSteps(move *solver.Move, display string) []HintStep {
 	if len(evidence.Chain) < 3 || len(evidence.Links) < 3 {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
 	}
-	digit := evidence.Links[0].From.Value
 	marks := premiseCandidateMarks(evidence)
 	nodes := visualNodes(evidence, true)
 	links := visualLinks(evidence)
 	firstNodes, firstLinks := visualPrefix(nodes, links)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	compare := fmt.Sprintf("The links alternate around the loop. If the first cell contained %d, following the cannot-both and must-contain links returns requiring it not to contain %d, so %d must be removed there.", digit, digit, digit)
-	if conclusion.Placement != nil && conclusion.Placement.Value == digit {
-		compare = fmt.Sprintf("The links alternate around the loop. If the first cell did not contain %d, following the must-contain and cannot-both links returns requiring it to contain %d, so %d must go there.", digit, digit, digit)
-	}
 	return []HintStep{
-		{ID: "find-x-cycle", Kind: HintStepObserve, Message: fmt.Sprintf("Start candidate %d at %s. The first solid or dashed segment shows whether one end must contain it or both ends cannot.", digit, cellName(evidence.Chain[0].Position)), Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-x-cycle", Kind: HintStepCompare, Message: compare, Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-x-cycle", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because the alternating loop closes with that forced result, %s This pattern is called %s.", deductionPhrase(conclusion), display), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+		{ID: "find-x-cycle", Kind: HintStepObserve, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
+		{ID: "compare-x-cycle", Kind: HintStepCompare, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "apply-x-cycle", Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
 
 func conclusionNarration(conclusion HintConclusion) []HintNarrationChunk {
 	if conclusion.Placement != nil {
-		return []HintNarrationChunk{narrationText("place "), narrationDigit(conclusion.Placement.Value), narrationText(" in "), narrationTarget(cellTarget(conclusion.Placement.Position))}
+		return []HintNarrationChunk{narrationID("hint.narration.place-result"), narrationDigit(conclusion.Placement.Value), narrationMessage(hintDescriptor("hint.narration.in")), narrationTarget(cellTarget(conclusion.Placement.Position))}
 	}
-	chunks := []HintNarrationChunk{narrationText("remove candidate ")}
+	chunks := []HintNarrationChunk{narrationMessage(hintDescriptor("hint.narration.remove"))}
 	for index, ref := range conclusion.Eliminations {
 		if index > 0 {
-			chunks = append(chunks, narrationText(", "))
+			chunks = append(chunks, narrationMessage(hintDescriptor("hint.narration.separator")))
 		}
-		chunks = append(chunks, narrationDigit(ref.Value), narrationText(" from "), narrationTarget(cellTarget(ref.Position)))
+		chunks = append(chunks, narrationDigit(ref.Value), narrationMessage(hintDescriptor("hint.narration.from")), narrationTarget(cellTarget(ref.Position)))
 	}
 	return chunks
 }
 
-func xyChainSteps(move *solver.Move, display string) []HintStep {
+func xyChainSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	if evidence == nil {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
@@ -736,14 +666,10 @@ func xyChainSteps(move *solver.Move, display string) []HintStep {
 	links := visualLinks(evidence)
 	firstNodes, firstLinks := visualPrefix(nodes, links)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	endpoint := sharedCandidate(evidence.Chain[0].Values, evidence.Chain[len(evidence.Chain)-1].Values)
-	finalNarration := []HintNarrationChunk{narrationText("Because every highlighted target sees both endpoints, it cannot contain "), narrationDigit(endpoint), narrationText("; ")}
-	finalNarration = append(finalNarration, conclusionNarration(conclusion)...)
-	finalNarration = append(finalNarration, narrationText(". This pattern is called an "+display+"."))
 	return []HintStep{
-		{ID: "find-xy-chain", Kind: HintStepObserve, Message: "Start with the first two-candidate cells. The numbered arrow introduces the first implication.", Narration: []HintNarrationChunk{narrationText("Start with "), narrationTarget(cellTarget(evidence.Chain[0].Position)), narrationText(" and "), narrationTarget(cellTarget(evidence.Chain[1].Position)), narrationText(". The numbered arrow introduces the first implication.")}, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-xy-chain", Kind: HintStepCompare, Message: fmt.Sprintf("If the first endpoint does not contain %d, its other candidate forces the shared candidate in the next cell. That implication continues through the numbered chain until the last endpoint must contain %d, so at least one endpoint contains %d.", endpoint, endpoint, endpoint), Narration: []HintNarrationChunk{narrationText("If the first endpoint does not contain "), narrationDigit(endpoint), narrationText(", its other candidate forces the shared candidate in the next highlighted cell. That implication continues through the numbered chain until the last endpoint must contain "), narrationDigit(endpoint), narrationText(", so at least one endpoint contains "), narrationDigit(endpoint), narrationText(".")}, Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: fmt.Sprintf("Because every highlighted target sees both endpoints, it cannot contain %d; %s This pattern is called an %s.", endpoint, deductionPhrase(conclusion), display), Narration: finalNarration, Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+		{ID: "find-xy-chain", Kind: HintStepObserve, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
+		{ID: "compare-xy-chain", Kind: HintStepCompare, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
 
@@ -849,22 +775,6 @@ func sharedValues(groups ...solver.CandidateGroup) []int {
 	return values
 }
 
-func firstValueOutside(values, excluded []int) int {
-	for _, value := range values {
-		found := false
-		for _, blocked := range excluded {
-			if value == blocked {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return value
-		}
-	}
-	return 0
-}
-
 func unitAndPremiseMarks(evidence *solver.Evidence) []HintMark {
 	var marks []HintMark
 	for _, unitRef := range evidence.Units {
@@ -882,37 +792,6 @@ func unitAndPremiseMarks(evidence *solver.Evidence) []HintMark {
 	return marks
 }
 
-func groupedUnits(units []solver.UnitRef) string {
-	indices := make([]int, len(units))
-	for index, unit := range units {
-		indices[index] = unit.Index + 1
-	}
-	return pluralUnit(units[0].Kind) + " " + intsText(indices)
-}
-
-func pluralUnit(kind solver.UnitKind) string {
-	return string(kind) + "s"
-}
-
-func sharedCandidate(groups ...[]int) int {
-	counts := make(map[int]int)
-	for _, values := range groups {
-		seen := make(map[int]struct{})
-		for _, value := range values {
-			seen[value] = struct{}{}
-		}
-		for value := range seen {
-			counts[value]++
-		}
-	}
-	for value, count := range counts {
-		if count == len(groups) {
-			return value
-		}
-	}
-	return 0
-}
-
 func placement(move *solver.Move) *core.Cell {
 	if move.IsPlacement() {
 		cell := move.Cell
@@ -926,59 +805,6 @@ func conclusionKind(conclusion HintConclusion) HintStepKind {
 		return HintStepConclude
 	}
 	return HintStepEliminate
-}
-
-func namedUnit(unit *solver.UnitRef) string {
-	if unit == nil {
-		return "the highlighted unit"
-	}
-	return fmt.Sprintf("%s %d", unit.Kind, unit.Index+1)
-}
-
-func sortedValues(set map[int]struct{}) []int {
-	values := make([]int, 0, len(set))
-	for value := range set {
-		values = append(values, value)
-	}
-	sort.Ints(values)
-	return values
-}
-
-func joinNatural(items []string) string {
-	if len(items) < 2 {
-		return strings.Join(items, "")
-	}
-	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
-}
-
-func lowerFirst(text string) string {
-	if text == "" {
-		return text
-	}
-	return strings.ToLower(text[:1]) + text[1:]
-}
-
-func intsText(values []int) string {
-	parts := make([]string, len(values))
-	for i, value := range values {
-		parts[i] = fmt.Sprint(value)
-	}
-	return joinNatural(parts)
-}
-
-func deductionPhrase(conclusion HintConclusion) string {
-	if conclusion.Placement != nil {
-		return fmt.Sprintf("%s is left with only %d, so place %d there.", cellName(conclusion.Placement.Position), conclusion.Placement.Value, conclusion.Placement.Value)
-	}
-	return lowerFirst(eliminationMessage(conclusion.Eliminations))
-}
-
-func eliminationMessage(refs []solver.CandidateRef) string {
-	parts := make([]string, len(refs))
-	for i, ref := range refs {
-		parts[i] = fmt.Sprintf("%d from %s", ref.Value, cellName(ref.Position))
-	}
-	return "Remove candidate " + strings.Join(parts, ", ") + "; this deduction does not place a value."
 }
 
 func conclusionMarks(conclusion HintConclusion) []HintMark {
@@ -998,6 +824,23 @@ func conclusionEffect(conclusion HintConclusion) *HintEffect {
 
 func deterministicPlanID(snapshot Snapshot, plan HintPlan) string {
 	plan.PlanID = ""
+	stripFallback := func(descriptor *message.Descriptor) { descriptor.Text = "" }
+	stripFallback(&plan.Title)
+	stripFallback(&plan.Summary)
+	stripFallback(&plan.Strategy.Name)
+	stripFallback(&plan.Strategy.GradeName)
+	plan.Steps = append([]HintStep(nil), plan.Steps...)
+	for index := range plan.Steps {
+		stripFallback(&plan.Steps[index].Message)
+		plan.Steps[index].Narration = append([]HintNarrationChunk(nil), plan.Steps[index].Narration...)
+		for chunkIndex := range plan.Steps[index].Narration {
+			if plan.Steps[index].Narration[chunkIndex].Message != nil {
+				descriptor := *plan.Steps[index].Narration[chunkIndex].Message
+				stripFallback(&descriptor)
+				plan.Steps[index].Narration[chunkIndex].Message = &descriptor
+			}
+		}
+	}
 	payload, err := json.Marshal(struct {
 		Snapshot Snapshot
 		Plan     HintPlan

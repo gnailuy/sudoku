@@ -299,10 +299,10 @@ type ErrorCode string
 
 // ErrorDetail defines model for ErrorDetail.
 type ErrorDetail struct {
-	Cell    *CellPosition `json:"cell,omitempty"`
-	Code    ErrorCode     `json:"code"`
-	Field   *string       `json:"field,omitempty"`
-	Message string        `json:"message"`
+	Cell    *CellPosition     `json:"cell,omitempty"`
+	Code    ErrorCode         `json:"code"`
+	Field   *string           `json:"field,omitempty"`
+	Message MessageDescriptor `json:"message"`
 }
 
 // GameStatus defines model for GameStatus.
@@ -391,16 +391,16 @@ type HintNarrationDigit struct {
 	Value Digit  `json:"value"`
 }
 
+// HintNarrationMessage defines model for HintNarrationMessage.
+type HintNarrationMessage struct {
+	Kind    string            `json:"kind"`
+	Message MessageDescriptor `json:"message"`
+}
+
 // HintNarrationTarget defines model for HintNarrationTarget.
 type HintNarrationTarget struct {
 	Kind   string     `json:"kind"`
 	Target HintTarget `json:"target"`
-}
-
-// HintNarrationText defines model for HintNarrationText.
-type HintNarrationText struct {
-	Kind string `json:"kind"`
-	Text string `json:"text"`
 }
 
 // HintNode defines model for HintNode.
@@ -423,13 +423,13 @@ type HintPlacement struct {
 
 // HintPlan defines model for HintPlan.
 type HintPlan struct {
-	Conclusion HintEffect    `json:"conclusion"`
-	Kind       HintPlanKind  `json:"kind"`
-	PlanId     string        `json:"plan_id"`
-	Steps      []HintStep    `json:"steps"`
-	Strategy   *HintStrategy `json:"strategy,omitempty"`
-	Summary    string        `json:"summary"`
-	Title      string        `json:"title"`
+	Conclusion HintEffect        `json:"conclusion"`
+	Kind       HintPlanKind      `json:"kind"`
+	PlanId     string            `json:"plan_id"`
+	Steps      []HintStep        `json:"steps"`
+	Strategy   *HintStrategy     `json:"strategy,omitempty"`
+	Summary    MessageDescriptor `json:"summary"`
+	Title      MessageDescriptor `json:"title"`
 }
 
 // HintPlanKind defines model for HintPlan.Kind.
@@ -451,7 +451,7 @@ type HintStep struct {
 	Kind      HintStepKind          `json:"kind"`
 	Links     []HintLink            `json:"links"`
 	Marks     []HintMark            `json:"marks"`
-	Message   string                `json:"message"`
+	Message   MessageDescriptor     `json:"message"`
 	Narration *[]HintNarrationChunk `json:"narration,omitempty"`
 	Nodes     []HintNode            `json:"nodes"`
 }
@@ -461,9 +461,10 @@ type HintStepKind string
 
 // HintStrategy defines model for HintStrategy.
 type HintStrategy struct {
-	DisplayName string `json:"display_name"`
-	Grade       string `json:"grade"`
-	Id          string `json:"id"`
+	Grade     Difficulty        `json:"grade"`
+	GradeName MessageDescriptor `json:"grade_name"`
+	Id        string            `json:"id"`
+	Name      MessageDescriptor `json:"name"`
 }
 
 // HintTarget defines model for HintTarget.
@@ -477,6 +478,98 @@ type HintTarget struct {
 
 // HintTargetKind defines model for HintTargetKind.
 type HintTargetKind string
+
+// MessageArgument defines model for MessageArgument.
+type MessageArgument struct {
+	union json.RawMessage
+}
+
+// MessageBoxArgument defines model for MessageBoxArgument.
+type MessageBoxArgument struct {
+	Box  int    `json:"box"`
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
+// MessageCandidateArgument defines model for MessageCandidateArgument.
+type MessageCandidateArgument struct {
+	Candidate struct {
+		Cell  CellPosition `json:"cell"`
+		Digit Digit        `json:"digit"`
+	} `json:"candidate"`
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
+// MessageCellArgument defines model for MessageCellArgument.
+type MessageCellArgument struct {
+	Cell CellPosition `json:"cell"`
+	Kind string       `json:"kind"`
+	Name string       `json:"name"`
+}
+
+// MessageColumnArgument defines model for MessageColumnArgument.
+type MessageColumnArgument struct {
+	Column int    `json:"column"`
+	Kind   string `json:"kind"`
+	Name   string `json:"name"`
+}
+
+// MessageCountArgument defines model for MessageCountArgument.
+type MessageCountArgument struct {
+	Count int    `json:"count"`
+	Kind  string `json:"kind"`
+	Name  string `json:"name"`
+}
+
+// MessageDescriptor defines model for MessageDescriptor.
+type MessageDescriptor struct {
+	Arguments []MessageArgument `json:"arguments"`
+	Id        string            `json:"id"`
+	Text      string            `json:"text"`
+}
+
+// MessageDifficultyArgument defines model for MessageDifficultyArgument.
+type MessageDifficultyArgument struct {
+	Difficulty Difficulty `json:"difficulty"`
+	Kind       string     `json:"kind"`
+	Name       string     `json:"name"`
+}
+
+// MessageDigitArgument defines model for MessageDigitArgument.
+type MessageDigitArgument struct {
+	Digit Digit  `json:"digit"`
+	Kind  string `json:"kind"`
+	Name  string `json:"name"`
+}
+
+// MessageIntegerArgument defines model for MessageIntegerArgument.
+type MessageIntegerArgument struct {
+	Integer int    `json:"integer"`
+	Kind    string `json:"kind"`
+	Name    string `json:"name"`
+}
+
+// MessageRowArgument defines model for MessageRowArgument.
+type MessageRowArgument struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	Row  int    `json:"row"`
+}
+
+// MessageStrategyArgument defines model for MessageStrategyArgument.
+type MessageStrategyArgument struct {
+	Kind     string `json:"kind"`
+	Name     string `json:"name"`
+	Strategy string `json:"strategy"`
+}
+
+// MessageTextArgument defines model for MessageTextArgument.
+type MessageTextArgument struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	Text string `json:"text"`
+}
 
 // NoArgumentRedoAction defines model for NoArgumentRedoAction.
 type NoArgumentRedoAction struct {
@@ -1163,24 +1256,24 @@ func (t *CreateGameRequest_Source) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsHintNarrationText returns the union data inside the HintNarrationChunk as a HintNarrationText
-func (t HintNarrationChunk) AsHintNarrationText() (HintNarrationText, error) {
-	var body HintNarrationText
+// AsHintNarrationMessage returns the union data inside the HintNarrationChunk as a HintNarrationMessage
+func (t HintNarrationChunk) AsHintNarrationMessage() (HintNarrationMessage, error) {
+	var body HintNarrationMessage
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromHintNarrationText overwrites any union data inside the HintNarrationChunk as the provided HintNarrationText
-func (t *HintNarrationChunk) FromHintNarrationText(v HintNarrationText) error {
-	v.Kind = "text"
+// FromHintNarrationMessage overwrites any union data inside the HintNarrationChunk as the provided HintNarrationMessage
+func (t *HintNarrationChunk) FromHintNarrationMessage(v HintNarrationMessage) error {
+	v.Kind = "message"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeHintNarrationText performs a merge with any union data inside the HintNarrationChunk, using the provided HintNarrationText
-func (t *HintNarrationChunk) MergeHintNarrationText(v HintNarrationText) error {
-	v.Kind = "text"
+// MergeHintNarrationMessage performs a merge with any union data inside the HintNarrationChunk, using the provided HintNarrationMessage
+func (t *HintNarrationChunk) MergeHintNarrationMessage(v HintNarrationMessage) error {
+	v.Kind = "message"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -1263,10 +1356,10 @@ func (t HintNarrationChunk) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "digit":
 		return t.AsHintNarrationDigit()
+	case "message":
+		return t.AsHintNarrationMessage()
 	case "target":
 		return t.AsHintNarrationTarget()
-	case "text":
-		return t.AsHintNarrationText()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
@@ -1278,6 +1371,365 @@ func (t HintNarrationChunk) MarshalJSON() ([]byte, error) {
 }
 
 func (t *HintNarrationChunk) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsMessageTextArgument returns the union data inside the MessageArgument as a MessageTextArgument
+func (t MessageArgument) AsMessageTextArgument() (MessageTextArgument, error) {
+	var body MessageTextArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageTextArgument overwrites any union data inside the MessageArgument as the provided MessageTextArgument
+func (t *MessageArgument) FromMessageTextArgument(v MessageTextArgument) error {
+	v.Kind = "text"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageTextArgument performs a merge with any union data inside the MessageArgument, using the provided MessageTextArgument
+func (t *MessageArgument) MergeMessageTextArgument(v MessageTextArgument) error {
+	v.Kind = "text"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageIntegerArgument returns the union data inside the MessageArgument as a MessageIntegerArgument
+func (t MessageArgument) AsMessageIntegerArgument() (MessageIntegerArgument, error) {
+	var body MessageIntegerArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageIntegerArgument overwrites any union data inside the MessageArgument as the provided MessageIntegerArgument
+func (t *MessageArgument) FromMessageIntegerArgument(v MessageIntegerArgument) error {
+	v.Kind = "integer"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageIntegerArgument performs a merge with any union data inside the MessageArgument, using the provided MessageIntegerArgument
+func (t *MessageArgument) MergeMessageIntegerArgument(v MessageIntegerArgument) error {
+	v.Kind = "integer"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageDigitArgument returns the union data inside the MessageArgument as a MessageDigitArgument
+func (t MessageArgument) AsMessageDigitArgument() (MessageDigitArgument, error) {
+	var body MessageDigitArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageDigitArgument overwrites any union data inside the MessageArgument as the provided MessageDigitArgument
+func (t *MessageArgument) FromMessageDigitArgument(v MessageDigitArgument) error {
+	v.Kind = "digit"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageDigitArgument performs a merge with any union data inside the MessageArgument, using the provided MessageDigitArgument
+func (t *MessageArgument) MergeMessageDigitArgument(v MessageDigitArgument) error {
+	v.Kind = "digit"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageCellArgument returns the union data inside the MessageArgument as a MessageCellArgument
+func (t MessageArgument) AsMessageCellArgument() (MessageCellArgument, error) {
+	var body MessageCellArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageCellArgument overwrites any union data inside the MessageArgument as the provided MessageCellArgument
+func (t *MessageArgument) FromMessageCellArgument(v MessageCellArgument) error {
+	v.Kind = "cell"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageCellArgument performs a merge with any union data inside the MessageArgument, using the provided MessageCellArgument
+func (t *MessageArgument) MergeMessageCellArgument(v MessageCellArgument) error {
+	v.Kind = "cell"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageCandidateArgument returns the union data inside the MessageArgument as a MessageCandidateArgument
+func (t MessageArgument) AsMessageCandidateArgument() (MessageCandidateArgument, error) {
+	var body MessageCandidateArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageCandidateArgument overwrites any union data inside the MessageArgument as the provided MessageCandidateArgument
+func (t *MessageArgument) FromMessageCandidateArgument(v MessageCandidateArgument) error {
+	v.Kind = "candidate"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageCandidateArgument performs a merge with any union data inside the MessageArgument, using the provided MessageCandidateArgument
+func (t *MessageArgument) MergeMessageCandidateArgument(v MessageCandidateArgument) error {
+	v.Kind = "candidate"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageRowArgument returns the union data inside the MessageArgument as a MessageRowArgument
+func (t MessageArgument) AsMessageRowArgument() (MessageRowArgument, error) {
+	var body MessageRowArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageRowArgument overwrites any union data inside the MessageArgument as the provided MessageRowArgument
+func (t *MessageArgument) FromMessageRowArgument(v MessageRowArgument) error {
+	v.Kind = "row"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageRowArgument performs a merge with any union data inside the MessageArgument, using the provided MessageRowArgument
+func (t *MessageArgument) MergeMessageRowArgument(v MessageRowArgument) error {
+	v.Kind = "row"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageColumnArgument returns the union data inside the MessageArgument as a MessageColumnArgument
+func (t MessageArgument) AsMessageColumnArgument() (MessageColumnArgument, error) {
+	var body MessageColumnArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageColumnArgument overwrites any union data inside the MessageArgument as the provided MessageColumnArgument
+func (t *MessageArgument) FromMessageColumnArgument(v MessageColumnArgument) error {
+	v.Kind = "column"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageColumnArgument performs a merge with any union data inside the MessageArgument, using the provided MessageColumnArgument
+func (t *MessageArgument) MergeMessageColumnArgument(v MessageColumnArgument) error {
+	v.Kind = "column"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageBoxArgument returns the union data inside the MessageArgument as a MessageBoxArgument
+func (t MessageArgument) AsMessageBoxArgument() (MessageBoxArgument, error) {
+	var body MessageBoxArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageBoxArgument overwrites any union data inside the MessageArgument as the provided MessageBoxArgument
+func (t *MessageArgument) FromMessageBoxArgument(v MessageBoxArgument) error {
+	v.Kind = "box"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageBoxArgument performs a merge with any union data inside the MessageArgument, using the provided MessageBoxArgument
+func (t *MessageArgument) MergeMessageBoxArgument(v MessageBoxArgument) error {
+	v.Kind = "box"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageDifficultyArgument returns the union data inside the MessageArgument as a MessageDifficultyArgument
+func (t MessageArgument) AsMessageDifficultyArgument() (MessageDifficultyArgument, error) {
+	var body MessageDifficultyArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageDifficultyArgument overwrites any union data inside the MessageArgument as the provided MessageDifficultyArgument
+func (t *MessageArgument) FromMessageDifficultyArgument(v MessageDifficultyArgument) error {
+	v.Kind = "difficulty"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageDifficultyArgument performs a merge with any union data inside the MessageArgument, using the provided MessageDifficultyArgument
+func (t *MessageArgument) MergeMessageDifficultyArgument(v MessageDifficultyArgument) error {
+	v.Kind = "difficulty"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageStrategyArgument returns the union data inside the MessageArgument as a MessageStrategyArgument
+func (t MessageArgument) AsMessageStrategyArgument() (MessageStrategyArgument, error) {
+	var body MessageStrategyArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageStrategyArgument overwrites any union data inside the MessageArgument as the provided MessageStrategyArgument
+func (t *MessageArgument) FromMessageStrategyArgument(v MessageStrategyArgument) error {
+	v.Kind = "strategy"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageStrategyArgument performs a merge with any union data inside the MessageArgument, using the provided MessageStrategyArgument
+func (t *MessageArgument) MergeMessageStrategyArgument(v MessageStrategyArgument) error {
+	v.Kind = "strategy"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMessageCountArgument returns the union data inside the MessageArgument as a MessageCountArgument
+func (t MessageArgument) AsMessageCountArgument() (MessageCountArgument, error) {
+	var body MessageCountArgument
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMessageCountArgument overwrites any union data inside the MessageArgument as the provided MessageCountArgument
+func (t *MessageArgument) FromMessageCountArgument(v MessageCountArgument) error {
+	v.Kind = "count"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMessageCountArgument performs a merge with any union data inside the MessageArgument, using the provided MessageCountArgument
+func (t *MessageArgument) MergeMessageCountArgument(v MessageCountArgument) error {
+	v.Kind = "count"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MessageArgument) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"kind"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t MessageArgument) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "box":
+		return t.AsMessageBoxArgument()
+	case "candidate":
+		return t.AsMessageCandidateArgument()
+	case "cell":
+		return t.AsMessageCellArgument()
+	case "column":
+		return t.AsMessageColumnArgument()
+	case "count":
+		return t.AsMessageCountArgument()
+	case "difficulty":
+		return t.AsMessageDifficultyArgument()
+	case "digit":
+		return t.AsMessageDigitArgument()
+	case "integer":
+		return t.AsMessageIntegerArgument()
+	case "row":
+		return t.AsMessageRowArgument()
+	case "strategy":
+		return t.AsMessageStrategyArgument()
+	case "text":
+		return t.AsMessageTextArgument()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t MessageArgument) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *MessageArgument) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -4457,97 +4909,105 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AfjxItnp7dz+q8vV/wUAAP//aLZwqxaXAAA=",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

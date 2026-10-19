@@ -8,6 +8,7 @@ entry_points:
 dependencies:
   - .aidoc/designs/game-engine.md
   - .aidoc/designs/e2e-session-scenarios.md
+  - .aidoc/designs/localization-contract.md
   - .aidoc/architecture/guidelines.md
 ---
 
@@ -22,6 +23,7 @@ The line CLI keeps play deliberately compact while preserving complete durable g
 | `.aidoc/designs/game-engine.md` | Canonical candidate, history, snapshot, and serialization semantics |
 | `.aidoc/designs/e2e-session-scenarios.md` | Black-box save and restore scenarios |
 | `.aidoc/designs/hint-presentation-protocol.md` | Shared hint-plan contract and frontend degradation rules |
+| `.aidoc/designs/localization-contract.md` | Shared canonical English rendering and descriptor ownership |
 | `.aidoc/architecture/guidelines.md` | Package boundaries that keep I/O out of the engine |
 
 ## Why the Line CLI Is Compact
@@ -34,7 +36,7 @@ The engine still owns one authoritative candidate grid. A session created by ano
 
 Interactive commands retain bare three-digit value input, value add/clear, history, check/repair, reset/solve, explicit save, and quit. The root command accepts `--resume <path>` as an alternative to puzzle generation and `--input`.
 
-`hint` or `i` queries one shared engine plan, prints its compact explanation, and immediately applies that exact `plan_id` as one atomic action. A placement plan prints its concluding plain-text reasoning plus the exact row, column, and value. A candidate correction or elimination prints one limitation without rendering candidate details, applies the hidden candidate change, and lets the next `hint` continue from the resulting authoritative state. `sudoku tui` remains the complete preview and teaching surface.
+`hint` or `i` queries one shared engine plan, renders its descriptor-backed explanation through the canonical English catalog, and immediately applies that exact `plan_id` as one atomic action. A placement plan renders its concluding semantic narration plus the exact row, column, and value. A candidate correction or elimination prints one client-specific limitation without rendering candidate details, applies the hidden candidate change, and lets the next `hint` continue from the resulting authoritative state. `sudoku tui` remains the complete preview and teaching surface.
 
 Each command stops after one authoritative deduction, never skips candidate work or silently chains to a placement, and does not mutate when plan generation or exact-plan application fails. Successful application creates one ordinary Undo entry; stale-plan validation remains aligned with the TUI, API, and browser.
 
@@ -48,4 +50,4 @@ Restore reads are bounded before `game.Restore` validates the complete document.
 
 `game.Game` owns values, candidates, history, serialization, and semantic validation. `cli.Controller` owns compact rendering, commands, hint degradation, help, and error translation. `cmd` owns root flags and startup selection; `sessionfile` owns bounded reads and atomic writes.
 
-Package tests cover compact rendering despite hidden candidates, atomic placement and candidate hints, one-step Undo, continuation from candidate work, rejected legacy hint arguments, complete session round trips, bounded reads, atomic replacement, and error translation. Built-binary scenarios cover command help, compact placement output, hidden candidate-plan progression, save/resume with redo state, corrupt input rejection, flag conflicts, and failed-save preservation.
+Package tests cover canonical descriptor and narration rendering, compact rendering despite hidden candidates, atomic placement and candidate hints, one-step Undo, continuation from candidate work, rejected legacy hint arguments, complete session round trips, bounded reads, atomic replacement, and error translation. Built-binary scenarios cover command help, compact placement output, hidden candidate-plan progression, save/resume with redo state, corrupt input rejection, flag conflicts, and failed-save preservation.

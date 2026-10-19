@@ -7,6 +7,7 @@ entry_points:
 dependencies:
   - .aidoc/designs/game-engine.md
   - .aidoc/designs/cli-sessions.md
+  - .aidoc/designs/localization-contract.md
   - .aidoc/designs/e2e-tui-scenarios.md
 ---
 
@@ -20,6 +21,7 @@ The optional full-screen terminal interface is the smallest second frontend for 
 |----------|-------------|
 | `.aidoc/designs/game-engine.md` | Canonical actions, snapshots, hints, notes, and serialization |
 | `.aidoc/designs/cli-sessions.md` | Existing CLI behavior and explicit persistence policy |
+| `.aidoc/designs/localization-contract.md` | Shared canonical English rendering and descriptor ownership |
 | `.aidoc/designs/e2e-tui-scenarios.md` | Black-box compatibility and TUI scenarios |
 
 ## Why the TUI Exists
@@ -45,7 +47,7 @@ The following global actions remain available when no modal is open:
 - `S` opens an explicit save-path prompt;
 - `q` opens a quit confirmation when the session has unsaved changes and otherwise exits.
 
-The TUI translates keys into `game.Action` values and renders only `game.Snapshot`. Engine errors become transient messages; the TUI never reproduces Sudoku validation rules.
+The TUI translates keys into `game.Action` values and renders only `game.Snapshot`. Shared hint titles, strategy and difficulty names, summaries, steps, and narration use descriptor fallbacks from the canonical English catalog; TUI-only controls, status framing, persistence failures, and engine-error presentation remain at the terminal boundary. The TUI never reproduces Sudoku validation rules.
 
 ## Startup and Persistence
 
@@ -73,6 +75,6 @@ The terminal dependencies are confined to the `tui` package and `cmd/tui.go`. Th
 
 ## Verification
 
-Package tests cover key-to-action translation, focus boundaries, focused-digit value/candidate context, completed-digit treatment, independent note mode and cell visibility, hidden-cell empty-baseline edits, visible-cell complete-set edits, authoritative mistake-count rendering, modal confirmations and help, dirty-state tracking, save transport, read-only hint step navigation/cancel/apply, small-terminal fallback, clean cell rendering, theme selection, no-color accessibility, and deterministic rendering. The model injects its persistence function for isolated save tests.
+Package tests cover key-to-action translation, canonical descriptor and typed-narration rendering, focus boundaries, focused-digit value/candidate context, completed-digit treatment, independent note mode and cell visibility, hidden-cell empty-baseline edits, visible-cell complete-set edits, authoritative mistake-count rendering, modal confirmations and help, dirty-state tracking, save transport, read-only hint step navigation/cancel/apply, small-terminal fallback, clean cell rendering, theme selection, no-color accessibility, and deterministic rendering. The model injects its persistence function for isolated save tests.
 
 `scripts/e2e_tui.py` is a standard-library pseudo-terminal harness that starts the built binary, sends keys, resizes the terminal, and inspects stable screen text. Black-box scenarios cover startup from input and saved state, value and note entry, undo/redo, hint step navigation and exact apply, explicit save, invalid restore rejection, quit confirmation, and CLI backward compatibility.

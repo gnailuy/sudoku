@@ -171,7 +171,7 @@ func TestHint(t *testing.T) {
 	if hint.PlanID == "" {
 		t.Fatalf("hint has invalid protocol identity: %+v", hint)
 	}
-	if hint.Strategy.ID == "" || hint.Summary == "" || len(hint.Steps) == 0 {
+	if hint.Strategy.ID == "" || hint.Summary.Text == "" || len(hint.Steps) == 0 {
 		t.Fatalf("hint plan is incomplete: %+v", hint)
 	}
 	if hint.Conclusion.Placement == nil && len(hint.Conclusion.Eliminations) == 0 {

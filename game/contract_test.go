@@ -249,7 +249,7 @@ func TestApplyHintAndReset(t *testing.T) {
 	if result.Action != ActionApplyHint || len(result.Changes) == 0 || !result.CanUndo || result.Hint == nil {
 		t.Fatalf("unexpected hint result: %+v", result)
 	}
-	if result.Hint.PlanID != plan.PlanID || result.Hint.Summary == "" || result.Hint.Conclusion.Placement == nil {
+	if result.Hint.PlanID != plan.PlanID || result.Hint.Summary.Text == "" || result.Hint.Conclusion.Placement == nil {
 		t.Fatalf("hint metadata does not describe the applied plan: %+v", result)
 	}
 	if result.Hint.Conclusion.Placement.Position != result.Changes[0].Position || result.Hint.Conclusion.Placement.Value != result.Changes[0].After {

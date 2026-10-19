@@ -552,7 +552,7 @@ components:
           example:
             error:
               code: invalid-request
-              message: source must select exactly one supported kind
+              message: { id: error.invalid-request, arguments: [], text: The request is invalid. }
               field: source
     PayloadTooLarge:
       description: The request exceeds the configured body limit.
@@ -563,7 +563,7 @@ components:
           example:
             error:
               code: payload-too-large
-              message: request body exceeds the maximum size
+              message: { id: error.payload-too-large, arguments: [], text: The request is too large. }
     UnsupportedMediaType:
       description: The request Content-Type is not supported by this operation.
       content:
@@ -573,7 +573,7 @@ components:
           example:
             error:
               code: unsupported-media-type
-              message: the request Content-Type is not supported
+              message: { id: error.unsupported-media-type, arguments: [], text: The request Content-Type is not supported. }
     UnprocessableEntity:
       description: The request is well formed but cannot be applied.
       content:
@@ -585,7 +585,7 @@ components:
               value:
                 error:
                   code: immutable-cell
-                  message: cannot change a problem cell
+                  message: { id: error.immutable-cell, arguments: [], text: A given cell cannot be changed. }
                   cell:
                     row: 1
                     column: 3
@@ -593,7 +593,7 @@ components:
               value:
                 error:
                   code: invalid-session
-                  message: serialized session validation failed
+                  message: { id: error.invalid-session, arguments: [], text: The game session is invalid. }
     InternalError:
       description: An unexpected or durability failure occurred without leaking internals.
       content:
@@ -603,7 +603,7 @@ components:
           example:
             error:
               code: internal-error
-              message: the request could not be completed
+              message: { id: error.internal-error, arguments: [], text: The request could not be completed. }
 
   schemas:
     SealedGuestDocument:
@@ -932,6 +932,161 @@ components:
           pattern: ^[0-9.]{81}$
           description: An 81-cell puzzle; dot or zero represents an empty cell.
 
+    MessageDescriptor:
+      type: object
+      additionalProperties: false
+      required: [id, arguments, text]
+      properties:
+        id:
+          type: string
+          pattern: ^[a-z0-9]+(?:[.-][a-z0-9]+)*$
+          maxLength: 200
+        arguments:
+          type: array
+          maxItems: 32
+          items:
+            $ref: "#/components/schemas/MessageArgument"
+        text:
+          type: string
+          minLength: 1
+          maxLength: 4096
+
+    MessageArgument:
+      oneOf:
+        - $ref: "#/components/schemas/MessageTextArgument"
+        - $ref: "#/components/schemas/MessageIntegerArgument"
+        - $ref: "#/components/schemas/MessageDigitArgument"
+        - $ref: "#/components/schemas/MessageCellArgument"
+        - $ref: "#/components/schemas/MessageCandidateArgument"
+        - $ref: "#/components/schemas/MessageRowArgument"
+        - $ref: "#/components/schemas/MessageColumnArgument"
+        - $ref: "#/components/schemas/MessageBoxArgument"
+        - $ref: "#/components/schemas/MessageDifficultyArgument"
+        - $ref: "#/components/schemas/MessageStrategyArgument"
+        - $ref: "#/components/schemas/MessageCountArgument"
+      discriminator:
+        propertyName: kind
+        mapping:
+          text: "#/components/schemas/MessageTextArgument"
+          integer: "#/components/schemas/MessageIntegerArgument"
+          digit: "#/components/schemas/MessageDigitArgument"
+          cell: "#/components/schemas/MessageCellArgument"
+          candidate: "#/components/schemas/MessageCandidateArgument"
+          row: "#/components/schemas/MessageRowArgument"
+          column: "#/components/schemas/MessageColumnArgument"
+          box: "#/components/schemas/MessageBoxArgument"
+          difficulty: "#/components/schemas/MessageDifficultyArgument"
+          strategy: "#/components/schemas/MessageStrategyArgument"
+          count: "#/components/schemas/MessageCountArgument"
+
+    MessageTextArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, text]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: text }
+        text: { type: string, minLength: 1, maxLength: 1000 }
+
+    MessageIntegerArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, integer]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: integer }
+        integer: { type: integer }
+
+    MessageDigitArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, digit]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: digit }
+        digit: { $ref: "#/components/schemas/Digit" }
+
+    MessageCellArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, cell]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: cell }
+        cell: { $ref: "#/components/schemas/CellPosition" }
+
+    MessageCandidateArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, candidate]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: candidate }
+        candidate:
+          type: object
+          additionalProperties: false
+          required: [cell, digit]
+          properties:
+            cell: { $ref: "#/components/schemas/CellPosition" }
+            digit: { $ref: "#/components/schemas/Digit" }
+
+    MessageRowArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, row]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: row }
+        row: { type: integer, minimum: 1, maximum: 9 }
+
+    MessageColumnArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, column]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: column }
+        column: { type: integer, minimum: 1, maximum: 9 }
+
+    MessageBoxArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, box]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: box }
+        box: { type: integer, minimum: 1, maximum: 9 }
+
+    MessageDifficultyArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, difficulty]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: difficulty }
+        difficulty: { $ref: "#/components/schemas/Difficulty" }
+
+    MessageStrategyArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, strategy]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: strategy }
+        strategy:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          maxLength: 100
+
+    MessageCountArgument:
+      type: object
+      additionalProperties: false
+      required: [name, kind, count]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, const: count }
+        count: { type: integer, minimum: 0 }
+
     HintPlan:
       type: object
       additionalProperties: false
@@ -944,15 +1099,11 @@ components:
           type: string
           enum: [value-correction, candidate-correction, strategy]
         title:
-          type: string
-          minLength: 1
-          maxLength: 100
+          $ref: "#/components/schemas/MessageDescriptor"
         strategy:
           $ref: "#/components/schemas/HintStrategy"
         summary:
-          type: string
-          minLength: 1
-          maxLength: 1000
+          $ref: "#/components/schemas/MessageDescriptor"
         steps:
           type: array
           minItems: 1
@@ -965,19 +1116,18 @@ components:
     HintStrategy:
       type: object
       additionalProperties: false
-      required: [id, display_name, grade]
+      required: [id, name, grade, grade_name]
       properties:
         id:
           type: string
           minLength: 1
           maxLength: 100
-        display_name:
-          type: string
-          minLength: 1
-          maxLength: 100
+        name:
+          $ref: "#/components/schemas/MessageDescriptor"
         grade:
-          type: string
-          maxLength: 20
+          $ref: "#/components/schemas/Difficulty"
+        grade_name:
+          $ref: "#/components/schemas/MessageDescriptor"
 
     HintStepKind:
       type: string
@@ -989,28 +1139,26 @@ components:
 
     HintNarrationChunk:
       oneOf:
-        - $ref: "#/components/schemas/HintNarrationText"
+        - $ref: "#/components/schemas/HintNarrationMessage"
         - $ref: "#/components/schemas/HintNarrationTarget"
         - $ref: "#/components/schemas/HintNarrationDigit"
       discriminator:
         propertyName: kind
         mapping:
-          text: "#/components/schemas/HintNarrationText"
+          message: "#/components/schemas/HintNarrationMessage"
           target: "#/components/schemas/HintNarrationTarget"
           digit: "#/components/schemas/HintNarrationDigit"
 
-    HintNarrationText:
+    HintNarrationMessage:
       type: object
       additionalProperties: false
-      required: [kind, text]
+      required: [kind, message]
       properties:
         kind:
           type: string
-          const: text
-        text:
-          type: string
-          minLength: 1
-          maxLength: 1000
+          const: message
+        message:
+          $ref: "#/components/schemas/MessageDescriptor"
 
     HintNarrationTarget:
       type: object
@@ -1183,9 +1331,7 @@ components:
         kind:
           $ref: "#/components/schemas/HintStepKind"
         message:
-          type: string
-          minLength: 1
-          maxLength: 1000
+          $ref: "#/components/schemas/MessageDescriptor"
         narration:
           type: array
           minItems: 1
@@ -1457,9 +1603,7 @@ components:
         code:
           $ref: "#/components/schemas/ErrorCode"
         message:
-          type: string
-          minLength: 1
-          maxLength: 1000
+          $ref: "#/components/schemas/MessageDescriptor"
         field:
           type: string
           minLength: 1

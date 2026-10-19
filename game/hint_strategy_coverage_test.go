@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/gnailuy/sudoku/core"
+	"github.com/gnailuy/sudoku/message"
 	"github.com/gnailuy/sudoku/solver"
 )
 
@@ -85,9 +86,19 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 				if len(first.Steps) < 2 {
 					t.Fatalf("steps = %d, want an ordered teaching sequence", len(first.Steps))
 				}
+				assertCanonicalDescriptor(t, first.Title)
+				assertCanonicalDescriptor(t, first.Summary)
+				assertCanonicalDescriptor(t, first.Strategy.Name)
+				assertCanonicalDescriptor(t, first.Strategy.GradeName)
 				for index, step := range first.Steps {
+					assertCanonicalDescriptor(t, step.Message)
 					if !step.HasValidNarration() {
 						t.Fatalf("step %d has no complete valid narration: %+v", index+1, step)
+					}
+					for _, chunk := range step.Narration {
+						if chunk.Message != nil {
+							assertCanonicalDescriptor(t, *chunk.Message)
+						}
 					}
 				}
 				if !planHasRole(*first, HintRolePremise) {
@@ -114,6 +125,17 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 			}
 			t.Fatalf("real game did not reach strategy %s within 128 hints", key)
 		})
+	}
+}
+
+func assertCanonicalDescriptor(t *testing.T, descriptor message.Descriptor) {
+	t.Helper()
+	rendered, err := canonicalEnglishMessages.Render(descriptor.ID, descriptor.Arguments...)
+	if err != nil {
+		t.Fatalf("descriptor %q is absent from canonical catalog: %v", descriptor.ID, err)
+	}
+	if rendered.Text != descriptor.Text {
+		t.Fatalf("descriptor %q fallback = %q, canonical = %q", descriptor.ID, descriptor.Text, rendered.Text)
 	}
 }
 

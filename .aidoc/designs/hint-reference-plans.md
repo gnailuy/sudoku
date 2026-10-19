@@ -23,13 +23,13 @@ The reference plans make the portable teaching protocol concrete for placement a
 
 ## Why Reference Plans Exist
 
-Reference plans prevent strategy composers and renderers from interpreting semantic roles, ordered steps, or logical effects differently. Every reference includes a deterministic `plan_id`, registered strategy metadata, a complete summary, ordered steps, and one typed placement or elimination conclusion.
+Reference plans prevent strategy composers and renderers from interpreting semantic roles, ordered steps, or logical effects differently. Every reference includes a deterministic `plan_id`, registered strategy metadata, a complete semantic summary descriptor, ordered descriptor-backed steps, and one typed placement or elimination conclusion.
 
 ## Naked Single Placement
 
 The Naked Single reference uses cell `r4c2`, whose candidate set is exactly `{7}`, and concludes with placement `r4c2=7`:
 
-| Step | Kind | Complete scene | Effect | Fallback message |
+| Step | Kind | Complete scene | Effect | Canonical English fallback |
 |------|------|----------------|--------|------------------|
 | `inspect-r4c2` | `observe` | focus cell `r4c2`; premise candidate `r4c2:7` | none | “Look at row 4, column 2. It has only one candidate: 7.” |
 | `place-r4c2-7` | `conclude` | focus cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Because no other digit can go in row 4, column 2, place 7 there. This is called a Naked Single.” |
@@ -38,7 +38,7 @@ The Naked Single reference uses cell `r4c2`, whose candidate set is exactly `{7}
 
 The Hidden Single reference examines digit `7` in row 4, records that row constraints exclude every location except `r4c2`, and concludes with the same placement:
 
-| Step | Kind | Complete scene | Effect | Fallback message |
+| Step | Kind | Complete scene | Effect | Canonical English fallback |
 |------|------|----------------|--------|------------------|
 | `scan-row4-for-7` | `observe` | focus row 4; premise candidate `r4c2:7` | none | “In row 4, consider where 7 can appear.” |
 | `compare-row4-7` | `compare` | focus row 4; eliminated candidate targets for every ruled-out empty cell; premise candidate `r4c2:7` | none | “Every other empty cell in row 4 cannot contain 7, leaving only row 4, column 2.” |
@@ -48,13 +48,13 @@ The Hidden Single reference examines digit `7` in row 4, records that row constr
 
 The Naked Pair reference examines row 4, where `r4c2` and `r4c7` each contain exactly `{2,7}`, and concludes only that candidate `2` must be removed from `r4c9`:
 
-| Step | Kind | Complete scene | Effect | Fallback message |
+| Step | Kind | Complete scene | Effect | Canonical English fallback |
 |------|------|----------------|--------|------------------|
 | `find-r4c2-r4c7` | `observe` | focus row 4; premise candidates `r4c2:{2,7}` and `r4c7:{2,7}` | none | “In row 4, the cells at row 4, column 2 and row 4, column 7 each have exactly the same two candidates: 2 and 7.” |
 | `reserve-r4c2-r4c7` | `compare` | focus row 4; premise pair cells; focus candidate `r4c9:2` | none | “Those two cells must contain 2 and 7 in some order, so no other cell in row 4 can contain either digit.” |
 | `remove-pair-candidates` | `eliminate` | premise pair cells; conclusion candidate `r4c9:2` | eliminate candidate `2` from `r4c9` | “Because those two cells reserve 2 and 7, remove candidate 2 from row 4, column 9; this deduction does not place a value. This pattern is called a Naked Pair.” |
 
-Every renderer applies the same conclusion without parsing fallback prose or reconstructing logic from the technique name. The Naked Pair reference explicitly proves that a valid hint may change notes without placing a value.
+Every renderer applies the same conclusion from typed effects without parsing descriptor fallback prose or reconstructing logic from the technique name. The Naked Pair reference explicitly proves that a valid hint may change notes without placing a value.
 
 ## Subset Family
 

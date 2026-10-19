@@ -12,7 +12,16 @@ import (
 
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
+	usermessage "github.com/gnailuy/sudoku/message"
 )
+
+var canonicalEnglishMessages = func() *usermessage.Catalog {
+	catalog, err := usermessage.NewEnglishCatalog()
+	if err != nil {
+		panic(fmt.Sprintf("construct canonical English catalog: %v", err))
+	}
+	return catalog
+}()
 
 const MaxRequestBytes = 1 << 20
 
@@ -300,7 +309,7 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 		for j, link := range step.Links {
 			links[j] = HintLink{From: link.From, To: link.To, Kind: HintLinkKind(link.Kind)}
 		}
-		steps[i] = HintStep{Id: step.ID, Kind: HintStepKind(step.Kind), Message: step.Message, Marks: marks, Nodes: nodes, Links: links}
+		steps[i] = HintStep{Id: step.ID, Kind: HintStepKind(step.Kind), Message: apiMessageDescriptor(step.Message), Marks: marks, Nodes: nodes, Links: links}
 		if step.HasValidNarration() {
 			narration := make([]HintNarrationChunk, len(step.Narration))
 			valid := true
@@ -324,13 +333,66 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 	out := HintPlan{
 		PlanId:     plan.PlanID,
 		Kind:       HintPlanKind(plan.Kind),
-		Title:      plan.Title,
-		Summary:    plan.Summary,
+		Title:      apiMessageDescriptor(plan.Title),
+		Summary:    apiMessageDescriptor(plan.Summary),
 		Steps:      steps,
 		Conclusion: apiHintEffect(game.HintEffect{Placement: plan.Conclusion.Placement, Eliminations: plan.Conclusion.Eliminations, ClearValue: plan.Conclusion.ClearValue, SetCandidates: plan.Conclusion.SetCandidates}),
 	}
 	if plan.Strategy.ID != "" {
-		out.Strategy = &HintStrategy{Id: plan.Strategy.ID, DisplayName: plan.Strategy.DisplayName, Grade: plan.Strategy.Grade}
+		out.Strategy = &HintStrategy{Id: plan.Strategy.ID, Name: apiMessageDescriptor(plan.Strategy.Name), Grade: Difficulty(plan.Strategy.Grade), GradeName: apiMessageDescriptor(plan.Strategy.GradeName)}
+	}
+	return out
+}
+
+func mustAPIMessageDescriptor(descriptor usermessage.Descriptor, err error) MessageDescriptor {
+	if err != nil {
+		panic(fmt.Sprintf("render canonical English message: %v", err))
+	}
+	return apiMessageDescriptor(descriptor)
+}
+
+func apiMessageDescriptor(descriptor usermessage.Descriptor) MessageDescriptor {
+	arguments := make([]MessageArgument, len(descriptor.Arguments))
+	for i, argument := range descriptor.Arguments {
+		arguments[i] = mustAPIMessageArgument(argument)
+	}
+	return MessageDescriptor{Id: descriptor.ID, Arguments: arguments, Text: descriptor.Text}
+}
+
+func mustAPIMessageArgument(argument usermessage.Argument) MessageArgument {
+	var out MessageArgument
+	var err error
+	switch argument.Kind {
+	case usermessage.ArgumentText:
+		err = out.FromMessageTextArgument(MessageTextArgument{Name: argument.Name, Kind: string(argument.Kind), Text: *argument.Text})
+	case usermessage.ArgumentInteger:
+		err = out.FromMessageIntegerArgument(MessageIntegerArgument{Name: argument.Name, Kind: string(argument.Kind), Integer: *argument.Integer})
+	case usermessage.ArgumentDigit:
+		err = out.FromMessageDigitArgument(MessageDigitArgument{Name: argument.Name, Kind: string(argument.Kind), Digit: Digit(*argument.Digit)})
+	case usermessage.ArgumentCell:
+		err = out.FromMessageCellArgument(MessageCellArgument{Name: argument.Name, Kind: string(argument.Kind), Cell: CellPosition{Row: argument.Cell.Row, Column: argument.Cell.Column}})
+	case usermessage.ArgumentCandidate:
+		value := MessageCandidateArgument{Name: argument.Name, Kind: string(argument.Kind)}
+		value.Candidate.Cell = CellPosition{Row: argument.Candidate.Cell.Row, Column: argument.Candidate.Cell.Column}
+		value.Candidate.Digit = Digit(argument.Candidate.Digit)
+		err = out.FromMessageCandidateArgument(value)
+	case usermessage.ArgumentRow:
+		err = out.FromMessageRowArgument(MessageRowArgument{Name: argument.Name, Kind: string(argument.Kind), Row: *argument.Row})
+	case usermessage.ArgumentColumn:
+		err = out.FromMessageColumnArgument(MessageColumnArgument{Name: argument.Name, Kind: string(argument.Kind), Column: *argument.Column})
+	case usermessage.ArgumentBox:
+		err = out.FromMessageBoxArgument(MessageBoxArgument{Name: argument.Name, Kind: string(argument.Kind), Box: *argument.Box})
+	case usermessage.ArgumentDifficulty:
+		err = out.FromMessageDifficultyArgument(MessageDifficultyArgument{Name: argument.Name, Kind: string(argument.Kind), Difficulty: Difficulty(*argument.Difficulty)})
+	case usermessage.ArgumentStrategy:
+		err = out.FromMessageStrategyArgument(MessageStrategyArgument{Name: argument.Name, Kind: string(argument.Kind), Strategy: *argument.Strategy})
+	case usermessage.ArgumentCount:
+		err = out.FromMessageCountArgument(MessageCountArgument{Name: argument.Name, Kind: string(argument.Kind), Count: *argument.Count})
+	default:
+		panic(fmt.Sprintf("unsupported canonical message argument kind %q", argument.Kind))
+	}
+	if err != nil {
+		panic(fmt.Sprintf("encode canonical message argument %q: %v", argument.Name, err))
 	}
 	return out
 }
@@ -339,8 +401,11 @@ func apiHintNarrationChunk(chunk game.HintNarrationChunk) (HintNarrationChunk, b
 	var out HintNarrationChunk
 	var err error
 	switch chunk.Kind {
-	case game.HintNarrationText:
-		err = out.FromHintNarrationText(HintNarrationText{Text: chunk.Text})
+	case game.HintNarrationMessage:
+		if chunk.Message == nil {
+			return HintNarrationChunk{}, false
+		}
+		err = out.FromHintNarrationMessage(HintNarrationMessage{Message: apiMessageDescriptor(*chunk.Message)})
 	case game.HintNarrationTarget:
 		err = out.FromHintNarrationTarget(HintNarrationTarget{Target: apiHintTarget(*chunk.Target)})
 	case game.HintNarrationDigit:
@@ -395,7 +460,8 @@ func apiHintEffect(effect game.HintEffect) HintEffect {
 	return out
 }
 
-func apiError(code ErrorCode, message string) Error {
+func apiError(code ErrorCode, _ string) Error {
+	message := mustAPIMessageDescriptor(canonicalEnglishMessages.Render("error." + string(code)))
 	return Error{Error: ErrorDetail{Code: code, Message: message}}
 }
 func engineAPIError(e *game.EngineError) Error {

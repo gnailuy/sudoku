@@ -1,9 +1,14 @@
 ---
 domain: Designs
-status: Draft
+status: Active
 entry_points:
-  - api/openapi.yaml
+  - message/descriptor.go
+  - message/catalog.go
+  - message/english.go
+  - message/english_test.go
   - game/hint_plan.go
+  - game/hint_strategy_coverage_test.go
+  - api/openapi.yaml
   - webapi/server.go
   - cli/controller.go
   - tui/model.go
@@ -17,19 +22,20 @@ dependencies:
 
 # Localization Contract
 
-This Draft defines a locale-neutral semantic API with deterministic English fallback text for clients that do not implement localization. It also keeps the line CLI and TUI English-only by rendering the same canonical English message descriptors rather than maintaining separate prose.
+The backend exposes user-facing gameplay messages as locale-neutral semantic descriptors with deterministic English fallback text. The HTTP API, line CLI, and TUI consume the same canonical English catalog, while localized clients render stable IDs and typed arguments in their own locale.
 
 ## Related Docs
 
 | Document | Relationship |
 |---|---|
-| `.aidoc/designs/web-api.md` | Current HTTP ownership, revision, and error boundary |
-| `.aidoc/designs/hint-presentation-protocol.md` | Current typed hint evidence and narration contract |
-| `.aidoc/designs/cli-sessions.md` | Line CLI capability and rendering boundary |
-| `.aidoc/designs/tui-frontend.md` | Full-screen terminal rendering boundary |
-| `api/openapi.yaml` | Canonical wire contract to replace in one coordinated cutover |
-| `game/hint_plan.go` | Current hint semantics and English presentation coupling |
-| `webapi/server.go` | Current engine-to-wire translation boundary |
+| `.aidoc/designs/web-api.md` | HTTP ownership, revision, error, and descriptor transport boundary |
+| `.aidoc/designs/hint-presentation-protocol.md` | Typed hint evidence, descriptor, and narration contract |
+| `.aidoc/designs/cli-sessions.md` | Line CLI capability and shared-English rendering boundary |
+| `.aidoc/designs/tui-frontend.md` | Full-screen terminal and shared-English rendering boundary |
+| `api/openapi.yaml` | Canonical descriptor and hint wire contract |
+| `game/hint_plan.go` | Semantic hint-plan composition and descriptor emission |
+| `message/english.go` | Canonical deterministic English catalog |
+| `webapi/server.go` | Engine-to-wire descriptor translation boundary |
 
 ## Decision
 
@@ -41,13 +47,13 @@ Every user-facing API message carries three things together:
 
 The message ID and arguments are authoritative for localized presentation. The English fallback is authoritative only as a safe default for clients that do not localize or encounter a newer unknown ID. It must never be parsed to recover semantics.
 
-The API does not accept `Accept-Language`, locale query parameters, or locale preferences. Identical game state and input produce identical semantic message descriptors and English fallback regardless of the caller's locale, preserving cache, contract-test, and deterministic hint behavior.
+The API does not negotiate or vary responses by `Accept-Language`, locale query parameters, or locale preferences. Identical game state and input produce identical semantic message descriptors and English fallback regardless of the caller's locale, preserving cache, contract-test, and deterministic hint behavior.
 
 ## Why Both Semantics and English Belong on the Wire
 
 A message ID alone is insufficient for command-line tools, scripts, exploratory consumers, and future clients that have not adopted the catalog. A prose-only API, however, makes wording an accidental protocol and prevents the browser from controlling grammar, ordering, pluralization, and accessibility in another language.
 
-The combined descriptor gives capable clients stable localization inputs while keeping every response understandable in isolation. This does not make English a game-engine concern: English remains one shared presentation catalog rendered after the engine has produced semantic IDs and arguments.
+The combined descriptor gives capable clients stable localization inputs while keeping every response understandable together with its typed scene, narration targets, and effect. This does not make English a game-engine concern: English remains one shared presentation catalog rendered after the engine has produced semantic IDs and arguments.
 
 ## Message Descriptor
 
@@ -55,51 +61,42 @@ The OpenAPI contract introduces one reusable `MessageDescriptor` shape:
 
 ```json
 {
-  "id": "hint.naked-single.conclusion",
+  "id": "hint.strategy.summary",
   "arguments": [
-    { "name": "cell", "kind": "cell", "cell": { "row": 4, "column": 7 } },
-    { "name": "digit", "kind": "digit", "digit": 9 }
+    { "name": "steps", "kind": "count", "count": 2 },
+    { "name": "strategy", "kind": "strategy", "strategy": "naked-single" }
   ],
-  "text": "Because row 4, column 7 has only candidate 9, place 9 there; this is called a Naked Single."
+  "text": "Follow the 2 teaching steps to apply the Naked Single deduction."
 }
 ```
 
 `id` uses stable lowercase dotted names owned by the domain that emits the message. IDs describe meaning rather than English wording or component placement. Renaming English copy does not change an ID; changing meaning requires a new ID.
 
-`arguments` is an ordered collection with unique names and a closed discriminated union. Initial argument kinds are `text`, `integer`, `digit`, `cell`, `candidate`, `row`, `column`, `box`, `difficulty`, `strategy`, and `count`. Coordinates retain the API's one-based convention. Domain identifiers such as difficulty and strategy remain stable IDs rather than translated labels. Free-form `text` is permitted only for already-bounded safe product data, never internal errors or preformatted sentences.
+`arguments` is an ordered collection with unique names and a closed discriminated union. Argument kinds are `text`, `integer`, `digit`, `cell`, `candidate`, `row`, `column`, `box`, `difficulty`, `strategy`, and `count`. Coordinates retain the API's one-based convention. Domain identifiers such as difficulty and strategy remain stable IDs rather than translated labels. The hint contract does not use `text` arguments as a sentence bridge: digits, cells, candidates, units, strategies, difficulties, and counts remain typed. The `text` kind is limited to bounded product data and never carries preformatted prose, internal errors, or diagnostics.
 
 `text` is complete deterministic English produced from the same ID and arguments. It is bounded by the existing response limits, contains no secrets or internal diagnostics, and remains meaningful when displayed without catalog knowledge.
 
 Unknown IDs and unknown argument kinds are forward-compatibility failures for tests during development. Runtime clients may display `text`, but repository-owned clients must update in the same coordinated change.
 
-## API Cutover
+## API Contract
 
-The development-stage cutover replaces presentation strings rather than carrying parallel legacy fields.
+The current API uses descriptors directly for `HintPlan.title`, `HintPlan.summary`, every `HintStep.message`, strategy names, difficulty names, and `ErrorDetail.message`. Stable strategy and difficulty IDs remain beside their name descriptors because they are programmatic domain facts rather than display fields.
 
-| Current field | Replacement |
-|---|---|
-| `HintPlan.title` string | `HintPlan.title` message descriptor |
-| `HintPlan.summary` string | `HintPlan.summary` message descriptor |
-| `HintStep.message` string | `HintStep.message` message descriptor |
-| `HintStrategy.display_name` string | stable strategy `id` plus a strategy-name descriptor |
-| `HintStrategy.grade` display string | stable difficulty ID plus a difficulty-name descriptor |
-| `ErrorDetail.message` string | `ErrorDetail.message` message descriptor |
+Existing structured fields such as error `code`, `field`, `cell`, hint scenes, narration targets, effects, strategy IDs, and difficulty IDs remain authoritative. A descriptor presents those typed facts; it never replaces them.
 
-Existing structured fields such as error `code`, `field`, `cell`, hint scenes, narration targets, effects, strategy IDs, and difficulty IDs remain authoritative. A message descriptor supplements those typed facts; it never replaces them.
+The hint narration union is renderer-neutral. Message chunks carry semantic descriptors rather than English fragments, while digit and target chunks remain typed. This lets a localized renderer reorder complete grammatical units without parsing prose or moving Sudoku reasoning into the client. Each step also carries one complete fallback descriptor for clients that ignore narration.
 
-The hint narration union remains renderer-neutral. Literal narration chunks become message descriptors rather than English fragments, while digit and target chunks remain typed. This lets a localized renderer reorder complete grammatical units without parsing prose or moving Sudoku reasoning into the client. A step still includes a complete fallback descriptor for clients that ignore narration.
-
-OpenAPI examples, generated adapters, handler tests, and both guest and account routes change together. No compatibility alias, duplicated string field, or API version fork is retained.
+OpenAPI, generated adapters, fixtures, handler tests, and both guest and account routes expose only this current shape. There is no compatibility alias, duplicated string field, prose-only hint path, or API version fork.
 
 ## Backend Ownership
 
-The game and solver layers emit semantic IDs and typed arguments. They do not select a locale and do not embed translated catalogs. The current hint composer continues to own reasoning order, scene semantics, exact effects, and the mapping from a deduction to message IDs and arguments.
+The game and solver layers emit semantic IDs and typed arguments. They do not select a locale or embed translated catalogs. The current hint composer owns reasoning order, scene semantics, exact effects, and the mapping from a deduction to message IDs and arguments. `message/english.go` alone owns canonical English wording.
 
-A small presentation-neutral descriptor package owns the closed argument vocabulary and validation. A separate canonical English catalog renders descriptors to fallback text. The HTTP adapter, line CLI, and TUI all call that one English renderer; none maintains independent English copies for shared hints, strategy names, difficulty names, or engine errors.
+The presentation-neutral `message` package owns the closed argument vocabulary, validation, and one canonical English catalog definition. The hint composer renders descriptors once from that catalog; the HTTP adapter transports the resulting descriptor unchanged, and the line CLI and TUI consume its fallback text plus typed narration targets and digits. None maintains independent English copies for shared hint titles, summaries, steps, narration messages, strategy names, or difficulty names. HTTP error descriptors also use the canonical catalog; terminal-only controls, framing, and error translation remain client-owned and are outside this contract.
 
-Client-specific framing may remain at the client boundary. For example, the TUI can retain its step counter and keyboard help, but the hint title, strategy name, grade, narration, summary, and shared error explanation come from the common descriptor renderer.
+Client-specific framing remains at the client boundary. For example, the TUI retains its step counter and keyboard help, while shared hint titles, strategy names, grade names, narration messages, summaries, and steps come from descriptors rendered by the canonical catalog.
 
-Catalog completeness is fail-fast in tests and startup construction used by maintained binaries. Missing IDs, missing or extra arguments, duplicate argument names, type mismatches, or output beyond the bounded length are errors rather than partially formatted text.
+Catalog completeness is fail-fast in tests and maintained-binary construction. Missing IDs, missing or extra arguments, duplicate argument names, type mismatches, or output beyond the bounded length are errors rather than partially formatted text. The strategy-coverage test exercises real game plans for every registered strategy and validates every emitted title, summary, step, and narration descriptor against the canonical catalog.
 
 ## Error Policy
 
@@ -121,18 +118,15 @@ The web client owns locale choice, translated catalogs, ICU formatting, document
 
 Backend IDs and frontend catalog entries ship as one reviewed contract. Generated TypeScript types must preserve the closed descriptor and argument unions. A backend PR that adds or changes a user-facing ID cannot merge without the coordinated browser catalog update and contract fixture.
 
-## Delivery Sequence
+## Implementation Boundary
 
-1. Introduce and test the descriptor model, English catalog, and shared terminal renderer without changing game semantics.
-2. Replace OpenAPI hint, strategy, difficulty, and error prose in one contract cutover; regenerate adapters and update API acceptance.
-3. Coordinate the web client cutover to English catalogs plus Simplified Chinese and Traditional Chinese before removing its direct string rendering.
-4. Audit all remaining API-authored presentation strings and all CLI/TUI copies, then remove superseded renderers and compatibility fixtures.
+The `message` package owns descriptor validation and the canonical English catalog. The game hint composer emits only catalog-backed descriptors and typed scene, narration, and effect semantics. The HTTP adapter converts descriptor arguments without re-rendering or reconstructing meaning; the line CLI and TUI consume the same descriptor fallbacks and typed narration through the shared catalog boundary.
 
-The design does not authorize partial dual contracts. Each implementation PR must keep its branch internally complete, while coordinated backend and frontend PRs may be reviewed together before merge.
+Changing an ID, argument name, argument kind, or semantic meaning is a coordinated contract change across OpenAPI, generated transport code, backend fixtures, terminal acceptance, and browser catalogs. English copy may change without changing an ID when the meaning and typed argument contract remain the same.
 
 ## Acceptance
 
-Mechanical acceptance runs the documentation validator, OpenAPI generation check, Go build, unit tests, vet, and the affected built-binary API, CLI, and TUI harnesses.
+Mechanical acceptance runs `go test ./message ./game ./cli ./tui ./webapi`, `scripts/check-api-contract.sh`, and the built-binary `scripts/e2e_api.py`, `scripts/e2e_cli.py`, `scripts/e2e_tui.py`, `scripts/e2e_tui_hint_strategies.py`, and `scripts/e2e_tui_full_game_hints.py` lanes before the repository-wide build, test, race, vet, lint, and documentation gates.
 
 Semantic acceptance proves:
 
@@ -140,12 +134,12 @@ Semantic acceptance proves:
 - every maintained ID renders from the canonical English catalog with exact argument types;
 - no endpoint response varies with `Accept-Language`;
 - every strategy, grade, hint step, correction, and stable error code has catalog coverage;
-- CLI, TUI, and API fallbacks render equivalent English for shared descriptors;
+- the engine catalog test canonically re-renders every emitted shared hint descriptor, while focused CLI and TUI narration tests and API transport tests prove that each adapter consumes those same fallbacks without maintaining a second shared-hint copy;
 - raw internal errors cannot cross the HTTP or terminal presentation boundary; and
 - plan identity, revisions, sealed documents, history, and gameplay effects are unchanged by presentation rendering.
 
-Cross-repository acceptance uses generated contract fixtures to prove that English (`en`), Simplified Chinese (`zh-Hans`), and Traditional Chinese (`zh-Hant`) catalogs consume the same descriptor set. Real browser journeys remain owned by the web repository.
+Cross-repository catalog coverage and real browser journeys are owned by the web client repository. This backend exports API-shaped hint fixtures through `tools/export-hint-plans`; the coordinated browser change consumes that inventory for English (`en`), Simplified Chinese (`zh-Hans`), and Traditional Chinese (`zh-Hant`). This repository proves its emitted descriptor inventory through engine coverage plus API, CLI, and TUI acceptance.
 
 ## Out of Scope
 
-This phase does not translate the line CLI or TUI, negotiate locale at the HTTP boundary, store locale in SQLite or account records, translate logs or diagnostics, localize puzzle data, or introduce server-side rendered HTML. Additional locales follow the same browser-owned catalog contract after the first complete three-catalog release.
+The backend does not translate the line CLI or TUI, negotiate locale at the HTTP boundary, store locale in SQLite or account records, translate logs or diagnostics, localize puzzle data, or introduce server-side rendered HTML. Additional locales follow the same browser-owned catalog contract.
