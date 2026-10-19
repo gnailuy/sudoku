@@ -12,7 +12,16 @@ import (
 
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
+	usermessage "github.com/gnailuy/sudoku/message"
 )
+
+var canonicalEnglishMessages = func() *usermessage.Catalog {
+	catalog, err := usermessage.NewEnglishCatalog()
+	if err != nil {
+		panic(fmt.Sprintf("construct canonical English catalog: %v", err))
+	}
+	return catalog
+}()
 
 const MaxRequestBytes = 1 << 20
 
@@ -321,16 +330,74 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 			steps[i].Effect = &effect
 		}
 	}
+	titleID := map[game.HintKind]string{
+		game.HintKindValueCorrection:     "hint.value-correction.title",
+		game.HintKindCandidateCorrection: "hint.candidate-correction.title",
+	}[plan.Kind]
+	if plan.Kind == game.HintKindStrategy {
+		titleID = "strategy." + plan.Strategy.ID + ".name"
+	}
 	out := HintPlan{
 		PlanId:     plan.PlanID,
 		Kind:       HintPlanKind(plan.Kind),
-		Title:      plan.Title,
+		Title:      mustAPIMessageDescriptor(canonicalEnglishMessages.Render(titleID)),
 		Summary:    plan.Summary,
 		Steps:      steps,
 		Conclusion: apiHintEffect(game.HintEffect{Placement: plan.Conclusion.Placement, Eliminations: plan.Conclusion.Eliminations, ClearValue: plan.Conclusion.ClearValue, SetCandidates: plan.Conclusion.SetCandidates}),
 	}
 	if plan.Strategy.ID != "" {
-		out.Strategy = &HintStrategy{Id: plan.Strategy.ID, DisplayName: plan.Strategy.DisplayName, Grade: plan.Strategy.Grade}
+		name := mustAPIMessageDescriptor(usermessage.RenderEnglishName(canonicalEnglishMessages, "strategy", plan.Strategy.ID))
+		gradeName := mustAPIMessageDescriptor(usermessage.RenderEnglishName(canonicalEnglishMessages, "difficulty", plan.Strategy.Grade))
+		out.Strategy = &HintStrategy{Id: plan.Strategy.ID, Name: name, Grade: Difficulty(plan.Strategy.Grade), GradeName: gradeName}
+	}
+	return out
+}
+
+func mustAPIMessageDescriptor(descriptor usermessage.Descriptor, err error) MessageDescriptor {
+	if err != nil {
+		panic(fmt.Sprintf("render canonical English message: %v", err))
+	}
+	arguments := make([]MessageArgument, len(descriptor.Arguments))
+	for i, argument := range descriptor.Arguments {
+		arguments[i] = mustAPIMessageArgument(argument)
+	}
+	return MessageDescriptor{Id: descriptor.ID, Arguments: arguments, Text: descriptor.Text}
+}
+
+func mustAPIMessageArgument(argument usermessage.Argument) MessageArgument {
+	var out MessageArgument
+	var err error
+	switch argument.Kind {
+	case usermessage.ArgumentText:
+		err = out.FromMessageTextArgument(MessageTextArgument{Name: argument.Name, Kind: string(argument.Kind), Text: *argument.Text})
+	case usermessage.ArgumentInteger:
+		err = out.FromMessageIntegerArgument(MessageIntegerArgument{Name: argument.Name, Kind: string(argument.Kind), Integer: *argument.Integer})
+	case usermessage.ArgumentDigit:
+		err = out.FromMessageDigitArgument(MessageDigitArgument{Name: argument.Name, Kind: string(argument.Kind), Digit: Digit(*argument.Digit)})
+	case usermessage.ArgumentCell:
+		err = out.FromMessageCellArgument(MessageCellArgument{Name: argument.Name, Kind: string(argument.Kind), Cell: CellPosition{Row: argument.Cell.Row, Column: argument.Cell.Column}})
+	case usermessage.ArgumentCandidate:
+		value := MessageCandidateArgument{Name: argument.Name, Kind: string(argument.Kind)}
+		value.Candidate.Cell = CellPosition{Row: argument.Candidate.Cell.Row, Column: argument.Candidate.Cell.Column}
+		value.Candidate.Digit = Digit(argument.Candidate.Digit)
+		err = out.FromMessageCandidateArgument(value)
+	case usermessage.ArgumentRow:
+		err = out.FromMessageRowArgument(MessageRowArgument{Name: argument.Name, Kind: string(argument.Kind), Row: *argument.Row})
+	case usermessage.ArgumentColumn:
+		err = out.FromMessageColumnArgument(MessageColumnArgument{Name: argument.Name, Kind: string(argument.Kind), Column: *argument.Column})
+	case usermessage.ArgumentBox:
+		err = out.FromMessageBoxArgument(MessageBoxArgument{Name: argument.Name, Kind: string(argument.Kind), Box: *argument.Box})
+	case usermessage.ArgumentDifficulty:
+		err = out.FromMessageDifficultyArgument(MessageDifficultyArgument{Name: argument.Name, Kind: string(argument.Kind), Difficulty: Difficulty(*argument.Difficulty)})
+	case usermessage.ArgumentStrategy:
+		err = out.FromMessageStrategyArgument(MessageStrategyArgument{Name: argument.Name, Kind: string(argument.Kind), Strategy: *argument.Strategy})
+	case usermessage.ArgumentCount:
+		err = out.FromMessageCountArgument(MessageCountArgument{Name: argument.Name, Kind: string(argument.Kind), Count: *argument.Count})
+	default:
+		panic(fmt.Sprintf("unsupported canonical message argument kind %q", argument.Kind))
+	}
+	if err != nil {
+		panic(fmt.Sprintf("encode canonical message argument %q: %v", argument.Name, err))
 	}
 	return out
 }
