@@ -309,7 +309,7 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 		for j, link := range step.Links {
 			links[j] = HintLink{From: link.From, To: link.To, Kind: HintLinkKind(link.Kind)}
 		}
-		steps[i] = HintStep{Id: step.ID, Kind: HintStepKind(step.Kind), Message: step.Message, Marks: marks, Nodes: nodes, Links: links}
+		steps[i] = HintStep{Id: step.ID, Kind: HintStepKind(step.Kind), Message: apiMessageDescriptor(step.Message), Marks: marks, Nodes: nodes, Links: links}
 		if step.HasValidNarration() {
 			narration := make([]HintNarrationChunk, len(step.Narration))
 			valid := true
@@ -330,25 +330,16 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 			steps[i].Effect = &effect
 		}
 	}
-	titleID := map[game.HintKind]string{
-		game.HintKindValueCorrection:     "hint.value-correction.title",
-		game.HintKindCandidateCorrection: "hint.candidate-correction.title",
-	}[plan.Kind]
-	if plan.Kind == game.HintKindStrategy {
-		titleID = "strategy." + plan.Strategy.ID + ".name"
-	}
 	out := HintPlan{
 		PlanId:     plan.PlanID,
 		Kind:       HintPlanKind(plan.Kind),
-		Title:      mustAPIMessageDescriptor(canonicalEnglishMessages.Render(titleID)),
-		Summary:    plan.Summary,
+		Title:      apiMessageDescriptor(plan.Title),
+		Summary:    apiMessageDescriptor(plan.Summary),
 		Steps:      steps,
 		Conclusion: apiHintEffect(game.HintEffect{Placement: plan.Conclusion.Placement, Eliminations: plan.Conclusion.Eliminations, ClearValue: plan.Conclusion.ClearValue, SetCandidates: plan.Conclusion.SetCandidates}),
 	}
 	if plan.Strategy.ID != "" {
-		name := mustAPIMessageDescriptor(usermessage.RenderEnglishName(canonicalEnglishMessages, "strategy", plan.Strategy.ID))
-		gradeName := mustAPIMessageDescriptor(usermessage.RenderEnglishName(canonicalEnglishMessages, "difficulty", plan.Strategy.Grade))
-		out.Strategy = &HintStrategy{Id: plan.Strategy.ID, Name: name, Grade: Difficulty(plan.Strategy.Grade), GradeName: gradeName}
+		out.Strategy = &HintStrategy{Id: plan.Strategy.ID, Name: apiMessageDescriptor(plan.Strategy.Name), Grade: Difficulty(plan.Strategy.Grade), GradeName: apiMessageDescriptor(plan.Strategy.GradeName)}
 	}
 	return out
 }
@@ -357,6 +348,10 @@ func mustAPIMessageDescriptor(descriptor usermessage.Descriptor, err error) Mess
 	if err != nil {
 		panic(fmt.Sprintf("render canonical English message: %v", err))
 	}
+	return apiMessageDescriptor(descriptor)
+}
+
+func apiMessageDescriptor(descriptor usermessage.Descriptor) MessageDescriptor {
 	arguments := make([]MessageArgument, len(descriptor.Arguments))
 	for i, argument := range descriptor.Arguments {
 		arguments[i] = mustAPIMessageArgument(argument)
@@ -406,8 +401,11 @@ func apiHintNarrationChunk(chunk game.HintNarrationChunk) (HintNarrationChunk, b
 	var out HintNarrationChunk
 	var err error
 	switch chunk.Kind {
-	case game.HintNarrationText:
-		err = out.FromHintNarrationText(HintNarrationText{Text: chunk.Text})
+	case game.HintNarrationMessage:
+		if chunk.Message == nil {
+			return HintNarrationChunk{}, false
+		}
+		err = out.FromHintNarrationMessage(HintNarrationMessage{Message: apiMessageDescriptor(*chunk.Message)})
 	case game.HintNarrationTarget:
 		err = out.FromHintNarrationTarget(HintNarrationTarget{Target: apiHintTarget(*chunk.Target)})
 	case game.HintNarrationDigit:

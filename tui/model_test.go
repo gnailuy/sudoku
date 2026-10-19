@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
+	"github.com/gnailuy/sudoku/message"
 	"github.com/gnailuy/sudoku/recovery"
 	"github.com/gnailuy/sudoku/solver"
 )
@@ -268,6 +269,27 @@ func TestHintPreviewNavigatesLocallyUntilEnter(t *testing.T) {
 	model = sendKey(t, model, tea.KeyMsg{Type: tea.KeyEnter})
 	if model.snapshot == before || !model.dirty || model.hint != nil {
 		t.Fatal("hint was not applied exactly once")
+	}
+}
+
+func TestFormatTUIHintNarrationUsesDescriptorFallbackAndCompactTargets(t *testing.T) {
+	position := core.NewPosition(3, 6)
+	prefix := message.Descriptor{ID: "test.prefix", Arguments: []message.Argument{}, Text: "Look at "}
+	suffix := message.Descriptor{ID: "test.suffix", Arguments: []message.Argument{}, Text: "."}
+	step := game.HintStep{
+		Message: message.Descriptor{ID: "test.fallback", Arguments: []message.Argument{}, Text: "complete fallback"},
+		Narration: []game.HintNarrationChunk{
+			{Kind: game.HintNarrationMessage, Message: &prefix},
+			{Kind: game.HintNarrationTarget, Target: &game.HintTarget{Kind: game.HintTargetCell, Position: &position}},
+			{Kind: game.HintNarrationMessage, Message: &suffix},
+		},
+	}
+	if got := formatTUIHintNarration(step); got != "Look at r4c7." {
+		t.Fatalf("TUI narration = %q", got)
+	}
+	step.Narration[1].Message = &prefix
+	if got := formatTUIHintNarration(step); got != step.Message.Text {
+		t.Fatalf("invalid narration = %q, want fallback %q", got, step.Message.Text)
 	}
 }
 

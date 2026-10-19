@@ -9,14 +9,18 @@ import (
 )
 
 func TestAPIHintPlanUsesStableNameDescriptors(t *testing.T) {
+	name := usermessage.Descriptor{ID: "strategy.naked-single.name", Arguments: []usermessage.Argument{}, Text: "Naked Single"}
+	gradeName := usermessage.Descriptor{ID: "difficulty.easy.name", Arguments: []usermessage.Argument{}, Text: "Easy"}
 	plan := apiHintPlan(&game.HintPlan{
 		PlanID:  "plan",
 		Kind:    game.HintKindStrategy,
-		Summary: "summary",
+		Title:   name,
+		Summary: usermessage.Descriptor{ID: "test.summary", Arguments: []usermessage.Argument{}, Text: "summary"},
 		Strategy: game.HintStrategy{
-			ID:          "naked-single",
-			DisplayName: "Naked Single",
-			Grade:       "easy",
+			ID:        "naked-single",
+			Name:      name,
+			Grade:     "easy",
+			GradeName: gradeName,
 		},
 	})
 	if plan.Title.Id != "strategy.naked-single.name" || plan.Title.Text != "Naked Single" || len(plan.Title.Arguments) != 0 {
@@ -37,7 +41,12 @@ func TestAPIHintPlanUsesCorrectionTitleDescriptors(t *testing.T) {
 		{game.HintKindCandidateCorrection, "hint.candidate-correction.title", "Fix this candidate cell"},
 	}
 	for _, testCase := range cases {
-		plan := apiHintPlan(&game.HintPlan{PlanID: "plan", Kind: testCase.kind, Summary: "summary"})
+		plan := apiHintPlan(&game.HintPlan{
+			PlanID:  "plan",
+			Kind:    testCase.kind,
+			Title:   usermessage.Descriptor{ID: testCase.id, Arguments: []usermessage.Argument{}, Text: testCase.text},
+			Summary: usermessage.Descriptor{ID: "test.summary", Arguments: []usermessage.Argument{}, Text: "summary"},
+		})
 		if plan.Title.Id != testCase.id || plan.Title.Text != testCase.text || len(plan.Title.Arguments) != 0 || plan.Strategy != nil {
 			t.Fatalf("%s title/strategy = %#v/%#v", testCase.kind, plan.Title, plan.Strategy)
 		}

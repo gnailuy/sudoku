@@ -73,7 +73,7 @@ def run_case(binary, case, root):
     )
     os.close(slave)
     transcript = drain(master, quiet=0.1, timeout=3)
-    expected = f"Hint — {case['display_name']} ({case['grade']})"
+    expected = f"Hint — {case['display_name']} ({case['grade'].title()})"
     observed = []
     try:
         for attempt in range(1, MAX_HINTS_PER_GAME + 1):

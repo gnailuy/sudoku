@@ -1103,9 +1103,7 @@ components:
         strategy:
           $ref: "#/components/schemas/HintStrategy"
         summary:
-          type: string
-          minLength: 1
-          maxLength: 1000
+          $ref: "#/components/schemas/MessageDescriptor"
         steps:
           type: array
           minItems: 1
@@ -1141,28 +1139,26 @@ components:
 
     HintNarrationChunk:
       oneOf:
-        - $ref: "#/components/schemas/HintNarrationText"
+        - $ref: "#/components/schemas/HintNarrationMessage"
         - $ref: "#/components/schemas/HintNarrationTarget"
         - $ref: "#/components/schemas/HintNarrationDigit"
       discriminator:
         propertyName: kind
         mapping:
-          text: "#/components/schemas/HintNarrationText"
+          message: "#/components/schemas/HintNarrationMessage"
           target: "#/components/schemas/HintNarrationTarget"
           digit: "#/components/schemas/HintNarrationDigit"
 
-    HintNarrationText:
+    HintNarrationMessage:
       type: object
       additionalProperties: false
-      required: [kind, text]
+      required: [kind, message]
       properties:
         kind:
           type: string
-          const: text
-        text:
-          type: string
-          minLength: 1
-          maxLength: 1000
+          const: message
+        message:
+          $ref: "#/components/schemas/MessageDescriptor"
 
     HintNarrationTarget:
       type: object
@@ -1335,9 +1331,7 @@ components:
         kind:
           $ref: "#/components/schemas/HintStepKind"
         message:
-          type: string
-          minLength: 1
-          maxLength: 1000
+          $ref: "#/components/schemas/MessageDescriptor"
         narration:
           type: array
           minItems: 1

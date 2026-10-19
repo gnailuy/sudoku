@@ -70,6 +70,19 @@ def main():
             status, body, _ = request(base, "POST", "/api/v1/guest/games", {"source": {"kind": "puzzle", "puzzle": PUZZLE}})
             expect(status, 503, "guest route without private configuration")
             expect(body["error"]["code"], "account-unavailable", "bounded unavailable response")
+            descriptor = body["error"]["message"]
+            expect(descriptor["id"], "error.account-unavailable", "stable unavailable descriptor")
+            expect(descriptor["arguments"], [], "unavailable descriptor arguments")
+            expect(bool(descriptor["text"]), True, "unavailable descriptor fallback")
+            localized_status, localized_body, _ = request(
+                base,
+                "POST",
+                "/api/v1/guest/games",
+                {"source": {"kind": "puzzle", "puzzle": PUZZLE}},
+                headers={"Accept-Language": "zh-Hant"},
+            )
+            expect(localized_status, status, "Accept-Language status invariance")
+            expect(localized_body, body, "Accept-Language descriptor invariance")
             expect(request(base, "POST", "/api/v1/guest/games", {}, headers={"Origin": ORIGIN})[2].get("Access-Control-Allow-Origin"), ORIGIN, "allowed origin")
             expect(request(base, "OPTIONS", "/api/v1/guest/games", headers={"Origin": "http://denied.example", "Access-Control-Request-Method": "POST"})[0], 403, "denied origin")
         finally:

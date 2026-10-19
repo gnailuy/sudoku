@@ -196,13 +196,15 @@ func formatNarrationTarget(target game.HintTarget, compact bool) string {
 
 func formatHintNarration(step game.HintStep, compact bool) string {
 	if !step.HasValidNarration() {
-		return step.Message
+		return step.Message.Text
 	}
 	var result strings.Builder
 	for _, chunk := range step.Narration {
 		switch chunk.Kind {
-		case game.HintNarrationText:
-			result.WriteString(chunk.Text)
+		case game.HintNarrationMessage:
+			if chunk.Message != nil {
+				result.WriteString(chunk.Message.Text)
+			}
 		case game.HintNarrationTarget:
 			if chunk.Target != nil {
 				result.WriteString(formatNarrationTarget(*chunk.Target, compact))
@@ -222,7 +224,7 @@ func formatCLIHint(plan game.HintPlan) string {
 		return candidateHintLimitation + "\n"
 	}
 	var result strings.Builder
-	reason := plan.Summary
+	reason := plan.Summary.Text
 	if len(plan.Steps) > 0 {
 		reason = formatHintNarration(plan.Steps[len(plan.Steps)-1], false)
 	}
@@ -248,7 +250,7 @@ func (ctrl *Controller) runHintCommand(arguments string) bool {
 		return false
 	}
 	if result.Hint != nil {
-		fmt.Printf("Applied hint: %s\n", result.Hint.Summary)
+		fmt.Printf("Applied hint: %s\n", result.Hint.Summary.Text)
 	}
 	return true
 }
