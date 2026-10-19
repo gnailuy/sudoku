@@ -31,7 +31,7 @@ func TestDescriptorValidation(t *testing.T) {
 
 func TestCatalogRendersValidatedFallback(t *testing.T) {
 	catalog, err := NewCatalog(map[string]Definition{
-		"hint.place": {Arguments: []ArgumentKind{ArgumentCell, ArgumentDigit}, Render: func(arguments []Argument) (string, error) {
+		"hint.place": {Arguments: []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}}, Render: func(arguments []Argument) (string, error) {
 			return fmt.Sprintf("Place %d in row %d, column %d.", *arguments[1].Digit, arguments[0].Cell.Row, arguments[0].Cell.Column), nil
 		}},
 	})
@@ -50,5 +50,11 @@ func TestCatalogRendersValidatedFallback(t *testing.T) {
 	}
 	if _, err := catalog.Render("hint.place", Argument{Name: "digit", Kind: ArgumentDigit, Digit: ptr(9)}); err == nil {
 		t.Fatal("expected contract mismatch")
+	}
+	if _, err := catalog.Render("hint.place",
+		Argument{Name: "position", Kind: ArgumentCell, Cell: &Cell{Row: 4, Column: 7}},
+		Argument{Name: "digit", Kind: ArgumentDigit, Digit: ptr(9)},
+	); err == nil {
+		t.Fatal("expected argument name mismatch")
 	}
 }
