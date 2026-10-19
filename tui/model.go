@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
+	usermessage "github.com/gnailuy/sudoku/message"
 	"github.com/gnailuy/sudoku/playrun"
 	"github.com/gnailuy/sudoku/recovery"
 	"github.com/gnailuy/sudoku/sessionfile"
@@ -483,7 +484,16 @@ func hintStepMessage(plan game.HintPlan, index int) string {
 		return "Hint preview: " + plan.Summary
 	}
 	step := plan.Steps[index]
-	return fmt.Sprintf("Hint — %s (%s)  •  Step %d of %d [%s]: %s", plan.Strategy.DisplayName, plan.Strategy.Grade, index+1, len(plan.Steps), step.Kind, formatTUIHintNarration(step))
+	strategyName, gradeName := plan.Strategy.DisplayName, plan.Strategy.Grade
+	if catalog, err := usermessage.NewEnglishCatalog(); err == nil {
+		if descriptor, renderErr := usermessage.RenderEnglishName(catalog, "strategy", plan.Strategy.ID); renderErr == nil {
+			strategyName = descriptor.Text
+		}
+		if descriptor, renderErr := usermessage.RenderEnglishName(catalog, "difficulty", plan.Strategy.Grade); renderErr == nil {
+			gradeName = descriptor.Text
+		}
+	}
+	return fmt.Sprintf("Hint — %s (%s)  •  Step %d of %d [%s]: %s", strategyName, gradeName, index+1, len(plan.Steps), step.Kind, formatTUIHintNarration(step))
 }
 
 func (m *Model) scheduleRecovery() tea.Cmd {
