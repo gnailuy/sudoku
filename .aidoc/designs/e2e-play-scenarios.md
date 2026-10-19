@@ -98,11 +98,11 @@ The game-command scenarios verify the stable engine boundary through the real te
 
 ### 2.8 Atomic Placement Hint (`hint` / `i`)
 **Input:** Run `hint` or `i` when the authoritative next deduction places a value.
-**Expected:** The line CLI prints compact plain-text reasoning and the exact row, column, and value, then submits that exact `plan_id` as one undoable action. The command performs one deduction only. If no plan is available or application fails, the board is unchanged.
+**Expected:** The line CLI renders compact reasoning from the shared canonical English descriptors and typed narration, prints the exact row, column, and value, then submits that exact `plan_id` as one undoable action. The command performs one deduction only. If no plan is available or application fails, the board is unchanged.
 
 ### 2.9 Atomic Candidate Hint Progression
 **Input:** Run repeated `hint` commands against the maintained Naked Pair fixture until the next authoritative deduction is a candidate correction or elimination, then request another hint.
-**Expected:** The line CLI prints one compact capability limitation without candidate details, applies that exact hidden plan as one undoable change, and lets the next `hint` continue from the updated authoritative candidate state. The compact value board remains the only board rendering, and the line CLI never silently skips candidate deductions or chains several plans in one command.
+**Expected:** The line CLI renders one compact client-specific capability limitation while all shared plan prose remains descriptor-backed, applies that exact hidden plan as one undoable change, and lets the next `hint` continue from the updated authoritative candidate state. The compact value board remains the only board rendering, and the line CLI never silently skips candidate deductions or chains several plans in one command.
 
 ### 2.10 Solve (`solve` / `s`)
 **Input:** `solve` or `s`

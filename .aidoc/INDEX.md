@@ -20,11 +20,7 @@ This index is the complete registry for durable project knowledge and a set of s
 
 ## Draft Work
 
-| Topic | Owner | Status | Document |
-|---|---|---|---|
-| Locale-neutral API messages and shared English terminal rendering | Product owner | Draft | `.aidoc/designs/localization-contract.md` |
-
-Draft work is discoverable for planning but is not current-state authority and does not appear in current-state reading chains.
+There is no current Draft work. Drafts remain discoverable here when present and stay out of current-state reading chains.
 
 ## Reading Chains
 
@@ -33,8 +29,9 @@ Draft work is discoverable for planning but is not current-state authority and d
 1. `.aidoc/designs/game-engine.md` — engine state, actions, history, and serialization.
 2. `.aidoc/designs/authoritative-candidates.md` — one candidate grid across clients.
 3. `.aidoc/designs/hint-presentation-protocol.md` — correction, strategy, preview, and application semantics.
-4. `game/contract.go`, `game/game.go`, and `game/hint_plan.go` — authoritative action, orchestration, and hint-plan implementation.
-5. Choose the affected client: `.aidoc/designs/cli-sessions.md`, `.aidoc/designs/tui-frontend.md`, or `.aidoc/designs/web-api.md`.
+4. `.aidoc/designs/localization-contract.md` — semantic message descriptors and shared English rendering.
+5. `game/contract.go`, `game/game.go`, `game/hint_plan.go`, and `message/` — authoritative action, orchestration, hint-plan, and catalog implementation.
+6. Read every affected client owner: `.aidoc/designs/cli-sessions.md`, `.aidoc/designs/tui-frontend.md`, and/or `.aidoc/designs/web-api.md`; cross-client rendering changes require all three.
 
 ### Change Rating, Generation, or Catalog Acquisition
 
@@ -47,10 +44,11 @@ Draft work is discoverable for planning but is not current-state authority and d
 ### Change Guest, Account, or Deployment Behavior
 
 1. `.aidoc/designs/web-api.md` — client-neutral guest and account resources.
-2. `.aidoc/designs/user-accounts.md` — identity, ownership, sessions, and claim semantics.
-3. `.aidoc/designs/deployment-hardening.md` — artifact, loopback, origin, service, and replacement boundaries.
-4. `api/openapi.yaml`, `cmd/api.go`, `cmd/accounts.go`, and `webapi/server.go` — wire, account-runtime composition, and server implementation.
-5. `.aidoc/designs/e2e-api-scenarios.md` — black-box acceptance.
+2. `.aidoc/designs/localization-contract.md` — semantic message and English fallback boundary.
+3. `.aidoc/designs/user-accounts.md` — identity, ownership, sessions, and claim semantics.
+4. `.aidoc/designs/deployment-hardening.md` — artifact, loopback, origin, service, and replacement boundaries.
+5. `api/openapi.yaml`, `cmd/api.go`, `cmd/accounts.go`, `webapi/server.go`, and `message/` — wire, account-runtime, descriptor, and server implementation.
+6. `.aidoc/designs/e2e-api-scenarios.md` — black-box acceptance.
 
 ### Run Black-Box Acceptance
 
@@ -75,7 +73,7 @@ Draft work is discoverable for planning but is not current-state authority and d
 | `.aidoc/designs/web-api.md` | Guest/account HTTP resources and revision boundaries |
 | `.aidoc/designs/user-accounts.md` | Identity, ownership, claim, session, and account security |
 | `.aidoc/designs/deployment-hardening.md` | Portable artifact, service, isolation, and replacement contract |
-| `.aidoc/designs/localization-contract.md` | Draft locale-neutral messages with deterministic English fallback |
+| `.aidoc/designs/localization-contract.md` | Locale-neutral messages with deterministic shared English fallback |
 | `.aidoc/designs/future-directions.md` | Evidence gates for unapproved product expansion |
 
 ### Rating, Generation, and Persistence
