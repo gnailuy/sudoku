@@ -103,4 +103,4 @@ No Draft documents are active. Add every future Draft here with its topic, accou
 
 ## Validation
 
-Run `python3 scripts/validate_aidoc.py` for frontmatter, lifecycle, registration, local-link, metadata-target, orientation, and Draft Work checks. Run `python3 -m unittest scripts/test_validate_aidoc.py` to prove both the passing contract and representative failures. Mechanical success does not replace code-grounded semantic review or fresh-context navigation evidence.
+Run `python3 scripts/validate_aidoc.py` for required frontmatter, allowed status values, list types, portable metadata paths, and metadata targets. Run `python3 -m unittest scripts/test_validate_aidoc.py` to prove that valid metadata passes, invalid metadata fails, and natural-language prose remains outside the script boundary. Mechanical success does not replace code-grounded semantic review or fresh-context navigation evidence.

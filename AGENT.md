@@ -46,6 +46,8 @@ Keep packages focused and preserve dependency direction. The engine contains no 
 - Add no dependency without a concrete need and reviewable justification.
 - Keep public behavior in one canonical owner. Neighbors link to it instead of restating it.
 - Update the owning `.aidoc` document in the same change when code changes architecture, behavior, or workflow.
+- At task start, classify documentation impact and name the canonical owning document. Before review, run the metadata validator and a bounded semantic self-audit of the changed behavior and neighboring owners. Reserve fresh-context navigation audits for milestones, discovery changes, and cross-component boundaries; report all three evidence layers independently.
+- Keep `scripts/validate_aidoc.py` generic and limited to frontmatter metadata. Do not make it interpret prose, mirror code structure, or require updates for ordinary code and documentation changes.
 - Treat code, generated contracts, fixtures, and executable tests as the core evidence when auditing or updating documentation. Resolve a disagreement by fixing the documentation or code under the approved scope, never by copying an unverified claim.
 - Describe current behavior and approved future direction only. Git and reviews own chronology.
 - Every `.aidoc` document must remain registered; every Draft must appear once in the index's **Draft Work** section and stay out of current-state routes.
