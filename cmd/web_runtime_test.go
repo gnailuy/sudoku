@@ -58,7 +58,11 @@ func TestLoadWebRuntimeSupportsGuestOnlyConfigWithoutAccounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer closeRuntime()
+	defer func() {
+		if err := closeRuntime(); err != nil {
+			t.Errorf("close runtime: %v", err)
+		}
+	}()
 	if guest == nil || guest.Documents == nil || guest.Create == nil {
 		t.Fatal("guest runtime is incomplete")
 	}
