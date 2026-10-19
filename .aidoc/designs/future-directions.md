@@ -26,7 +26,7 @@ This document is the only backend location for deliberately deferred product and
 
 ## Product Expansion
 
-Possible product directions beyond the implemented account boundary include shared games, collaboration, localization, native mobile clients, additional identity providers, and player-facing social features. `.aidoc/designs/user-accounts.md` is the canonical source for current identity, guest, ownership, and cloud-continuity behavior.
+Possible product directions beyond the implemented account boundary include shared games, collaboration, native mobile clients, additional identity providers, and player-facing social features. `.aidoc/designs/user-accounts.md` is the canonical source for current identity, guest, ownership, and cloud-continuity behavior.
 
 The TypeScript browser client remains a separate repository. This Go repository stays client-neutral unless a reviewed capability is shared by multiple clients and belongs in the engine or API.
 
