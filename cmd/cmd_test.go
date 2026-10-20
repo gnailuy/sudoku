@@ -43,16 +43,47 @@ func TestStorePuzzle(t *testing.T) {
 
 	result := fixedGenerationResult()
 
-	// Store once — should return true (inserted).
-	stored := storePuzzle(puzzleDB, result)
-	if !stored {
-		t.Fatal("first store should return true")
+	// Store once — should report an insertion.
+	outcome, err := storePuzzle(puzzleDB, result)
+	if err != nil || outcome != storeInserted {
+		t.Fatalf("first store = (%v, %v), want inserted", outcome, err)
 	}
 
-	// Store again — should return false (duplicate).
-	stored = storePuzzle(puzzleDB, result)
-	if stored {
-		t.Fatal("second store should return false (duplicate)")
+	// Store again — should distinguish a duplicate from a failure.
+	outcome, err = storePuzzle(puzzleDB, result)
+	if err != nil || outcome != storeDuplicate {
+		t.Fatalf("second store = (%v, %v), want duplicate", outcome, err)
+	}
+}
+
+func TestStorePuzzleReportsPersistenceFailure(t *testing.T) {
+	puzzleDB, err := db.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := puzzleDB.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+
+	outcome, err := storePuzzle(puzzleDB, fixedGenerationResult())
+	if err == nil || outcome != storeRejected {
+		t.Fatalf("closed database store = (%v, %v), want rejected with error", outcome, err)
+	}
+}
+
+func TestBatchGenerateSeparatesPersistenceFailuresFromDuplicates(t *testing.T) {
+	puzzleDB, err := db.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := puzzleDB.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+
+	report := batchGenerateWith(puzzleDB, 1, "easy", time.Second, 1, 1,
+		func(string, time.Duration, int) generator.GenerationResult { return fixedGenerationResult() })
+	if report.storageFailures != 1 || report.duplicates != 0 || report.firstError == nil {
+		t.Fatalf("unexpected failure report: %+v", report)
 	}
 }
 
@@ -66,7 +97,7 @@ func TestStorePuzzleDBStats(t *testing.T) {
 	// Repeated fixture storage exercises the DB boundary without making this
 	// storage test depend on randomized generation.
 	for i := 0; i < 3; i++ {
-		storePuzzle(puzzleDB, fixedGenerationResult())
+		_, _ = storePuzzle(puzzleDB, fixedGenerationResult())
 	}
 
 	stats, err := puzzleDB.GetStats()
@@ -571,7 +602,7 @@ func TestGenerateCustomDBPath(t *testing.T) {
 	}
 
 	for i := 0; i < 2; i++ {
-		storePuzzle(puzzleDB, fixedGenerationResult())
+		_, _ = storePuzzle(puzzleDB, fixedGenerationResult())
 	}
 	puzzleDB.Close()
 

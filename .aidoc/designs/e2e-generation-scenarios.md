@@ -26,7 +26,7 @@ The generation scenario catalog verifies generation flags, worker composition, h
 
 ## Why This Boundary
 
-Generation combines probabilistic puzzle construction with deterministic command and storage contracts. Assertions therefore protect composition and bounded outcomes rather than requiring a random run to hit an exact grade. Per-puzzle timeouts are hard caller deadlines; only completed puzzles are classified and stored, always under their actual strategy grade.
+Generation combines probabilistic puzzle construction with deterministic command and storage contracts. Assertions therefore protect composition and bounded outcomes rather than requiring a random run to hit an exact grade. Per-puzzle timeouts are hard caller deadlines; only completed puzzles are classified and stored, always under their actual strategy grade. Storage reports distinguish new rows, duplicates, classification rejection, and persistence failures; any persistence failure keeps the complete report but returns a non-zero command status.
 
 ## 4. Puzzle Generation CLI
 
@@ -36,7 +36,7 @@ Generation combines probabilistic puzzle construction with deterministic command
 
 ### 4.2 Generate Easy Puzzles
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
-**Expected:** Generates 5 puzzles. Reports: generated count, stored count, duplicates, by-level breakdown. Some may be classified at a different difficulty than requested (mismatch is expected for easy/medium targets).
+**Expected:** Generates 5 puzzles. Reports generated, stored, duplicate, rejected, persistence-failure, timeout, and by-level counts. Some may be classified at a different difficulty than requested (mismatch is expected for easy/medium targets).
 
 ### 4.3 Generate Hard Puzzles
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.

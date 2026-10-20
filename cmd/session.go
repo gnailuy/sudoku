@@ -44,12 +44,12 @@ func createSession(request sessionRequest, output, errorOutput io.Writer) (game.
 		if err != nil {
 			return game.Game{}, "", fmt.Errorf("the input is not a valid Sudoku problem: %s", request.input)
 		}
-		count := solverStore.GetDefaultSolver().CountSolutions(parsed)
+		count := solverStore.GetDefaultSolver().CountSolutionsUpTo(parsed, 2)
 		if count == 0 {
 			return game.Game{}, "", fmt.Errorf("the input is not a solvable Sudoku problem: %s", request.input)
 		}
 		if count > 1 {
-			fmt.Fprintf(errorOutput, "The input has %d solutions: %s\n", count, request.input)
+			fmt.Fprintf(errorOutput, "The input has more than one solution: %s\n", request.input)
 		}
 		problem = *parsed
 		if request.dbPath == "" {

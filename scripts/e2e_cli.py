@@ -271,7 +271,7 @@ def main():
         )
         contains(
             run(binary, ["--input", MULTIPLE_SOLUTIONS], root, "q\n"),
-            "has 2 solutions",
+            "has more than one solution",
             "Exiting the game.",
         )
 
@@ -750,7 +750,15 @@ def main():
             timeout=5,
         )
         elapsed = time.monotonic() - started
-        contains(output, "Attempted: 1", "Generated: 0", "Timed out: 1", "=== Generation Report ===")
+        contains(
+            output,
+            "Attempted: 1",
+            "Generated: 0",
+            "Rejected: 0",
+            "Storage failures: 0",
+            "Timed out: 1",
+            "=== Generation Report ===",
+        )
         if elapsed > 2:
             raise AssertionError(f"hard generation deadline returned after {elapsed:.3f}s")
         if not generated.is_file() or puzzle_rows(generated):

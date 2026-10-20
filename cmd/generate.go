@@ -38,15 +38,26 @@ func init() {
 
 // generateReport holds the results of a batch generation run.
 type generateReport struct {
-	attempted  int
-	generated  int
-	stored     int
-	duplicates int
-	timedOut   int
-	matched    int
-	byLevel    map[string]int
-	duration   time.Duration
+	attempted       int
+	generated       int
+	stored          int
+	duplicates      int
+	rejected        int
+	storageFailures int
+	timedOut        int
+	matched         int
+	byLevel         map[string]int
+	duration        time.Duration
+	firstError      error
 }
+
+type storeOutcome int
+
+const (
+	storeRejected storeOutcome = iota
+	storeInserted
+	storeDuplicate
+)
 
 type puzzleGenerator func(level string, timeout time.Duration, rounds int) generator.GenerationResult
 
@@ -83,8 +94,11 @@ func runGenerate(cmd *cobra.Command) error {
 	report := batchGenerate(puzzleDB, count, level, timeout, rounds, workers)
 	report.duration = time.Since(startTime)
 
-	// Print report.
+	// Print report before returning a non-zero status for persistence failures.
 	printGenerateReport(report)
+	if report.storageFailures > 0 {
+		return fmt.Errorf("store %d generated puzzle(s): %w", report.storageFailures, report.firstError)
+	}
 
 	return nil
 }
@@ -114,11 +128,19 @@ func batchGenerateWith(puzzleDB *db.DB, count int, level string, timeout time.Du
 				report.matched++
 			}
 			report.byLevel[result.Classification.Difficulty]++
-			stored := storePuzzle(puzzleDB, result)
-			if stored {
+			outcome, err := storePuzzle(puzzleDB, result)
+			switch {
+			case err != nil:
+				report.storageFailures++
+				if report.firstError == nil {
+					report.firstError = err
+				}
+			case outcome == storeInserted:
 				report.stored++
-			} else {
+			case outcome == storeDuplicate:
 				report.duplicates++
+			case outcome == storeRejected:
+				report.rejected++
 			}
 
 			// Progress indicator every 10 puzzles.
@@ -131,13 +153,15 @@ func batchGenerateWith(puzzleDB *db.DB, count int, level string, timeout time.Du
 	} else {
 		// Parallel generation.
 		var (
-			mu         sync.Mutex
-			generated  int64
-			stored     int64
-			duplicates int64
-			timedOut   int64
-			matched    int64
-			byLevel    = make(map[string]int)
+			mu              sync.Mutex
+			generated       int64
+			stored          int64
+			duplicates      int64
+			rejected        int64
+			storageFailures int64
+			timedOut        int64
+			matched         int64
+			byLevel         = make(map[string]int)
 		)
 
 		sem := make(chan struct{}, workers)
@@ -158,16 +182,26 @@ func batchGenerateWith(puzzleDB *db.DB, count int, level string, timeout time.Du
 				if result.RoundsUsed == 0 {
 					return
 				}
-				wasStored := storePuzzle(puzzleDB, result)
+				outcome, storeErr := storePuzzle(puzzleDB, result)
 
 				atomic.AddInt64(&generated, 1)
 				if result.Matched {
 					atomic.AddInt64(&matched, 1)
 				}
-				if wasStored {
+				switch {
+				case storeErr != nil:
+					atomic.AddInt64(&storageFailures, 1)
+					mu.Lock()
+					if report.firstError == nil {
+						report.firstError = storeErr
+					}
+					mu.Unlock()
+				case outcome == storeInserted:
 					atomic.AddInt64(&stored, 1)
-				} else {
+				case outcome == storeDuplicate:
 					atomic.AddInt64(&duplicates, 1)
+				case outcome == storeRejected:
+					atomic.AddInt64(&rejected, 1)
 				}
 
 				mu.Lock()
@@ -191,6 +225,8 @@ func batchGenerateWith(puzzleDB *db.DB, count int, level string, timeout time.Du
 		report.generated = int(generated)
 		report.stored = int(stored)
 		report.duplicates = int(duplicates)
+		report.rejected = int(rejected)
+		report.storageFailures = int(storageFailures)
 		report.timedOut = int(timedOut)
 		report.matched = int(matched)
 		report.byLevel = byLevel
@@ -215,7 +251,7 @@ func generateOnePuzzle(level string, timeout time.Duration, rounds int) generato
 	return generator.GenerateBestEffort(opts)
 }
 
-func storePuzzle(puzzleDB *db.DB, result generator.GenerationResult) bool {
+func storePuzzle(puzzleDB *db.DB, result generator.GenerationResult) (storeOutcome, error) {
 	store := solver.NewStore()
 	board := result.Puzzle
 
@@ -224,7 +260,7 @@ func storePuzzle(puzzleDB *db.DB, result generator.GenerationResult) bool {
 	normalizedPuzzle.FromString(puzzleStr)
 	classification := solver.ClassifyPuzzle(store, normalizedPuzzle)
 	if classification.Outcome != solver.ClassificationSolved {
-		return false
+		return storeRejected, nil
 	}
 
 	inserted, err := puzzleDB.InsertPuzzle(db.Puzzle{
@@ -235,9 +271,12 @@ func storePuzzle(puzzleDB *db.DB, result generator.GenerationResult) bool {
 		Source:       "generated",
 	})
 	if err != nil {
-		return false
+		return storeRejected, fmt.Errorf("insert generated puzzle: %w", err)
 	}
-	return inserted
+	if !inserted {
+		return storeDuplicate, nil
+	}
+	return storeInserted, nil
 }
 
 func printGenerateReport(report generateReport) {
@@ -247,6 +286,8 @@ func printGenerateReport(report generateReport) {
 	fmt.Printf("Generated: %d\n", report.generated)
 	fmt.Printf("Stored (new): %d\n", report.stored)
 	fmt.Printf("Duplicates: %d\n", report.duplicates)
+	fmt.Printf("Rejected: %d\n", report.rejected)
+	fmt.Printf("Storage failures: %d\n", report.storageFailures)
 	fmt.Printf("Timed out: %d\n", report.timedOut)
 	fmt.Printf("Matched target: %d\n", report.matched)
 	fmt.Printf("Duration: %s\n", report.duration.Round(time.Millisecond))
