@@ -254,7 +254,7 @@ func prepareImportRecord(store solver.Store, record importRecord, inputFormat st
 	}
 	// The hash-pinned Sudoku Exchange source guarantees unique solutions.
 	// Generic files retain an independent uniqueness check.
-	if inputFormat == "plain" && store.GetDefaultSolver().CountSolutions(&board) == 0 {
+	if inputFormat == "plain" && !store.GetDefaultSolver().HasSolution(&board) {
 		result.err = fmt.Errorf("unsolvable puzzle")
 		return result
 	}

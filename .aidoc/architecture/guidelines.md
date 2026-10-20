@@ -58,7 +58,7 @@ The game owns one authoritative candidate grid. Value actions clear candidates o
 
 ## Solver Interface Contract
 
-`solver.Solver` defines stable metadata, while `solver.StrategySolver` represents one human-style technique and `solver.CompleteSolver` represents a full solving boundary. Strategy solvers may report no progress without implying that a puzzle is invalid; complete solvers own full-solve, hint, and solution-count behavior. See `solver/solver.go` for the interfaces and `solver/move.go` for the detached move result.
+`solver.Solver` defines stable metadata, while `solver.StrategySolver` represents one human-style technique and `solver.CompleteSolver` represents a full solving boundary. Strategy solvers may report no progress without implying that a puzzle is invalid; complete solvers own full-solve, hint, and solution-query behavior. Production callers use bounded existence or uniqueness queries and stop after one or two solutions; exhaustive counting remains available only when the exact total is genuinely required. See `solver/solver.go` for the interfaces and `solver/move.go` for the detached move result.
 
 `solver.Store` is the registration and lookup boundary for both solver classes. New techniques register through `solver.Store.RegisterStrategy`, join the appropriate strategy grade in `solver/config.go`, and keep unit traversal within the shared helpers in `solver/units.go`. The implementation and package tests are the canonical source for method signatures and registration mechanics.
 

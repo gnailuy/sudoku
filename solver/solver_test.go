@@ -188,6 +188,25 @@ func TestBacktrackerCountSolutionsStillWorks(t *testing.T) {
 	}
 }
 
+func TestBacktrackerBoundedSolutionQueriesStopAtTheirCutoff(t *testing.T) {
+	board := core.NewEmptyBoard()
+	before := board.ToString()
+	bt := solver.NewBacktracker()
+
+	if got := bt.CountSolutionsUpTo(&board, 2); got != 2 {
+		t.Fatalf("CountSolutionsUpTo(empty, 2) = %d, want 2", got)
+	}
+	if !bt.HasSolution(&board) {
+		t.Fatal("empty board should have at least one solution")
+	}
+	if bt.HasUniqueSolution(&board) {
+		t.Fatal("empty board should not have a unique solution")
+	}
+	if got := board.ToString(); got != before {
+		t.Fatalf("bounded queries mutated board: got %q want %q", got, before)
+	}
+}
+
 // TestBaseImplementsSolver verifies Base satisfies the Solver interface.
 func TestBaseImplementsSolver(t *testing.T) {
 	base := solver.Base{

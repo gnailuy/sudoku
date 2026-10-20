@@ -73,7 +73,7 @@ func middleware(next http.Handler, origins map[string]struct{}) http.Handler {
 				return
 			}
 		}
-		if r.Method == http.MethodPost && postRequiresBody(r.URL.Path) {
+		if requestRequiresJSONBody(r.Method, r.URL.Path) {
 			want := "application/json"
 			got := strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0])
 			if got != want {
@@ -101,15 +101,23 @@ func middleware(next http.Handler, origins map[string]struct{}) http.Handler {
 	})
 }
 
-func postRequiresBody(path string) bool {
-	switch path {
-	case "/api/v1/guest/games",
-		"/api/v1/guest/games/actions",
-		"/api/v1/account/games",
-		"/api/v1/account/games/claim":
-		return true
+func requestRequiresJSONBody(method, path string) bool {
+	switch method {
+	case http.MethodPost:
+		switch path {
+		case "/api/v1/guest/games",
+			"/api/v1/guest/games/actions",
+			"/api/v1/guest/games/hint",
+			"/api/v1/account/games",
+			"/api/v1/account/games/claim":
+			return true
+		default:
+			return strings.HasSuffix(path, "/actions")
+		}
+	case http.MethodPut:
+		return strings.HasPrefix(path, "/api/v1/account/games/") && strings.HasSuffix(path, "/presentation")
 	default:
-		return strings.HasSuffix(path, "/actions")
+		return false
 	}
 }
 

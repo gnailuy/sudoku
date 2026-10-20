@@ -85,8 +85,9 @@ func GenerateSudokuProblemFromSolvedBoard(board core.Board, options Options) cor
 			// Update the board.
 			board.Unset(position)
 
-			// Find out the maximum number of solutions using the default solver.
-			numberOfSolutions := options.solverStore.GetDefaultSolver().CountSolutions(&board)
+			// Only zero, one, or more than the configured maximum matters here.
+			// Stop as soon as the removal is known to violate the contract.
+			numberOfSolutions := options.solverStore.GetDefaultSolver().CountSolutionsUpTo(&board, options.MaximumSolutions+1)
 
 			// Check if the problem is solvable and has no more than maximum solutions.
 			if numberOfSolutions > 0 && numberOfSolutions <= options.MaximumSolutions {

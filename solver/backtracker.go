@@ -30,6 +30,7 @@ type solveOptions struct {
 	Randomly       bool       // Randomly generate candidate numbers. When counting solutions, this option is ignored.
 	HintOnly       bool       // Only generate a solve path for hint generation without solving the board.
 	CountSolutions bool       // Count the number of solutions instead of returning the first solution, default is false.
+	SolutionLimit  int        // Stop counting after this many solutions; non-positive means exhaustive.
 	RowOrder       []int      // Order of rows to generate candidate positions.
 	ColumnOrder    []int      // Order of columns to generate candidate positions.
 	Random         *rand.Rand // Optional deterministic source for randomized solving.
@@ -55,10 +56,14 @@ func newSolveOptionsWithRand(randomly, hintOnly, countSolutions bool, source *ra
 type solveState struct {
 	numberOfSolutions int
 	solvePath         []core.Cell
+	limitReached      bool
 }
 
 // Function to solve the Sudoku board using backtracking.
 func solve(board *core.Board, state *solveState, options solveOptions) bool {
+	if state.limitReached {
+		return false
+	}
 	for _, row := range options.RowOrder {
 		for _, column := range options.ColumnOrder {
 			position := core.NewPosition(row, column)
@@ -80,6 +85,9 @@ func solve(board *core.Board, state *solveState, options solveOptions) bool {
 						if options.CountSolutions {
 							// Collect one solution when the board solved.
 							state.numberOfSolutions++
+							if options.SolutionLimit > 0 && state.numberOfSolutions >= options.SolutionLimit {
+								state.limitReached = true
+							}
 						} else {
 							// Return the first solution.
 							return true
@@ -88,6 +96,9 @@ func solve(board *core.Board, state *solveState, options solveOptions) bool {
 
 					board.Unset(position)
 					state.solvePath = state.solvePath[:len(state.solvePath)-1]
+					if state.limitReached {
+						return false
+					}
 				}
 
 				return false
@@ -196,8 +207,14 @@ func (s Backtracker) Hint(board *core.Board) *Move {
 	return nil
 }
 
-// CountSolutions returns the number of solutions for the board.
+// CountSolutions returns the exhaustive number of solutions for the board.
 func (s Backtracker) CountSolutions(board *core.Board) int {
+	return s.CountSolutionsUpTo(board, 0)
+}
+
+// CountSolutionsUpTo counts solutions until limit is reached. The board is
+// restored before returning. A non-positive limit preserves exhaustive count.
+func (s Backtracker) CountSolutionsUpTo(board *core.Board, limit int) int {
 	// If the board is already solved, return 1.
 	if board.IsSolved() {
 		return 1
@@ -208,8 +225,19 @@ func (s Backtracker) CountSolutions(board *core.Board) int {
 		return 0
 	}
 
-	// If no invalid cell, we can count the number of solutions.
 	state := &solveState{}
-	solve(board, state, newSolveOptions(false, false, true))
+	options := newSolveOptions(false, false, true)
+	options.SolutionLimit = limit
+	solve(board, state, options)
 	return state.numberOfSolutions
+}
+
+// HasSolution reports whether at least one solution exists.
+func (s Backtracker) HasSolution(board *core.Board) bool {
+	return s.CountSolutionsUpTo(board, 1) == 1
+}
+
+// HasUniqueSolution reports whether exactly one solution exists.
+func (s Backtracker) HasUniqueSolution(board *core.Board) bool {
+	return s.CountSolutionsUpTo(board, 2) == 1
 }

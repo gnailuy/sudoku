@@ -49,6 +49,16 @@ type CompleteSolver interface {
 	// CountSolutions returns the number of solutions for the board.
 	// Returns 0 if unsolvable, 1 if already solved or uniquely solvable.
 	CountSolutions(board *core.Board) int
+
+	// CountSolutionsUpTo returns at most limit solutions and stops searching
+	// as soon as that cutoff is reached. A non-positive limit is exhaustive.
+	CountSolutionsUpTo(board *core.Board, limit int) int
+
+	// HasSolution reports whether the board has at least one solution.
+	HasSolution(board *core.Board) bool
+
+	// HasUniqueSolution reports whether the board has exactly one solution.
+	HasUniqueSolution(board *core.Board) bool
 }
 
 // Base provides common fields for all solver implementations.

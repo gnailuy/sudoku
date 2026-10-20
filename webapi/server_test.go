@@ -52,3 +52,36 @@ func TestConfiguredOriginIsExact(t *testing.T) {
 		t.Fatalf("denied origin status=%d", record.Code)
 	}
 }
+
+func TestEveryBodyOperationUsesSharedIngressPolicy(t *testing.T) {
+	handler := NewHandler(NewServer(), nil)
+	operations := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/api/v1/guest/games"},
+		{http.MethodPost, "/api/v1/guest/games/actions"},
+		{http.MethodPost, "/api/v1/guest/games/hint"},
+		{http.MethodPost, "/api/v1/account/games"},
+		{http.MethodPost, "/api/v1/account/games/claim"},
+		{http.MethodPut, "/api/v1/account/games/example/presentation"},
+		{http.MethodPost, "/api/v1/account/games/example/actions"},
+	}
+
+	for _, operation := range operations {
+		name := operation.method + " " + operation.path
+		t.Run(name+" content type", func(t *testing.T) {
+			record := request(t, handler, operation.method, operation.path, "text/plain", `{}`, nil)
+			if record.Code != http.StatusUnsupportedMediaType {
+				t.Fatalf("status=%d body=%s", record.Code, record.Body.String())
+			}
+		})
+		t.Run(name+" body limit", func(t *testing.T) {
+			body := strings.Repeat(" ", MaxRequestBytes+1)
+			record := request(t, handler, operation.method, operation.path, "application/json", body, nil)
+			if record.Code != http.StatusRequestEntityTooLarge {
+				t.Fatalf("status=%d body=%s", record.Code, record.Body.String())
+			}
+		})
+	}
+}
