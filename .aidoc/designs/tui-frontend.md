@@ -47,7 +47,7 @@ The following global actions remain available when no modal is open:
 - `S` opens an explicit save-path prompt;
 - `q` opens a quit confirmation when the session has unsaved changes and otherwise exits.
 
-The TUI translates keys into `game.Action` values and renders only `game.Snapshot`. Shared hint titles, strategy and difficulty names, summaries, steps, and narration use descriptor fallbacks from the canonical English catalog; TUI-only controls, status framing, persistence failures, and engine-error presentation remain at the terminal boundary. The TUI never reproduces Sudoku validation rules.
+The TUI translates keys into `game.Action` values and renders only `game.Snapshot`. Shared hint titles, strategy and difficulty names, summaries, steps, and narration use descriptor fallbacks from the canonical English catalog; TUI-only controls, status framing, persistence failures, and engine-error presentation remain at the terminal boundary. Status and action feedback use direct player-facing labels rather than exposing engine values such as `in-progress`, `set-value`, or `apply-hint`. The TUI never reproduces Sudoku validation rules.
 
 ## Startup and Persistence
 

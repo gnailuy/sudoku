@@ -85,8 +85,8 @@ The game-command scenarios verify the stable engine boundary through the real te
 
 ### 2.5 Check Board (`check` / `c`)
 **Input:** `check` or `c`
-**Expected (correct board):** "The current board is correct."
-**Expected (incorrect board):** "You have entered incorrect value(s)."
+**Expected (correct board):** “Everything entered so far is correct.”
+**Expected (incorrect board):** “Some entries are incorrect.”
 
 ### 2.6 Repair Board (`repair` / `f`)
 **Input:** After entering wrong values: `repair` or `f`
@@ -106,7 +106,7 @@ The game-command scenarios verify the stable engine boundary through the real te
 
 ### 2.10 Solve (`solve` / `s`)
 **Input:** `solve` or `s`
-**Expected:** The complete solution is displayed. "Congratulations" message shown.
+**Expected:** The complete solution is displayed with the concise “Puzzle solved!” confirmation.
 
 ### 2.11 Quit (`quit` / `q`)
 **Input:** `quit` or `q`

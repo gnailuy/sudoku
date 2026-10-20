@@ -39,6 +39,57 @@ const (
 	recoveryModal
 )
 
+func statusLabel(status game.Status) string {
+	switch status {
+	case game.StatusInProgress:
+		return "In progress"
+	case game.StatusInvalid:
+		return "Needs attention"
+	case game.StatusSolved:
+		return "Solved"
+	default:
+		return string(status)
+	}
+}
+
+func boardCheckMessage(status game.Status) string {
+	switch status {
+	case game.StatusInvalid:
+		return "Some entries are incorrect."
+	case game.StatusSolved:
+		return "Puzzle solved!"
+	default:
+		return "Everything entered so far is correct."
+	}
+}
+
+func actionResultMessage(action game.ActionKind) string {
+	switch action {
+	case game.ActionSetValue:
+		return "Value entered."
+	case game.ActionClearValue:
+		return "Cell cleared."
+	case game.ActionReset:
+		return "Puzzle reset."
+	case game.ActionRestart:
+		return "Puzzle restarted."
+	case game.ActionUndo:
+		return "Move undone."
+	case game.ActionRedo:
+		return "Move redone."
+	case game.ActionApplyHint:
+		return "Hint applied."
+	case game.ActionSetCandidates:
+		return "Notes updated."
+	case game.ActionRepair:
+		return "Incorrect entries cleared."
+	case game.ActionSolve:
+		return "Puzzle solved!"
+	default:
+		return "Board updated."
+	}
+}
+
 // RecoveryChoice pairs validated recovery metadata with its restored game.
 type RecoveryChoice struct {
 	Record  recovery.Record
@@ -282,7 +333,7 @@ func (m Model) updateBoard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.message = "Press i to preview a hint first."
 	case "c":
 		m.snapshot = m.game.Snapshot()
-		m.message = "Board is " + string(m.snapshot.Status) + "."
+		m.message = boardCheckMessage(m.snapshot.Status)
 	case "R":
 		m.modal = resetModal
 	case "S":
@@ -444,7 +495,7 @@ func (m *Model) apply(action game.Action) tea.Cmd {
 	m.dirty = true
 	m.hint = nil
 	m.hintStep = 0
-	m.message = fmt.Sprintf("Applied %s; board is %s.", result.Action, result.Status)
+	m.message = actionResultMessage(result.Action)
 	if m.tracker != nil {
 		if warning := m.tracker.TakeWarning(); warning != nil {
 			m.recoveryWarning = "Warning: " + warning.Error()

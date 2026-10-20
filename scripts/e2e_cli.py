@@ -296,7 +296,7 @@ def main():
         output = run(binary, ["--input", PUZZLE_DOTS], root, commands)
         contains(
             output,
-            "You have entered incorrect value(s).",
+            "Some entries are incorrect.",
             "Hint:",
             "Placement:",
             "Applied hint:",
@@ -321,7 +321,7 @@ def main():
             "Hint: This deduction updates candidates that the compact CLI does not display.",
             "Use `sudoku tui` for the full teaching steps.",
             "Applied hint:",
-            "Congratulations! You have solved the problem.",
+            "Puzzle solved!",
         )
         excludes(output, "+-----------+", "hint apply", "hint cancel")
 
@@ -342,11 +342,11 @@ def main():
             root,
             "1 1 4\nu\n1 1 5\nr\nc\nq\n",
         )
-        contains(output, "You have entered incorrect value(s).", "Exiting the game.")
-        excludes(output, "The current board is correct.")
+        contains(output, "Some entries are incorrect.", "Exiting the game.")
+        excludes(output, "Everything entered so far is correct.")
         contains(
             run(binary, ["--input", PUZZLE_DOTS], root, "solve\n"),
-            "Congratulations! You have solved the problem.",
+            "Puzzle solved!",
         )
 
         # Durable sessions preserve invalid values and redo history.
@@ -366,8 +366,8 @@ def main():
         output = run(binary, ["--resume", str(session)], root, "check\nr\ncheck\nq\n")
         contains(
             output,
-            "You have entered incorrect value(s).",
-            "The current board is correct.",
+            "Some entries are incorrect.",
+            "Everything entered so far is correct.",
         )
 
         corrupt = root / "corrupt.json"
@@ -645,13 +645,13 @@ def main():
         with sqlite3.connect(statistics_database) as connection:
             statistics_level = connection.execute("SELECT difficulty FROM base_puzzles").fetchone()[0]
         run(binary, ["--from-db", "--level", statistics_level, "--db", str(statistics_database)], root, "q\n")
-        contains(run(binary, ["--input", PUZZLE_DOTS, "--db", str(statistics_database)], root, "solve\n"), "Congratulations! You have solved the problem.")
+        contains(run(binary, ["--input", PUZZLE_DOTS, "--db", str(statistics_database)], root, "solve\n"), "Puzzle solved!")
         with sqlite3.connect(statistics_database) as connection:
             if connection.execute("SELECT completion_count FROM base_puzzles").fetchone()[0] != 0:
                 raise AssertionError("automatic solve counted as player completion")
         contains(
             run(binary, ["--input", PUZZLE_DOTS, "--db", str(statistics_database)], root, completion_commands(PUZZLE_DOTS, SOLUTION)),
-            "Congratulations! You have solved the problem.",
+            "Puzzle solved!",
         )
         run(binary, ["--from-db", "--level", statistics_level, "--db", str(statistics_database)], root, "q\n")
         with sqlite3.connect(statistics_database) as connection:

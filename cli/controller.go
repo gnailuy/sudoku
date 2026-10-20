@@ -93,19 +93,19 @@ func renderBoard(snapshot game.Snapshot) string {
 
 // PrintHelp displays the available commands.
 func (ctrl *Controller) PrintHelp() {
-	fmt.Println("Supported commands:")
-	fmt.Println("  - help, h                        : Print this help message.")
-	fmt.Println("  - add, a <row> <column> <value> : Add the value to the cell at (row, column).")
-	fmt.Println("  - clear, d <row> <column>       : Clear the value in a cell at (row, column).")
-	fmt.Println("  - save <path>                   : Save the complete session atomically.")
-	fmt.Println("  - check, c                      : Check if the current board is correct.")
-	fmt.Println("  - undo, u                       : Undo last move.")
-	fmt.Println("  - redo, r                       : Redo last undo.")
-	fmt.Println("  - repair, f                     : Undo all invalid inputs.")
-	fmt.Println("  - hint, i                       : Explain and apply the next hint as one action.")
-	fmt.Println("  - solve, s                      : Solve the problem for me.")
-	fmt.Println("  - reset, e                      : Reset the game and start over.")
-	fmt.Println("  - quit, q                       : Quit the game.")
+	fmt.Println("Commands:")
+	fmt.Println("  help, h                         Show this help")
+	fmt.Println("  add, a <row> <column> <value>  Enter a value in a cell")
+	fmt.Println("  clear, d <row> <column>        Clear a cell")
+	fmt.Println("  save <path>                    Save this game")
+	fmt.Println("  check, c                       Check the board")
+	fmt.Println("  undo, u                        Undo the last move")
+	fmt.Println("  redo, r                        Redo the last undone move")
+	fmt.Println("  repair, f                      Clear incorrect entries")
+	fmt.Println("  hint, i                        Explain and apply one hint")
+	fmt.Println("  solve, s                       Complete the puzzle")
+	fmt.Println("  reset, e                       Start this puzzle over")
+	fmt.Println("  quit, q                        Quit the game")
 }
 
 func (ctrl *Controller) setValue(rowInput, columnInput, valueInput int) (bool, error) {
@@ -296,9 +296,9 @@ func (ctrl *Controller) RunCommand(command string) bool {
 		return success
 	case "check", "c":
 		if ctrl.game.Snapshot().Status != game.StatusInvalid {
-			fmt.Println("The current board is correct.")
+			fmt.Println("Everything entered so far is correct.")
 		} else {
-			fmt.Println("You have entered incorrect value(s).")
+			fmt.Println("Some entries are incorrect.")
 		}
 	case "undo", "u":
 		_, err := ctrl.apply(game.Undo{})
@@ -366,7 +366,7 @@ func (ctrl *Controller) askUserInput(scanner *bufio.Scanner, inputChannel chan s
 		return
 	}
 	ctrl.PrintBoard()
-	fmt.Println("Enter a command (Enter 'help' or 'h' for help):")
+	fmt.Println("Enter a command (`help` shows the options):")
 	fmt.Print("> ")
 	if scanner.Scan() {
 		inputChannel <- strings.TrimSpace(scanner.Text())
@@ -395,6 +395,6 @@ func (ctrl *Controller) Play() {
 			break
 		}
 	}
-	fmt.Println("Congratulations! You have solved the problem.")
+	fmt.Println("Puzzle solved!")
 	fmt.Println(ctrl.game.Snapshot().String())
 }

@@ -19,6 +19,37 @@ import (
 
 const testPuzzle = "..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8..2.3..9..5.1.3.."
 
+func TestPlayerFacingStatusAndActionLabels(t *testing.T) {
+	statusTests := map[game.Status]string{
+		game.StatusInProgress: "In progress",
+		game.StatusInvalid:    "Needs attention",
+		game.StatusSolved:     "Solved",
+	}
+	for status, want := range statusTests {
+		if got := statusLabel(status); got != want {
+			t.Errorf("statusLabel(%q) = %q, want %q", status, got, want)
+		}
+	}
+
+	actionTests := map[game.ActionKind]string{
+		game.ActionSetValue:      "Value entered.",
+		game.ActionClearValue:    "Cell cleared.",
+		game.ActionReset:         "Puzzle reset.",
+		game.ActionRestart:       "Puzzle restarted.",
+		game.ActionUndo:          "Move undone.",
+		game.ActionRedo:          "Move redone.",
+		game.ActionApplyHint:     "Hint applied.",
+		game.ActionSetCandidates: "Notes updated.",
+		game.ActionRepair:        "Incorrect entries cleared.",
+		game.ActionSolve:         "Puzzle solved!",
+	}
+	for action, want := range actionTests {
+		if got := actionResultMessage(action); got != want {
+			t.Errorf("actionResultMessage(%q) = %q, want %q", action, got, want)
+		}
+	}
+}
+
 func testModel(t *testing.T) Model {
 	t.Helper()
 	board := core.NewEmptyBoard()
@@ -408,7 +439,7 @@ func TestCompletedFocusedDigitUsesCompletedContext(t *testing.T) {
 	if !digitIsComplete(model, 3) {
 		t.Fatal("nine valid placements did not complete the active digit")
 	}
-	if view := ansi.Strip(model.View()); !strings.Contains(view, "Digit: 3 complete") {
+	if view := ansi.Strip(model.View()); !strings.Contains(view, "Digit: 3 all placed") {
 		t.Fatalf("status omitted completed digit: %q", view)
 	}
 }

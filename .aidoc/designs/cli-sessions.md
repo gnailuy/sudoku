@@ -38,6 +38,8 @@ Interactive commands retain bare three-digit value input, value add/clear, histo
 
 `hint` or `i` queries one shared engine plan, renders its descriptor-backed explanation through the canonical English catalog, and immediately applies that exact `plan_id` as one atomic action. A placement plan renders its concluding semantic narration plus the exact row, column, and value. A candidate correction or elimination prints one client-specific limitation without rendering candidate details, applies the hidden candidate change, and lets the next `hint` continue from the resulting authoritative state. `sudoku tui` remains the complete preview and teaching surface.
 
+The line CLI uses direct player language for its own help, prompts, board checks, errors, and completion message. It does not expose engine enum names or implementation-oriented descriptions as presentation copy.
+
 Each command stops after one authoritative deduction, never skips candidate work or silently chains to a placement, and does not mutate when plan generation or exact-plan application fails. Successful application creates one ordinary Undo entry; stale-plan validation remains aligned with the TUI, API, and browser.
 
 ## Persistence Transport
