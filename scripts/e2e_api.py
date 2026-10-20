@@ -44,6 +44,7 @@ def environment(root):
         os.environ,
         XDG_DATA_HOME=os.path.join(root, "data"),
         XDG_STATE_HOME=os.path.join(root, "state"),
+        LOCALAPPDATA=os.path.join(root, "local-app-data"),
     )
 
 
@@ -173,7 +174,7 @@ def main():
 
         os.chmod(key_path, 0o644)
         unsafe_key = subprocess.run([binary, "api", "--listen", "127.0.0.1:0"], env=environment(root), capture_output=True, text=True, timeout=5)
-        if unsafe_key.returncode == 0 or "managed guest key must be a regular owner-only file" not in unsafe_key.stderr:
+        if unsafe_key.returncode == 0 or "managed guest key must be a regular private file" not in unsafe_key.stderr:
             raise AssertionError("unsafe managed key permissions were not rejected")
 
         unsafe = subprocess.run([binary, "api", "--listen", "0.0.0.0:0"], env=environment(root), capture_output=True, text=True, timeout=5)

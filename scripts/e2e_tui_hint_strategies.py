@@ -33,6 +33,7 @@ def isolated_env(root):
     env = os.environ.copy()
     env["XDG_DATA_HOME"] = str(root / "data")
     env["XDG_STATE_HOME"] = str(root / "state")
+    env["LOCALAPPDATA"] = str(root / "local-app-data")
     env["NO_COLOR"] = "1"
     return env
 

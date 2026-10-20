@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/gnailuy/sudoku/privatefs"
 )
 
 func TestWriteAndRead(t *testing.T) {
@@ -20,12 +22,8 @@ func TestWriteAndRead(t *testing.T) {
 	if err != nil || string(data) != "second" {
 		t.Fatalf("Read() = %q, %v", data, err)
 	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0600 {
-		t.Fatalf("mode = %v", info.Mode().Perm())
+	if err := privatefs.ValidateFile(path); err != nil {
+		t.Fatalf("session file is not private: %v", err)
 	}
 }
 

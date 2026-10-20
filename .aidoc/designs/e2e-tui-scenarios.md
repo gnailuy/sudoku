@@ -95,11 +95,11 @@ The TUI scenarios require a pseudo-terminal. The standard-library harness exerci
 
 ## 10. TUI Autosave and Recovery
 
-Use an isolated state root with `export XDG_STATE_HOME=$SUDOKU_E2E_DIR/state`.
+Use an isolated state root: export `XDG_STATE_HOME=$SUDOKU_E2E_DIR/state` on Unix, or set `LOCALAPPDATA` to an isolated directory on Windows.
 
 ### 10.1 Crash Recovery and Durable Record Discovery
 **Action:** Start `sudoku tui --input <known puzzle>`, make a gameplay change, wait past the one-second debounce, and terminate the process abnormally. Then run plain `sudoku tui`.
-**Expected:** One mode-`0600` record exists under a mode-`0700` recovery directory. Plain startup offers the changed game; selecting it restores the value without relying on the old process ID.
+**Expected:** One platform-private record exists under a platform-private recovery directory. Unix uses modes `0600` and `0700`; Windows uses protected current-user/System/Administrators DACLs. Plain startup offers the changed game; selecting it restores the value without relying on the old process ID.
 
 ### 10.2 Concurrent Recovery Selection
 **Action:** Interrupt two changed TUI instances, then run plain `sudoku tui` and move through the recovery list.

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -371,13 +372,25 @@ func TestCreateSessionRejectsInvalidSources(t *testing.T) {
 	}
 }
 
-func TestDefaultDBPathUsesXDGDataHome(t *testing.T) {
-	dataHome := t.TempDir()
-	t.Setenv("XDG_DATA_HOME", dataHome)
-	want := filepath.Join(dataHome, "sudoku", "puzzles.db")
+func TestDefaultDBPathUsesHostApplicationDataWithoutProfileLeak(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", filepath.Join(root, "xdg"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(root, "local"))
 	got, err := defaultDBPath()
-	if err != nil || got != want {
-		t.Fatalf("defaultDBPath() = %q, %v, want %q", got, err, want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want string
+	switch runtime.GOOS {
+	case "linux":
+		want = filepath.Join(root, "xdg", "sudoku", "puzzles.db")
+	case "windows":
+		want = filepath.Join(root, "local", "Sudoku", "puzzles.db")
+	default:
+		t.Skip("host-path isolation is covered by injected platform tests")
+	}
+	if got != want {
+		t.Fatalf("defaultDBPath() = %q, want %q", got, want)
 	}
 }
 
@@ -407,7 +420,9 @@ func TestDefaultDBPathUsesNativeApplicationDataLocations(t *testing.T) {
 }
 
 func TestManagedDatabaseAppliesBundleButCustomDatabaseDoesNot(t *testing.T) {
-	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	root := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", filepath.Join(root, "xdg"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(root, "local"))
 	managed, _, err := openCatalogDatabase("")
 	if err != nil {
 		t.Fatal(err)

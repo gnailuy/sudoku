@@ -41,7 +41,7 @@ Plain `sudoku tui` startup discovers valid recovery records before generating a 
 
 ## Storage, Privacy, and Retention
 
-Recovery records live under `$XDG_STATE_HOME/sudoku/recovery`, falling back to `$HOME/.local/state/sudoku/recovery`. The directory uses mode `0700`, records use mode `0600`, filenames contain random identifiers rather than puzzle content, and writes use the bounded atomic transport guarantees in `sessionfile`.
+Recovery records use the platform application-state location: `$XDG_STATE_HOME/sudoku/recovery` with the standard home fallback on Linux, `~/Library/Application Support/Sudoku/recovery` on macOS, and `%LOCALAPPDATA%\Sudoku\recovery` on Windows. Unix directories and files use modes `0700` and `0600`; Windows uses protected DACLs limited to the current user, Local System, and Administrators. Symlinks and Windows reparse points are rejected, filenames contain random identifiers rather than puzzle content, and writes use the bounded atomic transport guarantees in `sessionfile`.
 
 Each running TUI instance has one randomly identified recovery record, so concurrent games never overwrite one another. Recovery records are never keyed or selected by an operating-system process ID: after a restart, plain `sudoku tui` scans the private recovery directory, validates eligible records, and lets the player select one. The resumed instance adopts the selected durable record identifier for later autosaves. Recovery discovery ignores symlinks, non-regular files, oversized records, malformed wrappers and sessions rejected by `game.Restore`.
 
@@ -61,7 +61,7 @@ Recovery files are never merged. Separate randomly identified records avoid writ
 - A presentation-neutral recovery package owns wrapper validation, secure location selection, discovery, pruning, atomic writes, and deletion.
 - `tui.Model` owns mutation generations, debounce and single-flight coordination, recovery prompts, warnings, and cleanup decisions.
 - `cmd/tui.go` owns flags and decides whether startup discovery applies before constructing a new session.
-- `sessionfile` retains bounded read and atomic mode-`0600` replacement primitives shared by explicit saves and recovery storage.
+- `privatefs` owns platform-native private-file and private-directory enforcement; `sessionfile` composes it with bounded read and atomic replacement for explicit saves and recovery storage.
 
 ## Verification
 

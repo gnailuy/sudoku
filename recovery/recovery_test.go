@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gnailuy/sudoku/privatefs"
 )
 
 func TestWriteDiscoverAndDeletePrivateRecords(t *testing.T) {
@@ -22,14 +24,12 @@ func TestWriteDiscoverAndDeletePrivateRecords(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	info, err := os.Stat(directory)
-	if err != nil || info.Mode().Perm() != 0700 {
-		t.Fatalf("directory mode=%v err=%v", info.Mode().Perm(), err)
+	if err := privatefs.ValidateDirectory(directory); err != nil {
+		t.Fatalf("recovery directory is not private: %v", err)
 	}
 	for _, id := range []string{first, second} {
-		info, err = os.Stat(filepath.Join(directory, id+".json"))
-		if err != nil || info.Mode().Perm() != 0600 {
-			t.Fatalf("record mode=%v err=%v", info.Mode().Perm(), err)
+		if err := privatefs.ValidateFile(filepath.Join(directory, id+".json")); err != nil {
+			t.Fatalf("recovery record is not private: %v", err)
 		}
 	}
 	records, err := store.Discover(func(data []byte) error {
@@ -112,17 +112,29 @@ func TestDiscoveryIgnoresSymlinksAndWriteRejectsSymlinkDirectory(t *testing.T) {
 	}
 }
 
-func TestDefaultDirectoryUsesXDGStateHomeAndFallback(t *testing.T) {
-	t.Setenv("XDG_STATE_HOME", "/tmp/sudoku-state-test")
-	path, err := DefaultDirectory()
-	if err != nil || path != "/tmp/sudoku-state-test/sudoku/recovery" {
-		t.Fatalf("path=%q err=%v", path, err)
+func TestDefaultDirectoryUsesPlatformApplicationData(t *testing.T) {
+	tests := []struct {
+		name string
+		goos string
+		env  map[string]string
+		home string
+		want string
+	}{
+		{name: "Linux XDG", goos: "linux", env: map[string]string{"XDG_STATE_HOME": "/state"}, home: "/home/player", want: filepath.Join("/state", "sudoku", "recovery")},
+		{name: "Linux fallback", goos: "linux", home: "/home/player", want: filepath.Join("/home/player", ".local", "state", "sudoku", "recovery")},
+		{name: "macOS", goos: "darwin", home: "/Users/player", want: filepath.Join("/Users/player", "Library", "Application Support", "Sudoku", "recovery")},
+		{name: "Windows", goos: "windows", env: map[string]string{"LOCALAPPDATA": `C:\Users\player\AppData\Local`}, want: filepath.Join(`C:\Users\player\AppData\Local`, "Sudoku", "recovery")},
 	}
-	t.Setenv("XDG_STATE_HOME", "")
-	t.Setenv("HOME", "/tmp/sudoku-home-test")
-	path, err = DefaultDirectory()
-	if err != nil || path != "/tmp/sudoku-home-test/.local/state/sudoku/recovery" {
-		t.Fatalf("path=%q err=%v", path, err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			path, err := defaultDirectoryFor(test.goos, func(key string) string { return test.env[key] }, func() (string, error) { return test.home, nil })
+			if err != nil || path != test.want {
+				t.Fatalf("path=%q want=%q err=%v", path, test.want, err)
+			}
+		})
+	}
+	if _, err := defaultDirectoryFor("windows", func(string) string { return "" }, func() (string, error) { return "", nil }); err == nil {
+		t.Fatal("missing LOCALAPPDATA did not fail closed")
 	}
 }
 

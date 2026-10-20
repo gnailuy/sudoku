@@ -39,7 +39,7 @@ OpenAPI validation cannot prove listener safety, generated routing, middleware o
 
 **Action:** Start without a web configuration, create and mutate a guest game, restart against the same managed application-data directory, mutate the original document again, and probe the current-account route. Repeat startup with a private guest-only configuration. Then attempt account-only configuration and a managed key with group-readable permissions.
 
-**Expected:** Zero-config and configured guest-only modes create sealed guest games without Google setup. The generated 32-byte key is owner-only and remains stable across restart, so the original guest document stays valid. Account routes return the bounded `account-unavailable` response. Account-only configuration fails before startup because account mode depends on a complete guest section, and unsafe key permissions fail closed.
+**Expected:** Zero-config and configured guest-only modes create sealed guest games without Google setup. The generated 32-byte key is platform-private and remains stable across restart, so the original guest document stays valid. Unix rejects group/world-readable mode bits; Windows rejects reparse points and DACLs that allow principals beyond the current user, Local System, and Administrators. Account routes return the bounded `account-unavailable` response. Account-only configuration fails before startup because account mode depends on a complete guest section.
 
 **Action:** Send one request from the configured exact origin and one preflight from another origin.
 
