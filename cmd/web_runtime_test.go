@@ -50,6 +50,9 @@ func TestLoadWebRuntimeSupportsGuestOnlyConfigWithoutAccounts(t *testing.T) {
 	if err := os.WriteFile(path, []byte(body), 0600); err != nil {
 		t.Fatal(err)
 	}
+	if err := privatefs.ProtectFile(path); err != nil {
+		t.Fatalf("protect guest-only config fixture: %v", err)
+	}
 	options := game.NewDefaultOptions(solverStore)
 	options.StrategySolverKeys = solverStore.GetAllStrategySolverKeys()
 	guest, account, closeRuntime, err := loadWebRuntime(context.Background(), path, filepath.Join(t.TempDir(), "sudoku.db"), options)
@@ -75,6 +78,9 @@ func TestReadWebConfigRejectsAccountWithoutGuestAndUnsafeFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "web.json")
 	if err := os.WriteFile(path, []byte(body), 0600); err != nil {
 		t.Fatal(err)
+	}
+	if err := privatefs.ProtectFile(path); err != nil {
+		t.Fatalf("protect account-only config fixture: %v", err)
 	}
 	options := game.NewDefaultOptions(solverStore)
 	_, _, _, err := loadWebRuntime(context.Background(), path, "", options)
