@@ -49,9 +49,6 @@ jobs:
   windows-unit:
     runs-on: windows-latest
     timeout-minutes: 15
-    env:
-      XDG_DATA_HOME: ${{ runner.temp }}/sudoku-data
-      XDG_STATE_HOME: ${{ runner.temp }}/sudoku-state
     steps:
       - uses: actions/checkout@v7
 
@@ -63,6 +60,9 @@ jobs:
         run: go build ./...
 
       - name: Test
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/sudoku-data
+          XDG_STATE_HOME: ${{ runner.temp }}/sudoku-state
         run: go test -count=1 ./...
 
   race:
