@@ -59,6 +59,7 @@ Keep packages focused and preserve dependency direction. The engine contains no 
 - New solvers require package tests and registration updates.
 - User-visible behavior or coverage changes require the applicable scenario catalog update and black-box E2E run against a built binary.
 - Bug fixes should encode the reported preconditions and action order in a focused regression when practical.
+- Keep the complete Go suite green on both maintained CI platforms: Ubuntu and Windows.
 - Run `go test ./...` and `go vet ./...` before committing; CI, lint, contract checks, and applicable E2E must pass before review.
 - Use conventional commit subjects (`feat:`, `fix:`, `docs:`, `test:`, `chore:`) under 72 characters.
 - PRs target `main` and are squash-merged only.

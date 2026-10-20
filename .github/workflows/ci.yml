@@ -46,6 +46,25 @@ jobs:
       - name: Trusted release contract tests
         run: python3 -m unittest scripts/test_package_release.py
 
+  windows-unit:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      XDG_DATA_HOME: ${{ runner.temp }}/sudoku-data
+      XDG_STATE_HOME: ${{ runner.temp }}/sudoku-state
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -count=1 ./...
+
   race:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -154,7 +173,7 @@ jobs:
 
   trusted-release:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: [unit, race, vet, api-contract, api-e2e, tui-e2e, cli-e2e, lint]
+    needs: [unit, windows-unit, race, vet, api-contract, api-e2e, tui-e2e, cli-e2e, lint]
     runs-on: ubuntu-latest
     permissions:
       contents: read
