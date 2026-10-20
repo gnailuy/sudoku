@@ -1,6 +1,10 @@
 package generator
 
-import "github.com/gnailuy/sudoku/solver"
+import (
+	"fmt"
+
+	"github.com/gnailuy/sudoku/solver"
+)
 
 // Difficulty defines the difficulty level of a Sudoku problem.
 //
@@ -148,6 +152,24 @@ func NewEvilDifficulty() Difficulty {
 		MinimumClues: solver.EvilMinClues,
 		MaximumClues: solver.EvilMaxClues,
 		SolverKeys:   tierRegistry["evil"],
+	}
+}
+
+// DifficultyForName returns the canonical configuration for a player-facing grade.
+func DifficultyForName(name string) (Difficulty, error) {
+	switch name {
+	case "easy":
+		return NewEasyDifficulty(), nil
+	case "medium":
+		return NewMediumDifficulty(), nil
+	case "hard":
+		return NewHardDifficulty(), nil
+	case "expert":
+		return NewExpertDifficulty(), nil
+	case "evil":
+		return NewEvilDifficulty(), nil
+	default:
+		return Difficulty{}, fmt.Errorf("invalid difficulty level: %s. Options: easy, medium, hard, expert, evil", name)
 	}
 }
 

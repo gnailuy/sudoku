@@ -5,7 +5,7 @@ import (
 	"math/rand"
 
 	"github.com/gnailuy/sudoku/core"
-	"github.com/gnailuy/sudoku/util"
+	"github.com/gnailuy/sudoku/random"
 )
 
 // Backtracker implements a recursive backtracking solver.
@@ -46,8 +46,8 @@ func newSolveOptionsWithRand(randomly, hintOnly, countSolutions bool, source *ra
 		Randomly:       randomly,
 		HintOnly:       hintOnly,
 		CountSolutions: countSolutions,
-		RowOrder:       util.GenerateNumberArrayWithRand(0, 9, randomly, source),
-		ColumnOrder:    util.GenerateNumberArrayWithRand(0, 9, randomly, source),
+		RowOrder:       random.NumbersWithSource(0, 9, randomly, source),
+		ColumnOrder:    random.NumbersWithSource(0, 9, randomly, source),
 		Random:         source,
 	}
 }
@@ -74,7 +74,7 @@ func solve(board *core.Board, state *solveState, options solveOptions) bool {
 
 				// When solving randomly (not counting), shuffle candidates.
 				if !options.CountSolutions && options.Randomly {
-					util.ShuffleArrayWithRand(candidateValues, options.Random)
+					random.ShuffleWithSource(candidateValues, options.Random)
 				}
 
 				for _, value := range candidateValues {

@@ -4,14 +4,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/db"
 	"github.com/gnailuy/sudoku/game"
-	"github.com/gnailuy/sudoku/generator"
 	"github.com/gnailuy/sudoku/playrun"
 	"github.com/gnailuy/sudoku/recovery"
-	"github.com/gnailuy/sudoku/sessionfile"
-	"github.com/gnailuy/sudoku/solver"
+	playsession "github.com/gnailuy/sudoku/session"
 )
 
 type sessionRequest struct {
@@ -23,129 +20,38 @@ type sessionRequest struct {
 }
 
 func createSession(request sessionRequest, output, errorOutput io.Writer) (game.Game, string, error) {
-	options := game.NewDefaultOptions(solverStore)
-	options.StrategySolverKeys = solverStore.GetAllStrategySolverKeys()
-	if request.resume != "" {
-		data, err := sessionfile.Read(request.resume)
-		if err != nil {
-			return game.Game{}, "", fmt.Errorf("unable to read saved session: %w", err)
-		}
-		restored, err := game.Restore(data, options)
-		if err != nil {
-			return game.Game{}, "", fmt.Errorf("unable to resume saved session: %w", err)
-		}
-		return restored, request.resume, nil
-	}
-
-	var problem core.Board
-	keys := solverStore.GetAllStrategySolverKeys()
-	if request.input != "" {
-		parsed, err := generator.GenerateSudokuProblemFromString(request.input)
-		if err != nil {
-			return game.Game{}, "", fmt.Errorf("the input is not a valid Sudoku problem: %s", request.input)
-		}
-		count := solverStore.GetDefaultSolver().CountSolutionsUpTo(parsed, 2)
-		if count == 0 {
-			return game.Game{}, "", fmt.Errorf("the input is not a solvable Sudoku problem: %s", request.input)
-		}
-		if count > 1 {
-			fmt.Fprintf(errorOutput, "The input has more than one solution: %s\n", request.input)
-		}
-		problem = *parsed
-		if request.dbPath == "" {
-			catalog, resolvedDBPath, openErr := openCatalogDatabase("")
-			if openErr != nil {
-				return game.Game{}, "", fmt.Errorf("open puzzle database: %w", openErr)
-			}
-			_ = catalog.Close()
-			request.dbPath = resolvedDBPath
-		}
-		_, _ = autoStoreTo(solverStore, problem, "input", request.dbPath)
-	} else {
-		difficulty, err := difficultyForLevel(request.level)
-		if err != nil {
-			return game.Game{}, "", err
-		}
-		if request.dbPath == "" {
-			catalog, resolvedDBPath, openErr := openCatalogDatabase("")
-			if openErr != nil {
-				return game.Game{}, "", fmt.Errorf("open puzzle database: %w", openErr)
-			}
-			_ = catalog.Close()
-			request.dbPath = resolvedDBPath
-		}
-		dbPath := request.dbPath
-		if request.fromDB {
-			problem, keys, err = acquireFromDB(solverStore, difficulty, request.level, dbPath)
-		} else if catalogFirstLevel(request.level) {
+	if request.input == "" && request.resume == "" && !request.fromDB {
+		if request.level == "hard" || request.level == "expert" || request.level == "evil" {
 			fmt.Fprintf(output, "Selecting an exact %s puzzle from the catalog...\n", capitalize(request.level))
-			problem, keys, err = acquireFromDB(solverStore, difficulty, request.level, dbPath)
-			if err != nil {
-				if request.level == "evil" {
-					return game.Game{}, "", fmt.Errorf("Evil cohort selection failed: %w", err)
-				}
-				fmt.Fprintf(output, "Exact-grade catalog unavailable (%v). Falling back to bounded generation.\n", err)
-				problem, keys, err = generateWithFallbackTo(output, solverStore, difficulty, request.level, dbPath)
-			}
 		} else {
 			fmt.Fprintf(output, "Generating a random %s Sudoku problem...\n", capitalize(request.level))
-			problem, keys, err = generateWithFallbackTo(output, solverStore, difficulty, request.level, dbPath)
-		}
-		if err != nil {
-			return game.Game{}, "", err
 		}
 	}
-	options.StrategySolverKeys = keys
-	return game.NewGame(problem, options), "", nil
-}
-
-func catalogFirstLevel(level string) bool {
-	switch level {
-	case "hard", "expert", "evil":
-		return true
-	default:
-		return false
-	}
-}
-
-func acquireFromDB(store solver.Store, difficulty generator.Difficulty, levelName, dbPath string) (core.Board, []string, error) {
-	puzzleDB, err := db.Open(dbPath)
+	service, err := playsession.New(playsession.Config{Solver: &solverStore, OpenCatalog: func(path string) (*db.DB, error) {
+		catalog, _, err := openCatalogDatabase(path)
+		return catalog, err
+	}})
 	if err != nil {
-		return core.Board{}, nil, fmt.Errorf("open puzzle database: %w", err)
+		return game.Game{}, "", err
 	}
-	defer puzzleDB.Close()
-	record, err := puzzleDB.AcquireForPlay(levelName)
+	result, err := service.Create(playsession.Request{
+		Puzzle: request.input, Difficulty: request.level, ResumePath: request.resume,
+		DatabasePath: request.dbPath, FromDatabase: request.fromDB,
+	})
 	if err != nil {
-		return core.Board{}, nil, err
+		return game.Game{}, "", err
 	}
-	if record == nil {
-		return core.Board{}, nil, fmt.Errorf("no %s puzzle is available in the database", levelName)
+	for _, notice := range result.Notices {
+		switch notice.Kind {
+		case playsession.NoticeMultipleSolutions:
+			fmt.Fprintf(errorOutput, "The input has more than one solution: %s\n", request.input)
+		case playsession.NoticeCatalogFallback:
+			fmt.Fprintf(output, "Exact-grade catalog unavailable (%v). Falling back to bounded generation.\n", notice.Cause)
+		case playsession.NoticeDifficultyChanged:
+			fmt.Fprintf(output, "Requested difficulty: %s. Generated puzzle difficulty: %s. Enjoy!\n", capitalize(notice.RequestedDifficulty), capitalize(notice.ActualDifficulty))
+		}
 	}
-	board := core.NewEmptyBoard()
-	board.FromString(record.Puzzle)
-	board.Randomize()
-	keys := difficulty.AllowedSolverKeys()
-	if len(keys) == 0 {
-		keys = store.GetAllStrategySolverKeys()
-	}
-	return board, keys, nil
-}
-
-func difficultyForLevel(level string) (generator.Difficulty, error) {
-	switch level {
-	case "easy":
-		return generator.NewEasyDifficulty(), nil
-	case "medium":
-		return generator.NewMediumDifficulty(), nil
-	case "hard":
-		return generator.NewHardDifficulty(), nil
-	case "expert":
-		return generator.NewExpertDifficulty(), nil
-	case "evil":
-		return generator.NewEvilDifficulty(), nil
-	default:
-		return generator.Difficulty{}, fmt.Errorf("invalid difficulty level: %s. Options: easy, medium, hard, expert, evil", level)
-	}
+	return result.Game, result.ResumePath, nil
 }
 
 type completionRecorder struct {

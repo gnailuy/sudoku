@@ -31,18 +31,19 @@ The generator already has plumbing for strategy-based validation — it calls `S
 
 ## Layer Boundaries
 
-Requests flow from `cmd` through frontend controllers into the pure game and generator boundaries. Persistent paths enter `db`, solving paths enter `solver`, and all domain paths terminate in `core`; package imports must follow the constraints below rather than bypassing an owner.
+Requests flow from `cmd` through frontend controllers or the reusable `session` service into the game, generator, solver, and persistence boundaries. Package imports must follow the constraints below rather than bypassing an owner.
 
 **Dependency rules:**
-- `core` has zero dependencies on other packages (leaf layer).
-- `solver` depends only on `core` and `util`.
-- `db` depends on `core` and `solver` (for normalization and classification). Does **not** depend on `generator`, `game`, or `cli`.
-- `generator` depends on `core`, `solver`, and `util`.
-- `game` depends on `core` and `solver`. Does **not** depend on `cli` or `generator`. Contains pure game logic — no I/O imports (`fmt` for string formatting only; no `os`, `bufio`, or terminal I/O). `game.Game.Apply` is the stable mutation boundary; `game.Game.Snapshot` is the detached rendering boundary.
-- `cli` depends on `game` (for the controller). Owns interactive terminal I/O: board display, input handling, signal handling.
-- `cmd` depends on `cli`, `core`, `db`, `game`, `generator`, and `solver`. Owns all CLI command definitions (cobra), flag parsing, fallback flow, batch generation, and import logic.
-- `main.go` delegates to `cmd.Execute()` — minimal entry point.
-- `util` has no internal dependencies (pure helpers).
+- `random` has no project dependencies and owns only pseudorandom ordering, shuffling, ranges, and probability helpers. Security-sensitive randomness remains with `crypto/rand` at the owning boundary.
+- `core` depends only on `random`; it owns board parsing, validation, canonical identity, and board randomization.
+- `solver` depends only on `core` and `random`.
+- `db` depends on `core` and `solver` for normalization and classification. It does **not** depend on `generator`, `game`, or a frontend.
+- `generator` depends on `core`, `solver`, and `random`.
+- `game` depends on `core`, `message`, and `solver`. It does **not** depend on a frontend or `generator`, and contains no terminal or filesystem I/O. `game.Game.Apply` is the stable mutation boundary; `game.Game.Snapshot` is the detached rendering boundary.
+- `session` depends on `core`, `db`, `game`, `generator`, `sessionfile`, and `solver`. It receives the solver registry and catalog opener explicitly, then returns a game plus structured source and notice values; it never chooses CLI or HTTP wording.
+- `cli` depends on the engine and presentation-adjacent completion/save packages. It owns line-terminal rendering and input, while `cmd` owns process signal registration and passes a lifecycle context into the controller.
+- `cmd` is the Cobra composition root. It owns flags, managed catalog bootstrap, frontend wording, process lifecycle, web configuration, and command-specific batch/import work; shared playable-session acquisition belongs to `session`.
+- `main.go` delegates to `cmd.Execute()` and remains the minimal process entry point.
 
 Violations of these boundaries indicate a design problem.
 
@@ -67,4 +68,4 @@ The game owns one authoritative candidate grid. Value actions clear candidates o
 - **Interface naming:** Types follow Go conventions. Examples: `Solver` (base interface), `StrategySolver`, `CompleteSolver`, `Base`, `Backtracker`, `Store`, `Move`, `Board`, `Game`, `Difficulty`, `Options`, `CandidateSet`.
 - **Candidate boundaries:** `Board.Candidates(pos)` computes solver-local candidates from accepted values and the board's elimination layer. `game.Game` stores the player-visible authoritative `CandidateSet` grid, constrains a detached solver board from it for hints, and persists it with history. `core.Board.EliminateCandidate` remains the solver-board mutation primitive; frontends mutate game candidates only through typed engine actions.
 - **Error vs panic:** Methods called with invalid state from within the system `panic` (bug detection). Methods processing user input return errors. This split is intentional.
-- **Geometric distribution stop:** The generator uses `util.RandomBool(0.125)` to probabilistically stop cell removal after reaching the target clue range. This produces natural variation within a difficulty band.
+- **Geometric distribution stop:** The generator uses `random.ChanceWithSource(0.125, source)` to probabilistically stop cell removal after reaching the target clue range. This produces natural variation within a difficulty band while preserving deterministic seeded experiments.

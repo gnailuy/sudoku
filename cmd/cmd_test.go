@@ -292,16 +292,6 @@ func TestImportFromFile(t *testing.T) {
 	}
 }
 
-func TestParseDifficulty(t *testing.T) {
-	levels := []string{"easy", "medium", "hard", "expert", "evil"}
-	for _, level := range levels {
-		d := parseDifficultyQuiet(level)
-		if d.MinimumClues <= 0 {
-			t.Errorf("parseDifficultyQuiet(%q): MinimumClues should be > 0", level)
-		}
-	}
-}
-
 func TestCreateSessionRestoresSerializedState(t *testing.T) {
 	store := solver.NewStore()
 	options := game.NewDefaultOptions(store)
@@ -480,19 +470,6 @@ func TestManagedDatabaseAppliesBundleButCustomDatabaseDoesNot(t *testing.T) {
 	_ = custom.Close()
 	if err != nil || result.Status != "applied" {
 		t.Fatalf("custom database was silently seeded: %+v, %v", result, err)
-	}
-}
-
-func TestCatalogFirstLevel(t *testing.T) {
-	for _, level := range []string{"hard", "expert", "evil"} {
-		if !catalogFirstLevel(level) {
-			t.Errorf("catalogFirstLevel(%q) = false, want true", level)
-		}
-	}
-	for _, level := range []string{"easy", "medium", "invalid"} {
-		if catalogFirstLevel(level) {
-			t.Errorf("catalogFirstLevel(%q) = true, want false", level)
-		}
 	}
 }
 

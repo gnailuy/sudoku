@@ -1,45 +1,33 @@
 package cli
 
-import (
-	"os"
-	"os/signal"
-)
+import "context"
 
-// CloseChannel provides a signal-based shutdown mechanism for the game loop.
-type CloseChannel chan struct{}
-
-// handleInterruptSignal listens for OS interrupt signals and closes the channel.
-func (closeChannel CloseChannel) handleInterruptSignal() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-
-	go func() {
-		for range c {
-			closeChannel.Close()
-		}
-	}()
+// CloseChannel owns one idempotent shutdown signal derived from a caller-owned
+// lifecycle context.
+type CloseChannel struct {
+	context context.Context
+	stop    context.CancelFunc
 }
 
-// NewCloseChannel creates a new close channel that responds to OS interrupt signals.
-func NewCloseChannel() CloseChannel {
-	var closeChannel CloseChannel = make(chan struct{})
-	closeChannel.handleInterruptSignal()
-
-	return closeChannel
+// NewCloseChannel derives a shutdown signal without registering process-wide
+// handlers. The composition root owns signal registration and cleanup.
+func NewCloseChannel(parent context.Context) CloseChannel {
+	ctx, stop := context.WithCancel(parent)
+	return CloseChannel{context: ctx, stop: stop}
 }
 
-// IsClosed checks if the close channel has been closed (non-blocking).
+// Done is closed when shutdown is requested.
+func (closeChannel CloseChannel) Done() <-chan struct{} { return closeChannel.context.Done() }
+
+// IsClosed checks whether shutdown has been requested.
 func (closeChannel CloseChannel) IsClosed() bool {
 	select {
-	case <-closeChannel:
+	case <-closeChannel.Done():
 		return true
 	default:
+		return false
 	}
-
-	return false
 }
 
-// Close closes the channel, signaling shutdown.
-func (closeChannel CloseChannel) Close() {
-	close(closeChannel)
-}
+// Close requests shutdown. It is safe to call more than once.
+func (closeChannel CloseChannel) Close() { closeChannel.stop() }

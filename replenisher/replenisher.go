@@ -12,7 +12,6 @@ import (
 
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/db"
-	"github.com/gnailuy/sudoku/generator"
 	"github.com/gnailuy/sudoku/solver"
 )
 
@@ -63,7 +62,7 @@ func (function BuilderFunc) Build(seed db.Puzzle, randomSeed int64) (db.Puzzle, 
 
 func NewBuilder(store solver.Store, difficulty string) Builder {
 	return BuilderFunc(func(seed db.Puzzle, randomSeed int64) (db.Puzzle, bool, error) {
-		board, err := generator.GenerateSudokuProblemFromString(seed.Puzzle)
+		board, err := core.ParseBoard(seed.Puzzle)
 		if err != nil {
 			return db.Puzzle{}, false, fmt.Errorf("parse seed %s: %w", seed.BasePuzzleID, err)
 		}
@@ -88,11 +87,11 @@ func NewBuilder(store solver.Store, difficulty string) Builder {
 			return db.Puzzle{}, false, err
 		}
 		canonical := core.CanonicalPuzzle(board.ToString())
-		candidateBoard, err := generator.GenerateSudokuProblemFromString(canonical)
+		candidateBoard, err := core.ParseBoard(canonical)
 		if err != nil {
 			return db.Puzzle{}, false, fmt.Errorf("parse canonical candidate: %w", err)
 		}
-		classification := solver.ClassifyPuzzle(store, *candidateBoard)
+		classification := solver.ClassifyPuzzle(store, candidateBoard)
 		if !classification.Solved || classification.Difficulty != difficulty {
 			return db.Puzzle{}, false, nil
 		}

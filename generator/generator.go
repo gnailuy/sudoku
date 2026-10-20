@@ -1,14 +1,13 @@
 package generator
 
 import (
-	"errors"
 	"math/rand"
 	"runtime"
 	"time"
 
 	"github.com/gnailuy/sudoku/core"
+	"github.com/gnailuy/sudoku/random"
 	"github.com/gnailuy/sudoku/solver"
-	"github.com/gnailuy/sudoku/util"
 )
 
 // Function to generate a solved Sudoku board by solving an empty normalized board randomly.
@@ -64,7 +63,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.Board, options Options) cor
 
 			// Use a simple geometric distribution to stop removing numbers with a probability of P.
 			// The expected number of iterations after the difficulty level is reached will be 1/P.
-			if util.RandomBoolWithRand(0.125, options.Random) {
+			if random.ChanceWithSource(0.125, options.Random) {
 				break
 			}
 		}
@@ -75,7 +74,7 @@ func GenerateSudokuProblemFromSolvedBoard(board core.Board, options Options) cor
 		}
 
 		// Test the non-empty positions in a random order and unset the first one that can be removed.
-		util.ShuffleArrayWithRand(nonEmptyPositions, options.Random)
+		random.ShuffleWithSource(nonEmptyPositions, options.Random)
 
 		removedPositionIndex := -1
 		for j, position := range nonEmptyPositions {
@@ -339,22 +338,4 @@ func abs(x int) int {
 		return -x
 	}
 	return x
-}
-
-// Function to generate a Sudoku problem from an input string.
-func GenerateSudokuProblemFromString(input string) (boardPointer *core.Board, err error) {
-	if !core.IsValidSudokuString(input) {
-		return nil, errors.New("invalid Sudoku string: " + input)
-	}
-
-	board := core.NewEmptyBoard()
-	board.FromString(input)
-
-	if !board.IsValid() {
-		return nil, errors.New("invalid Sudoku board: " + input)
-	}
-
-	boardPointer = &board
-
-	return
 }

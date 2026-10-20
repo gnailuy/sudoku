@@ -39,10 +39,10 @@ func (*Server) GetHealth(context.Context, GetHealthRequestObject) (GetHealthResp
 func NewHandler(server *Server, origins []string) http.Handler {
 	strict := NewStrictHandlerWithOptions(server, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
-			writeError(w, 400, ErrorCodeInvalidJson, "invalid JSON request")
+			writeError(w, http.StatusBadRequest, ErrorCodeInvalidJson)
 		},
 		ResponseErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
-			writeError(w, 500, ErrorCodeInternalError, "internal server error")
+			writeError(w, http.StatusInternalServerError, ErrorCodeInternalError)
 		},
 	})
 	allowed := make(map[string]struct{}, len(origins))
@@ -57,7 +57,7 @@ func middleware(next http.Handler, origins map[string]struct{}) http.Handler {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			if _, ok := origins[origin]; !ok {
-				writeError(w, 403, ErrorCodeForbiddenOrigin, "origin is not allowed")
+				writeError(w, http.StatusForbidden, ErrorCodeForbiddenOrigin)
 				return
 			}
 			w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -66,7 +66,7 @@ func middleware(next http.Handler, origins map[string]struct{}) http.Handler {
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 			if r.Method == http.MethodOptions {
 				if !validPreflight(r) {
-					writeError(w, 403, ErrorCodeForbiddenOrigin, "preflight request is not allowed")
+					writeError(w, http.StatusForbidden, ErrorCodeForbiddenOrigin)
 					return
 				}
 				w.WriteHeader(204)
@@ -77,21 +77,21 @@ func middleware(next http.Handler, origins map[string]struct{}) http.Handler {
 			want := "application/json"
 			got := strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0])
 			if got != want {
-				writeError(w, 415, ErrorCodeUnsupportedMediaType, "unsupported content type")
+				writeError(w, http.StatusUnsupportedMediaType, ErrorCodeUnsupportedMediaType)
 				return
 			}
 			data, err := io.ReadAll(io.LimitReader(r.Body, MaxRequestBytes+1))
 			if err != nil {
-				writeError(w, 400, ErrorCodeInvalidRequest, "unable to read request")
+				writeError(w, http.StatusBadRequest, ErrorCodeInvalidRequest)
 				return
 			}
 			if len(data) > MaxRequestBytes {
-				writeError(w, 413, ErrorCodePayloadTooLarge, "request exceeds 1 MiB")
+				writeError(w, http.StatusRequestEntityTooLarge, ErrorCodePayloadTooLarge)
 				return
 			}
 			if want == "application/json" {
 				if err := validateJSONRequest(r.URL.Path, data); err != nil {
-					writeError(w, 400, ErrorCodeInvalidJson, err.Error())
+					writeError(w, http.StatusBadRequest, ErrorCodeInvalidJson)
 					return
 				}
 			}
@@ -469,12 +469,12 @@ func apiHintEffect(effect game.HintEffect) HintEffect {
 	return out
 }
 
-func apiError(code ErrorCode, _ string) Error {
+func apiError(code ErrorCode) Error {
 	message := mustAPIMessageDescriptor(canonicalEnglishMessages.Render("error." + string(code)))
 	return Error{Error: ErrorDetail{Code: code, Message: message}}
 }
 func engineAPIError(e *game.EngineError) Error {
-	out := apiError(ErrorCode(e.Code), e.Error())
+	out := apiError(ErrorCode(e.Code))
 	if e.Position != nil {
 		out.Error.Cell = &CellPosition{Row: e.Position.Row + 1, Column: e.Position.Column + 1}
 	}
@@ -485,8 +485,8 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
 }
-func writeError(w http.ResponseWriter, status int, code ErrorCode, message string) {
-	writeJSON(w, status, apiError(code, message))
+func writeError(w http.ResponseWriter, status int, code ErrorCode) {
+	writeJSON(w, status, apiError(code))
 }
 func decodeStrict(data []byte, value any) error {
 	d := json.NewDecoder(bytes.NewReader(data))

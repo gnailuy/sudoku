@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -27,7 +28,13 @@ func NewController(g *game.Game) *Controller { return NewTrackedController(g, ni
 
 // NewTrackedController creates a controller that records play-run completion.
 func NewTrackedController(g *game.Game, tracker *playrun.Tracker) *Controller {
-	return &Controller{game: g, closeChannel: NewCloseChannel(), tracker: tracker}
+	return NewTrackedControllerWithContext(context.Background(), g, tracker)
+}
+
+// NewTrackedControllerWithContext binds the game loop to a caller-owned
+// process lifecycle.
+func NewTrackedControllerWithContext(ctx context.Context, g *game.Game, tracker *playrun.Tracker) *Controller {
+	return &Controller{game: g, closeChannel: NewCloseChannel(ctx), tracker: tracker}
 }
 
 func (ctrl *Controller) apply(action game.Action) (game.Result, error) {
@@ -385,7 +392,7 @@ func (ctrl *Controller) Play() {
 		select {
 		case command := <-inputChannel:
 			ctrl.RunCommand(command)
-		case <-ctrl.closeChannel:
+		case <-ctrl.closeChannel.Done():
 			fmt.Println("\nExiting the game.")
 			fmt.Println(ctrl.game.Snapshot().String())
 			return

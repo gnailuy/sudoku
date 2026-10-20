@@ -3,7 +3,7 @@ package core
 import (
 	"testing"
 
-	"github.com/gnailuy/sudoku/util"
+	"github.com/gnailuy/sudoku/random"
 )
 
 // Test the Normalize function.
@@ -52,7 +52,7 @@ func TestRandomizeUnsolvedBoard(t *testing.T) {
 
 	// Randomly remove some numbers.
 	for i := 0; i < 10; i++ {
-		_ = board.Set(NewPosition(util.RandomInt(0, 9), util.RandomInt(0, 9)), 0)
+		_ = board.Set(NewPosition(random.Int(0, 9), random.Int(0, 9)), 0)
 	}
 
 	// Randomize the board.

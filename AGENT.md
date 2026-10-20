@@ -27,9 +27,10 @@ Run the applicable built-binary E2E harnesses from the scenario route in `.aidoc
 
 | Path | Responsibility |
 |---|---|
-| `core/` | Board primitives, candidates, validation, normalization, canonical identity |
+| `core/`, `random/` | Board primitives, parsing, candidates, validation, normalization, canonical identity, pseudorandom helpers |
 | `solver/` | Strategy solvers, evidence, classification, and scoring |
 | `game/` | Frontend-neutral actions, snapshots, history, hints, and serialization |
+| `session/` | Frontend-neutral saved-session restore and playable puzzle acquisition |
 | `cli/`, `tui/` | Line and full-screen presentation adapters |
 | `api/`, `webapi/` | OpenAPI contract and HTTP translation |
 | `db/`, `catalogbundle/` | Catalog, provenance, acquisition, accounts, and embedded supply |

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gnailuy/sudoku/util"
+	"github.com/gnailuy/sudoku/random"
 )
 
 // Board represents a 9x9 Sudoku grid.
@@ -167,8 +167,8 @@ func (board *Board) ForEachCell(fn func(position Position, value int) bool) {
 
 // Function to get a random position satisfying the value validator.
 func (board *Board) GetRandomPositionWith(validator func(int) bool) *Position {
-	rowOrder := util.GenerateNumberArray(0, 9, true)
-	columnOrder := util.GenerateNumberArray(0, 9, true)
+	rowOrder := random.Numbers(0, 9, true)
+	columnOrder := random.Numbers(0, 9, true)
 	for _, row := range rowOrder {
 		for _, column := range columnOrder {
 			position := NewPosition(row, column)

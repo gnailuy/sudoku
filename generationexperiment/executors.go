@@ -50,11 +50,11 @@ func executeBaseline(store solver.Store, job Job) (Execution, error) {
 func executeCandidate(store solver.Store, job Job) (Execution, error) {
 	start := time.Now()
 	deadline := start.Add(time.Duration(job.Budget.MaxDurationMS) * time.Millisecond)
-	seed, err := generator.GenerateSudokuProblemFromString(job.Sample.SeedPuzzle)
+	seed, err := core.ParseBoard(job.Sample.SeedPuzzle)
 	if err != nil {
 		return Execution{}, fmt.Errorf("parse seed puzzle: %w", err)
 	}
-	if store.GetDefaultSolver().CountSolutions(seed) != 1 {
+	if store.GetDefaultSolver().CountSolutions(&seed) != 1 {
 		return Execution{Outcome: "non-unique", DurationMS: boundedDuration(time.Since(start).Milliseconds(), job.Budget.MaxDurationMS)}, nil
 	}
 	if !time.Now().Before(deadline) {

@@ -114,42 +114,43 @@ func (service *Service) List(userID string, limit int) ([]db.AccountGame, error)
 	return service.store.AccountGamesByUser(userID, limit)
 }
 
-// Get restores one owner-scoped game. Another owner's identifier is
-// indistinguishable from an absent identifier.
-func (service *Service) Get(userID, accountGameID string) (State, error) {
+func (service *Service) load(userID, accountGameID string) (State, game.Game, error) {
 	if userID == "" {
-		return State{}, ErrAuthenticatedIdentityRequired
+		return State{}, game.Game{}, ErrAuthenticatedIdentityRequired
 	}
 	if accountGameID == "" {
-		return State{}, ErrNotFound
+		return State{}, game.Game{}, ErrNotFound
 	}
 	record, err := service.store.AccountGameByID(userID, accountGameID)
 	if err != nil {
-		return State{}, err
+		return State{}, game.Game{}, err
 	}
 	if record == nil {
-		return State{}, ErrNotFound
+		return State{}, game.Game{}, ErrNotFound
 	}
 	current, err := game.Restore(record.EngineState, service.options)
 	if err != nil {
-		return State{}, fmt.Errorf("restore account game: %w", err)
+		return State{}, game.Game{}, fmt.Errorf("restore account game: %w", err)
 	}
-	return State{Game: *record, Snapshot: current.Snapshot()}, nil
+	return State{Game: *record, Snapshot: current.Snapshot()}, current, nil
+}
+
+// Get restores one owner-scoped game. Another owner's identifier is
+// indistinguishable from an absent identifier.
+func (service *Service) Get(userID, accountGameID string) (State, error) {
+	state, _, err := service.load(userID, accountGameID)
+	return state, err
 }
 
 // Apply restores, mutates, serializes, and atomically persists one engine
 // action under the owner's current optimistic revision.
 func (service *Service) Apply(userID, accountGameID string, expectedRevision int64, action game.Action) (Transition, error) {
-	state, err := service.Get(userID, accountGameID)
+	state, current, err := service.load(userID, accountGameID)
 	if err != nil {
 		return Transition{}, err
 	}
 	if expectedRevision != state.Game.Revision {
 		return Transition{}, &RevisionConflictError{CurrentRevision: state.Game.Revision}
-	}
-	current, err := game.Restore(state.Game.EngineState, service.options)
-	if err != nil {
-		return Transition{}, fmt.Errorf("restore account game: %w", err)
 	}
 	result, err := current.Apply(action)
 	if err != nil {

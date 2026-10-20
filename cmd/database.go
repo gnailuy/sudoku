@@ -8,6 +8,7 @@ import (
 
 	"github.com/gnailuy/sudoku/db"
 	"github.com/gnailuy/sudoku/evilcohort"
+	"github.com/gnailuy/sudoku/generator"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,7 @@ func validDatabaseLevel(level string) error {
 	if level == "" {
 		return nil
 	}
-	_, err := difficultyForLevel(level)
+	_, err := generator.DifficultyForName(level)
 	return err
 }
 
