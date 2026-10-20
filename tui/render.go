@@ -45,15 +45,15 @@ func render(m Model) string {
 	styles := stylesFor(m.theme)
 	mode := "VALUE"
 	if m.mode == noteMode {
-		mode = "NOTE"
+		mode = "NOTES"
 	}
 
 	title := center(m.width, styles.title.Render("SUDOKU"), styles.canvas)
-	status := fmt.Sprintf("%s  •  %s  •  Mistakes: %d  •  r%dc%d", mode, m.snapshot.Status, m.snapshot.Mistakes, m.row+1, m.column+1)
+	status := fmt.Sprintf("%s  •  %s  •  Mistakes: %d  •  r%dc%d", mode, statusLabel(m.snapshot.Status), m.snapshot.Mistakes, m.row+1, m.column+1)
 	if digit := activeDigit(m); digit != 0 {
 		status += fmt.Sprintf("  •  Digit: %d", digit)
 		if digitIsComplete(m, digit) {
-			status += " complete"
+			status += " all placed"
 		}
 	}
 	if m.autoCandidates {
@@ -99,7 +99,7 @@ func render(m Model) string {
 	case helpModal, recoveryModal:
 		parts = append(parts, styles.canvas.Render(strings.Repeat(" ", m.width)))
 	default:
-		guide := "arrows move  •  1–9 set  •  n notes  •  a candidates  •  i hint  •  ? help  •  S save  •  q quit"
+		guide := "arrows  •  1–9  •  n notes  •  a notes  •  i hint  •  ? help  •  S save  •  q quit"
 		if m.hint != nil {
 			guide = "←/h Back  •  →/l Next  •  Enter applies exact plan  •  Esc cancels"
 		}

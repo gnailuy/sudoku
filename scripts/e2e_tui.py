@@ -90,7 +90,7 @@ def main():
         finally:
             os.close(master)
         text = ANSI.sub(b"", output).decode("utf-8", "replace")
-        required = ("SUDOKU", "Mistakes: 0", "Mistakes: 1", "Digit: 3", "CANDIDATES ON", "CANDIDATES OFF", "NOTE  ", "KEYBOARD HELP", "Context  focus a value", "Step 1 of", "Step 2 of", "Saved to ", "unsaved", "Unsaved changes")
+        required = ("SUDOKU", "Mistakes: 0", "Mistakes: 1", "Digit: 3", "CANDIDATES ON", "CANDIDATES OFF", "NOTES  ", "KEYBOARD HELP", "Context  focus a value", "Step 1 of", "Step 2 of", "Saved to ", "unsaved", "Unsaved changes")
         missing = [value for value in required if value not in text]
         if missing:
             raise AssertionError(f"screen output missing {missing}\n{text[-4000:]}")

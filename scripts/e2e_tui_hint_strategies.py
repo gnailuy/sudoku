@@ -98,7 +98,7 @@ def run_case(binary, case, root):
             applied = send(master, b"\r")
             transcript += applied
             if matched:
-                if "Applied apply-hint;" not in applied:
+                if "Hint applied." not in applied:
                     raise AssertionError(f"{case['strategy']} did not apply through the TUI")
                 send(master, b"q")
                 if process.poll() is None:

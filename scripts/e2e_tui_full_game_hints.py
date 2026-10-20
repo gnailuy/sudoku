@@ -53,7 +53,7 @@ def solve_game(binary, case, root):
                 raise AssertionError("hint preview did not render its first teaching step")
             applied = send(master, b"\r")
             transcript += applied
-            if "Applied apply-hint;" not in applied:
+            if "Hint applied." not in applied:
                 raise AssertionError("hint conclusion did not apply through the TUI")
             if "solved" in applied.lower():
                 send(master, b"q")
