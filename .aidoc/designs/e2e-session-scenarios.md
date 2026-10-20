@@ -3,6 +3,7 @@ domain: Designs
 status: Active
 entry_points:
   - cmd/play.go
+  - session/service.go
   - cli/controller.go
   - sessionfile/session_file.go
 dependencies:

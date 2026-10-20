@@ -3,6 +3,7 @@ domain: Designs
 status: Active
 entry_points:
   - cmd/root.go
+  - session/service.go
   - cmd/session.go
   - cli/controller.go
   - tui/model.go
@@ -55,7 +56,7 @@ The line CLI, TUI, and HTTP API use one frontend-neutral play-run tracker around
 
 The content-derived base-puzzle ID is the primary identity. Catalog ingestion supplies symmetry- and digit-canonical content, while each `play_runs.presented_puzzle` preserves the exact transformed board shown to that run. Tracked CLI, TUI, and account-game producers attach that presentation before gameplay.
 
-`cmd.createSession` retains the normalized key and selected database path for the run tracker. Restored sessions derive the key from immutable givens. A missing row or failed write produces a concise warning without inserting another row or changing gameplay/session persistence.
+`session.Service` returns the created game without storage-tracker concerns; `cmd` binds that game to the selected database path and normalized key for the run tracker. Restored sessions derive the key from immutable givens. A missing row or failed write produces a concise warning without inserting another row or changing gameplay/session persistence.
 
 ## Statistics Snapshot
 

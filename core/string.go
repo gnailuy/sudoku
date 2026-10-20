@@ -1,6 +1,9 @@
 package core
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // Placeholder for the zero values.
 var defaultZeroPlaceholder = '.'
@@ -30,6 +33,19 @@ func IsValidSudokuString(s string) bool {
 	}
 
 	return true
+}
+
+// ParseBoard validates one serialized puzzle and returns its board value.
+func ParseBoard(input string) (Board, error) {
+	if !IsValidSudokuString(input) {
+		return Board{}, errors.New("invalid Sudoku string: " + input)
+	}
+	board := NewEmptyBoard()
+	board.FromString(input)
+	if !board.IsValid() {
+		return Board{}, errors.New("invalid Sudoku board: " + input)
+	}
+	return board, nil
 }
 
 // Function to print the board as a single string.

@@ -24,6 +24,18 @@ func TestSeededSolvedBoardGenerationIsDeterministic(t *testing.T) {
 	}
 }
 
+func TestDifficultyForName(t *testing.T) {
+	for _, name := range []string{"easy", "medium", "hard", "expert", "evil"} {
+		difficulty, err := DifficultyForName(name)
+		if err != nil || difficulty.MinimumClues <= 0 {
+			t.Fatalf("DifficultyForName(%q) = %+v, %v", name, difficulty, err)
+		}
+	}
+	if _, err := DifficultyForName("unknown"); err == nil {
+		t.Fatal("unknown difficulty unexpectedly succeeded")
+	}
+}
+
 func TestGenerateBestEffortEasy(t *testing.T) {
 	store := solver.NewStore()
 	opts := NewBestEffortOptions(store, NewEasyDifficulty())

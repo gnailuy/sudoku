@@ -3,7 +3,7 @@ package core
 import (
 	"math/rand"
 
-	"github.com/gnailuy/sudoku/util"
+	"github.com/gnailuy/sudoku/random"
 )
 
 // Function to normalize a Sudoku board.
@@ -42,7 +42,7 @@ func (board *Board) RandomizeWithRand(source *rand.Rand) {
 	boardCopy := board.Copy()
 
 	// Randomize the board with the below replacement plan.
-	randomArray := util.GenerateNumberArrayWithRand(1, 10, true, source)
+	randomArray := random.NumbersWithSource(1, 10, true, source)
 
 	for j := 0; j < 9; j++ {
 		for k := 0; k < 9; k++ {

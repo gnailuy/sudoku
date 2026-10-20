@@ -53,7 +53,7 @@ func TestAPIHintPlanUsesCorrectionTitleDescriptors(t *testing.T) {
 	}
 }
 
-func TestAPIErrorsUseCanonicalDescriptorsAndIgnoreRawDetails(t *testing.T) {
+func TestAPIErrorsUseCanonicalDescriptors(t *testing.T) {
 	codes := []ErrorCode{
 		ErrorCodeInvalidRequest, ErrorCodeInvalidJson, ErrorCodeUnsupportedMediaType, ErrorCodePayloadTooLarge,
 		ErrorCodeUnauthorized, ErrorCodeForbiddenOrigin, ErrorCodeSessionNotFound, ErrorCodeRevisionConflict,
@@ -63,8 +63,8 @@ func TestAPIErrorsUseCanonicalDescriptorsAndIgnoreRawDetails(t *testing.T) {
 		ErrorCodeCsrfFailed, ErrorCodeAccountGameNotFound, ErrorCodeGuestRevisionConflict, ErrorCodeGuestClaimConflict,
 	}
 	for _, code := range codes {
-		detail := apiError(code, "sensitive internal detail").Error
-		if detail.Message.Id != "error."+string(code) || detail.Message.Text == "" || detail.Message.Text == "sensitive internal detail" || len(detail.Message.Arguments) != 0 {
+		detail := apiError(code).Error
+		if detail.Message.Id != "error."+string(code) || detail.Message.Text == "" || len(detail.Message.Arguments) != 0 {
 			t.Fatalf("error %q = %#v", code, detail.Message)
 		}
 	}

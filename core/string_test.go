@@ -36,6 +36,22 @@ func TestFromString(t *testing.T) {
 }
 
 // Test the FromString function with an invalid string.
+func TestParseBoard(t *testing.T) {
+	const puzzle = "1.......................................5.......................................9"
+	board, err := ParseBoard(puzzle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if board.ToString() != puzzle {
+		t.Fatalf("parsed board = %q", board.ToString())
+	}
+	for _, input := range []string{"short", "11..............................................................................."} {
+		if _, err := ParseBoard(input); err == nil {
+			t.Fatalf("ParseBoard(%q) unexpectedly succeeded", input)
+		}
+	}
+}
+
 func TestFromStringInvalid(t *testing.T) {
 	board := NewEmptyBoard()
 

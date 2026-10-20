@@ -76,8 +76,10 @@ func runGenerate(cmd *cobra.Command) error {
 		workers = 1
 	}
 
-	// Validate difficulty level.
-	_ = parseDifficulty(level)
+	// Validate difficulty level before opening or mutating the catalog.
+	if _, err := generator.DifficultyForName(level); err != nil {
+		return err
+	}
 
 	puzzleDB, _, err := openCatalogDatabase(dbPath)
 	if err != nil {
@@ -239,7 +241,7 @@ func batchGenerateWith(puzzleDB *db.DB, count int, level string, timeout time.Du
 func generateOnePuzzle(level string, timeout time.Duration, rounds int) generator.GenerationResult {
 	// Each worker gets its own solver store for thread safety.
 	store := solver.NewStore()
-	difficulty := parseDifficultyQuiet(level)
+	difficulty, _ := generator.DifficultyForName(level)
 
 	opts := generator.NewBestEffortOptions(store, difficulty)
 	opts.MaxRounds = rounds
@@ -298,23 +300,5 @@ func printGenerateReport(report generateReport) {
 		if count, ok := report.byLevel[level]; ok && count > 0 {
 			fmt.Printf("  %-8s %d\n", capitalize(level)+":", count)
 		}
-	}
-}
-
-// parseDifficultyQuiet is like parseDifficulty but doesn't exit on error.
-func parseDifficultyQuiet(level string) generator.Difficulty {
-	switch level {
-	case "easy":
-		return generator.NewEasyDifficulty()
-	case "medium":
-		return generator.NewMediumDifficulty()
-	case "hard":
-		return generator.NewHardDifficulty()
-	case "expert":
-		return generator.NewExpertDifficulty()
-	case "evil":
-		return generator.NewEvilDifficulty()
-	default:
-		return generator.NewHardDifficulty()
 	}
 }

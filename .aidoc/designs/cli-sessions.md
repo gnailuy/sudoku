@@ -4,6 +4,7 @@ status: Active
 entry_points:
   - cli/controller.go
   - cmd/play.go
+  - session/service.go
   - sessionfile/session_file.go
 dependencies:
   - .aidoc/designs/game-engine.md
@@ -50,6 +51,6 @@ Restore reads are bounded before `game.Restore` validates the complete document.
 
 ## Ownership and Verification
 
-`game.Game` owns values, candidates, history, serialization, and semantic validation. `cli.Controller` owns compact rendering, commands, hint degradation, help, and error translation. `cmd` owns root flags and startup selection; `sessionfile` owns bounded reads and atomic writes.
+`game.Game` owns values, candidates, history, serialization, and semantic validation. `session.Service` owns frontend-neutral restore and puzzle acquisition with explicit solver/catalog dependencies and structured outcomes. `cli.Controller` owns compact rendering, commands, hint degradation, help, and error translation. `cmd` owns root flags, process signal registration, managed catalog composition, and startup wording; `sessionfile` owns bounded reads and atomic writes.
 
 Package tests cover canonical descriptor and narration rendering, compact rendering despite hidden candidates, atomic placement and candidate hints, one-step Undo, continuation from candidate work, rejected legacy hint arguments, complete session round trips, bounded reads, atomic replacement, and error translation. Built-binary scenarios cover command help, compact placement output, hidden candidate-plan progression, save/resume with redo state, corrupt input rejection, flag conflicts, and failed-save preservation.

@@ -39,7 +39,8 @@ There is no current Draft work. Drafts remain discoverable here when present and
 2. `.aidoc/designs/difficulty-calibration.md` — evidence and measurement limits.
 3. `.aidoc/designs/database-puzzle-selection.md` — runtime source order and exact-grade acquisition.
 4. `.aidoc/designs/catalog-bootstrap.md` and `.aidoc/designs/evil-cohort.md` — embedded supply and fail-closed Evil membership.
-5. `cmd/play.go`, `db/puzzle.go`, and `catalogbundle/bundle.go` — authoritative runtime boundaries.
+5. `session/service.go`, `db/puzzle.go`, and `catalogbundle/bundle.go` — reusable acquisition, catalog selection, and embedded-supply boundaries.
+6. `cmd/session.go` and `cmd/catalog.go` — frontend wording and managed catalog composition.
 
 ### Change Guest, Account, or Deployment Behavior
 
@@ -47,7 +48,7 @@ There is no current Draft work. Drafts remain discoverable here when present and
 2. `.aidoc/designs/localization-contract.md` — semantic message and English fallback boundary.
 3. `.aidoc/designs/user-accounts.md` — identity, ownership, sessions, and claim semantics.
 4. `.aidoc/designs/deployment-hardening.md` — artifact, loopback, origin, service, and replacement boundaries.
-5. `api/openapi.yaml`, `cmd/api.go`, `cmd/web_runtime.go`, `webapi/server.go`, and `message/` — wire, account-runtime, descriptor, and server implementation.
+5. `api/openapi.yaml`, `cmd/api.go`, `cmd/web_runtime.go`, `session/service.go`, `webapi/server.go`, and `message/` — wire, account-runtime, reusable game creation, descriptor, and server implementation.
 6. `.aidoc/designs/e2e-api-scenarios.md` — black-box acceptance.
 
 ### Run Black-Box Acceptance
