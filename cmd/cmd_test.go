@@ -16,6 +16,7 @@ import (
 	"github.com/gnailuy/sudoku/db"
 	"github.com/gnailuy/sudoku/game"
 	"github.com/gnailuy/sudoku/generator"
+	"github.com/gnailuy/sudoku/privatefs"
 	"github.com/gnailuy/sudoku/solver"
 )
 
@@ -289,6 +290,9 @@ func TestCreateSessionRestoresSerializedState(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "session.json")
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatalf("write session: %v", err)
+	}
+	if err := privatefs.ProtectFile(path); err != nil {
+		t.Fatalf("protect serialized session fixture: %v", err)
 	}
 
 	restored, source, err := createSession(sessionRequest{resume: path}, os.Stdout, os.Stderr)

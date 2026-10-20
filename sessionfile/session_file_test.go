@@ -32,6 +32,9 @@ func TestReadRejectsOversizedInput(t *testing.T) {
 	if err := os.WriteFile(path, []byte(strings.Repeat("x", int(MaxSize+1))), 0600); err != nil {
 		t.Fatal(err)
 	}
+	if err := privatefs.ProtectFile(path); err != nil {
+		t.Fatalf("protect oversized session fixture: %v", err)
+	}
 	_, err := Read(path)
 	if !errors.Is(err, ErrTooLarge) {
 		t.Fatalf("Read() error = %v, want ErrTooLarge", err)
