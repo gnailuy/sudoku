@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/gnailuy/sudoku/privatefs"
 )
 
 // MaxSize is the largest accepted serialized session.
@@ -15,8 +17,11 @@ const MaxSize int64 = 1 << 20
 // ErrTooLarge identifies session input beyond MaxSize.
 var ErrTooLarge = errors.New("session file is too large")
 
-// Read loads a bounded serialized session from path.
+// Read loads a bounded serialized session from a platform-private file.
 func Read(path string) ([]byte, error) {
+	if err := privatefs.ValidateFile(path); err != nil {
+		return nil, fmt.Errorf("validate private session %q: %w", path, err)
+	}
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open session %q: %w", path, err)
@@ -32,7 +37,7 @@ func Read(path string) ([]byte, error) {
 	return data, nil
 }
 
-// Write atomically replaces path with a mode-0600 serialized session.
+// Write atomically replaces path with a platform-private serialized session.
 func Write(path string, data []byte) (err error) {
 	directory := filepath.Dir(path)
 	temporary, err := os.CreateTemp(directory, ".sudoku-session-*")
@@ -41,7 +46,7 @@ func Write(path string, data []byte) (err error) {
 	}
 	temporaryPath := temporary.Name()
 	defer func() { _ = temporary.Close(); _ = os.Remove(temporaryPath) }()
-	if err = temporary.Chmod(0600); err != nil {
+	if err = privatefs.ProtectFile(temporaryPath); err != nil {
 		return fmt.Errorf("protect temporary session for %q: %w", path, err)
 	}
 	if _, err = temporary.Write(data); err != nil {

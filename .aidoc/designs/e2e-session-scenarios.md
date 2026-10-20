@@ -32,7 +32,7 @@ Use the known puzzle from section 2 of `.aidoc/designs/e2e-play-scenarios.md` an
 
 ### 8.1 Save, Resume, and Preserve Redo
 **Action:** Execute the matching case in `scripts/e2e_cli.py`, which owns the canonical command sequence and fixture.
-**Expected:** Save produces a mode-`0600` session after a value change and Undo. The restored game reports the pre-redo board, `redo` reapplies the value, and `check` reports the resulting invalid state.
+**Expected:** Save produces a platform-private session after a value change and Undo: mode `0600` on Unix or a protected current-user/System/Administrators DACL on Windows. The restored game reports the pre-redo board, `redo` reapplies the value, and `check` reports the resulting invalid state.
 
 ### 8.2 Reject Corrupt, Obsolete-Shape, and Oversized Sessions
 **Action:** Execute the matching cases in `scripts/e2e_cli.py`.

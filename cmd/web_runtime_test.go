@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/gnailuy/sudoku/game"
+	"github.com/gnailuy/sudoku/privatefs"
 )
 
 func TestLoadManagedGuestKeyPersistsOwnerOnlyKey(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)
+	t.Setenv("LOCALAPPDATA", dataHome)
 
 	first, err := loadManagedGuestKey()
 	if err != nil {
@@ -29,18 +31,14 @@ func TestLoadManagedGuestKeyPersistsOwnerOnlyKey(t *testing.T) {
 		t.Fatalf("managed key was not stable: first=%d bytes equal=%v", len(first), bytes.Equal(first, second))
 	}
 	path := filepath.Join(dataHome, "sudoku", managedGuestKeyFile)
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := info.Mode().Perm(); got != 0600 {
-		t.Fatalf("managed key mode = %04o, want 0600", got)
+	if err := privatefs.ValidateFile(path); err != nil {
+		t.Fatalf("managed key is not private: %v", err)
 	}
 
-	if err := os.Chmod(path, 0640); err != nil {
+	if err := makeFileBroadlyReadable(path); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := loadManagedGuestKey(); err == nil || !strings.Contains(err.Error(), "owner-only") {
+	if _, err := loadManagedGuestKey(); err == nil || !strings.Contains(err.Error(), "private file") {
 		t.Fatalf("unsafe managed key error = %v", err)
 	}
 }
@@ -83,10 +81,10 @@ func TestReadWebConfigRejectsAccountWithoutGuestAndUnsafeFile(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "requires a complete guest section") {
 		t.Fatalf("account-only error = %v", err)
 	}
-	if err := os.Chmod(path, 0644); err != nil {
+	if err := makeFileBroadlyReadable(path); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readWebConfig(path); err == nil || !strings.Contains(err.Error(), "owner-only") {
+	if _, err := readWebConfig(path); err == nil || !strings.Contains(err.Error(), "private file") {
 		t.Fatalf("unsafe config error = %v", err)
 	}
 }

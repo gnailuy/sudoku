@@ -20,6 +20,7 @@ import (
 	"github.com/gnailuy/sudoku/guestclaim"
 	"github.com/gnailuy/sudoku/guestdoc"
 	"github.com/gnailuy/sudoku/oidcauth"
+	"github.com/gnailuy/sudoku/privatefs"
 	"github.com/gnailuy/sudoku/recovery"
 	"github.com/gnailuy/sudoku/solver"
 	"github.com/gnailuy/sudoku/webapi"
@@ -143,8 +144,8 @@ func readWebConfig(path string) (webConfigFile, error) {
 	if err != nil {
 		return webConfigFile{}, fmt.Errorf("read --web-config: %w", err)
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
-		return webConfigFile{}, errors.New("--web-config must be a regular owner-only file")
+	if err := privatefs.ValidateFile(path); err != nil {
+		return webConfigFile{}, errors.New("--web-config must be a regular private file")
 	}
 	if info.Size() > maxWebConfigBytes {
 		return webConfigFile{}, errors.New("--web-config exceeds 64 KiB")
@@ -207,6 +208,9 @@ func loadManagedGuestKey() ([]byte, error) {
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		return nil, fmt.Errorf("create managed guest key directory: %w", err)
 	}
+	if err := privatefs.ProtectDirectory(directory); err != nil {
+		return nil, fmt.Errorf("protect managed guest key directory: %w", err)
+	}
 	path := filepath.Join(directory, managedGuestKeyFile)
 	if key, err := readManagedGuestKey(path); err == nil {
 		return key, nil
@@ -223,7 +227,7 @@ func loadManagedGuestKey() ([]byte, error) {
 	}
 	temporaryPath := temporary.Name()
 	defer os.Remove(temporaryPath)
-	if err := temporary.Chmod(0600); err != nil {
+	if err := privatefs.ProtectFile(temporaryPath); err != nil {
 		_ = temporary.Close()
 		return nil, fmt.Errorf("protect managed guest key: %w", err)
 	}
@@ -248,12 +252,11 @@ func loadManagedGuestKey() ([]byte, error) {
 }
 
 func readManagedGuestKey(path string) ([]byte, error) {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
-		return nil, errors.New("managed guest key must be a regular owner-only file")
+	if err := privatefs.ValidateFile(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		return nil, errors.New("managed guest key must be a regular private file")
 	}
 	key, err := os.ReadFile(path)
 	if err != nil {

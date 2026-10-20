@@ -44,6 +44,7 @@ def main():
         env = os.environ.copy()
         env["XDG_DATA_HOME"] = os.path.join(directory, "data")
         env["XDG_STATE_HOME"] = os.path.join(directory, "state")
+        env["LOCALAPPDATA"] = os.path.join(directory, "local-app-data")
         recovery_directory = os.path.join(env["XDG_STATE_HOME"], "sudoku", "recovery")
         process = subprocess.Popen(
             [args.binary, "tui", "--input", PUZZLE],
@@ -183,6 +184,7 @@ def main():
         corrupt = os.path.join(directory, "corrupt.json")
         with open(corrupt, "w", encoding="utf-8") as handle:
             handle.write("{bad json")
+        os.chmod(corrupt, 0o600)
         rejected = subprocess.run([args.binary, "tui", "--resume", corrupt], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, timeout=3)
         if rejected.returncode == 0 or b"resume saved session" not in rejected.stdout.lower():
             raise AssertionError("corrupt TUI restore was not rejected before startup")

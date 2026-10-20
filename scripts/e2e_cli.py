@@ -31,7 +31,14 @@ def isolated_env(root):
     env = os.environ.copy()
     env["XDG_DATA_HOME"] = str(root / "data")
     env["XDG_STATE_HOME"] = str(root / "state")
+    env["LOCALAPPDATA"] = str(root / "local-app-data")
     return env
+
+
+def managed_database_path(root):
+    if os.name == "nt":
+        return root / "local-app-data" / "Sudoku" / "puzzles.db"
+    return root / "data" / "sudoku" / "puzzles.db"
 
 
 def run(binary, args, root, input_text=None, expected=0, timeout=20):
@@ -117,7 +124,7 @@ def main():
         # The managed OS-native database records the embedded release on first
         # use without requiring a separate initialization command.
         run(binary, ["db", "stats"], root)
-        managed_database = root / "data" / "sudoku" / "puzzles.db"
+        managed_database = managed_database_path(root)
         with sqlite3.connect(managed_database) as connection:
             release = connection.execute(
                 "SELECT bundle_version, length(artifact_digest), puzzle_count, cohort_count FROM catalog_bundle_releases"
@@ -351,7 +358,7 @@ def main():
             f"1 1 5\n1 1 4\nu\nsave {session}\nq\n",
         )
         contains(output, f"Session saved to {session}.")
-        if stat.S_IMODE(session.stat().st_mode) != 0o600:
+        if os.name != "nt" and stat.S_IMODE(session.stat().st_mode) != 0o600:
             raise AssertionError("session file mode is not 0600")
         saved = json.loads(session.read_text(encoding="utf-8"))
         if "version" in saved:
@@ -369,6 +376,9 @@ def main():
         obsolete.write_text('{"version":3}', encoding="utf-8")
         oversized = root / "oversized.json"
         oversized.write_bytes(b"x" * (1024 * 1024 + 1))
+        if os.name != "nt":
+            for source in (corrupt, obsolete, oversized):
+                source.chmod(0o600)
         for source, message in (
             (corrupt, "resume saved session"),
             (obsolete, "resume saved session"),
@@ -772,7 +782,7 @@ def main():
                 raise AssertionError("resumed replenishment published a duplicate")
 
         # Root play auto-stores through the default XDG data path.
-        auto_database = root / "data" / "sudoku" / "puzzles.db"
+        auto_database = managed_database_path(root)
         contains(run(binary, ["--input", PUZZLE_DOTS], root, "q\n"), "Exiting the game.")
         if not auto_database.is_file() or not puzzle_rows(auto_database):
             raise AssertionError("root play did not auto-store the puzzle")

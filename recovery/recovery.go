@@ -11,12 +11,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/gnailuy/sudoku/privatefs"
 	"github.com/gnailuy/sudoku/sessionfile"
 )
 
@@ -49,16 +51,43 @@ type Store struct {
 	now       func() time.Time
 }
 
-// DefaultDirectory returns the XDG state location used by Sudoku.
+// DefaultDirectory returns Sudoku's platform-native application-state location.
 func DefaultDirectory() (string, error) {
-	if state := strings.TrimSpace(os.Getenv("XDG_STATE_HOME")); state != "" {
-		return filepath.Join(state, "sudoku", "recovery"), nil
+	return defaultDirectoryFor(runtime.GOOS, os.Getenv, os.UserHomeDir)
+}
+
+func defaultDirectoryFor(goos string, getenv func(string) string, userHomeDir func() (string, error)) (string, error) {
+	switch goos {
+	case "windows":
+		root := strings.TrimSpace(getenv("LOCALAPPDATA"))
+		if root == "" {
+			return "", errors.New("determine Windows recovery directory: LOCALAPPDATA is empty")
+		}
+		return filepath.Join(root, "Sudoku", "recovery"), nil
+	case "darwin":
+		home, err := userHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("determine macOS recovery directory: %w", err)
+		}
+		if home == "" {
+			return "", errors.New("determine macOS recovery directory: home directory is empty")
+		}
+		return filepath.Join(home, "Library", "Application Support", "Sudoku", "recovery"), nil
+	case "linux":
+		if state := strings.TrimSpace(getenv("XDG_STATE_HOME")); state != "" {
+			return filepath.Join(state, "sudoku", "recovery"), nil
+		}
+		home, err := userHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("determine Linux recovery directory: %w", err)
+		}
+		if home == "" {
+			return "", errors.New("determine Linux recovery directory: home directory is empty")
+		}
+		return filepath.Join(home, ".local", "state", "sudoku", "recovery"), nil
+	default:
+		return "", fmt.Errorf("no recovery location is defined for %s", goos)
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("locate home directory: %w", err)
-	}
-	return filepath.Join(home, ".local", "state", "sudoku", "recovery"), nil
 }
 
 // NewStore creates a recovery store handle without touching the filesystem.
@@ -91,7 +120,7 @@ func (store Store) Write(id, source string, session []byte) error {
 	if err != nil || directoryInfo.Mode()&os.ModeSymlink != 0 || !directoryInfo.IsDir() {
 		return errors.New("recovery path is not a regular directory")
 	}
-	if err := os.Chmod(store.directory, 0700); err != nil {
+	if err := privatefs.ProtectDirectory(store.directory); err != nil {
 		return fmt.Errorf("protect recovery directory: %w", err)
 	}
 	now := store.now().UTC()
@@ -132,7 +161,7 @@ func (store Store) Discover(validate func([]byte) error) ([]Record, error) {
 	if directoryInfo.Mode()&os.ModeSymlink != 0 || !directoryInfo.IsDir() {
 		return nil, errors.New("recovery path is not a regular directory")
 	}
-	if err := os.Chmod(store.directory, 0700); err != nil {
+	if err := privatefs.ProtectDirectory(store.directory); err != nil {
 		return nil, fmt.Errorf("protect recovery directory: %w", err)
 	}
 	entries, err := os.ReadDir(store.directory)
@@ -152,7 +181,7 @@ func (store Store) Discover(validate func([]byte) error) ([]Record, error) {
 		if infoErr != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 			continue
 		}
-		if err := os.Chmod(path, 0600); err != nil {
+		if err := privatefs.ProtectFile(path); err != nil {
 			continue
 		}
 		record, readErr := store.read(path)
@@ -167,6 +196,9 @@ func (store Store) Discover(validate func([]byte) error) ([]Record, error) {
 }
 
 func (store Store) read(path string) (Record, error) {
+	if err := privatefs.ValidateFile(path); err != nil {
+		return Record{}, err
+	}
 	info, err := os.Lstat(path)
 	if err != nil {
 		return Record{}, err
