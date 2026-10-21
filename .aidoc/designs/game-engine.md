@@ -65,7 +65,7 @@ The hint query returns one complete renderer-neutral `HintPlan` without mutation
 - New actions after an undo discard the redo tail.
 - Undo and redo restore the complete prior state, including invalid markers and every candidate change caused by an action.
 - User mistakes remain observable for rendering but never contaminate the solver's valid board.
-- Production validation asks bounded solver questions: existence checks stop after one solution, and only the multiple-solution recovery path counts up to two. Every search receives a detached board.
+- Production validation asks bounded solver questions: existence checks stop after one solution, uniqueness and multiple-solution checks stop after two, and generation stops after its configured acceptance threshold. Every search receives a detached board.
 - Each accepted `SetValue` that the engine confirms as invalid increments the session's cumulative mistake count. Candidate edits, hints, erase, Undo, and Redo do not change it; undo history therefore cannot reduce or replay mistakes.
 - Public input errors return typed errors; panics remain reserved for violated internal invariants.
 - Snapshots are self-consistent and safe for asynchronous rendering after the engine advances.

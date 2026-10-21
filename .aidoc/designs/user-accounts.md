@@ -65,7 +65,7 @@ After sign-in, the browser may submit its one current guest document to the clai
 
 The claim fingerprint makes retries idempotent for the same user and prevents one guest document from creating duplicate durable games. A claim by another user fails without revealing the first owner. The browser deletes its guest record only after a successful claim response; cancellation or failure leaves the local copy intact.
 
-Already authenticated players create account-owned games from the beginning. The shared catalog row is prepared first, then one concrete SQLite transaction inserts the presentation-specific play run and its account game together; failure of either linked insert leaves neither row. Account endpoints never accept sealed guest state except at claim, and guest endpoints never switch to account mode merely because a application-session cookie is present.
+Already authenticated players create account-owned games from the beginning. The shared catalog row is prepared first, then one concrete SQLite transaction inserts the presentation-specific play run and its account game together; failure of either linked insert leaves neither row. Account endpoints never accept sealed guest state except at claim, and guest endpoints never switch to account mode merely because an application-session cookie is present.
 
 ## API and Persistence Shape
 
