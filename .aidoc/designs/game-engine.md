@@ -65,6 +65,7 @@ The hint query returns one complete renderer-neutral `HintPlan` without mutation
 - New actions after an undo discard the redo tail.
 - Undo and redo restore the complete prior state, including invalid markers and every candidate change caused by an action.
 - User mistakes remain observable for rendering but never contaminate the solver's valid board.
+- Production validation asks bounded solver questions: existence checks stop after one solution, uniqueness and multiple-solution checks stop after two, and generation stops after its configured acceptance threshold. Every search receives a detached board.
 - Each accepted `SetValue` that the engine confirms as invalid increments the session's cumulative mistake count. Candidate edits, hints, erase, Undo, and Redo do not change it; undo history therefore cannot reduce or replay mistakes.
 - Public input errors return typed errors; panics remain reserved for violated internal invariants.
 - Snapshots are self-consistent and safe for asynchronous rendering after the engine advances.
@@ -91,7 +92,7 @@ The current shape has these fields:
 
 Each player-controlled state stores separate 81-character `values` and `invalid` grids plus sparse `candidates` records containing a zero-based row, zero-based column, and digits. `values` excludes puzzle givens. Separating invalid entries keeps player mistakes visible without contaminating the solver board. Before/after history records use the same complete state shape, so restoration preserves mixed value/candidate Undo and Redo exactly.
 
-Restoration rejects malformed JSON, unknown fields, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid candidate records, candidates on occupied cells, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Current state is stored explicitly alongside the validated history and cursor. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
+Restoration rejects malformed JSON, unknown fields, invalid or unsolvable puzzles, edits to givens, overlapping valid/invalid entries, invalid candidate records, candidates on occupied cells, unsolvable accepted values, entries incorrectly marked invalid, disconnected history, and out-of-range cursors. Puzzle and session solvability validation uses the bounded existence query on detached boards rather than exhaustive counting. Current state is stored explicitly alongside the validated history and cursor. All validation completes before a `Game` is returned, so corrupt input cannot produce a partially initialized session. Failures use `StateError` and its stable code: `malformed-state`, `invalid-puzzle`, `invalid-session`, or `invalid-history`.
 
 Serialized game state has no version discriminator or migration path. An obsolete or future field is an unknown field and fails as malformed input. `Game.ToString` remains diagnostic text and is not a persistence format.
 

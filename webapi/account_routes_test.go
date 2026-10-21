@@ -88,9 +88,6 @@ func TestGuestAndAccountRoutesUseSealedStateCookieAuthAndCSRF(t *testing.T) {
 			if err != nil {
 				return game.Game{}, "", "", "", err
 			}
-			if err := database.InsertPlayRun(db.PlayRun{ID: runID, BasePuzzleID: baseID, PresentedPuzzle: knownPuzzle}); err != nil {
-				return game.Game{}, "", "", "", err
-			}
 			return newGame(), baseID, runID, Easy, nil
 		},
 	}

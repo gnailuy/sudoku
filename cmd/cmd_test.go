@@ -328,7 +328,7 @@ func TestCreateSessionRestoresSerializedState(t *testing.T) {
 	}
 }
 
-func TestCreateOwnedSessionPersistsMediumPuzzleBeforePlayRun(t *testing.T) {
+func TestCreateOwnedSessionPreparesMediumPuzzleWithoutHalfCreatingPlayRun(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "catalog.db")
 	database, err := db.Open(dbPath)
 	if err != nil {
@@ -344,12 +344,12 @@ func TestCreateOwnedSessionPersistsMediumPuzzleBeforePlayRun(t *testing.T) {
 		t.Fatalf("owned Medium game identity = %q, %q, %q", difficulty, baseID, runID)
 	}
 	run, err := database.PlayRunByID(runID)
-	if err != nil || run == nil {
-		t.Fatalf("play run = %+v, %v", run, err)
+	if err != nil || run != nil {
+		t.Fatalf("play run before account-game transaction = %+v, %v", run, err)
 	}
 	presented := current.ProblemBoard()
-	if run.BasePuzzleID != baseID || run.PresentedPuzzle != presented.ToString() {
-		t.Fatalf("play run does not preserve Medium presentation: %+v", run)
+	if got := db.BasePuzzleID(core.CanonicalPuzzle(presented.ToString())); got != baseID {
+		t.Fatalf("prepared base puzzle = %q, want %q", baseID, got)
 	}
 }
 

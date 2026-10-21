@@ -111,3 +111,27 @@ func TestCreateRejectsMissingDependencies(t *testing.T) {
 		t.Fatal("missing dependencies unexpectedly succeeded")
 	}
 }
+
+func TestOptionalPuzzleStorageFailureReturnsStructuredNotice(t *testing.T) {
+	store := solver.NewStore()
+	service, err := New(Config{Solver: &store, OpenCatalog: func(path string) (*db.DB, error) {
+		catalog, err := db.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		if err := catalog.Close(); err != nil {
+			return nil, err
+		}
+		return catalog, nil
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.Create(Request{Puzzle: knownPuzzle, DatabasePath: filepath.Join(t.TempDir(), "closed.db")})
+	if err != nil {
+		t.Fatalf("optional storage failure prevented play: %v", err)
+	}
+	if len(result.Notices) != 1 || result.Notices[0].Kind != NoticePersistenceFailed || result.Notices[0].Operation != "store the reusable puzzle" || result.Notices[0].Cause == nil {
+		t.Fatalf("persistence notices = %+v", result.Notices)
+	}
+}

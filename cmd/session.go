@@ -49,6 +49,8 @@ func createSession(request sessionRequest, output, errorOutput io.Writer) (game.
 			fmt.Fprintf(output, "Exact-grade catalog unavailable (%v). Falling back to bounded generation.\n", notice.Cause)
 		case playsession.NoticeDifficultyChanged:
 			fmt.Fprintf(output, "Requested difficulty: %s. Generated puzzle difficulty: %s. Enjoy!\n", capitalize(notice.RequestedDifficulty), capitalize(notice.ActualDifficulty))
+		case playsession.NoticePersistenceFailed:
+			fmt.Fprintf(errorOutput, "Warning: unable to %s: %v\n", notice.Operation, notice.Cause)
 		}
 	}
 	return result.Game, result.ResumePath, nil
@@ -71,33 +73,43 @@ func (recorder completionRecorder) RecordCompletion(puzzle string) (bool, error)
 	return puzzleDB.RecordCompletion(puzzle)
 }
 
-func newCompletionTracker(current game.Game, path string, existingRunID ...string) *playrun.Tracker {
-	if path == "" {
-		path, _ = defaultDBPath()
-	}
+func newCompletionTracker(current game.Game, path string, existingRunID ...string) (*playrun.Tracker, error) {
 	key := normalizePuzzleForDB(solverStore, current.ProblemBoard())
+	if path == "" {
+		resolved, err := defaultDBPath()
+		if err != nil {
+			return playrun.New(key, completionRecorder{}), fmt.Errorf("resolve play-run database: %w", err)
+		}
+		path = resolved
+	}
 	runID := ""
 	if len(existingRunID) > 0 {
 		runID = existingRunID[0]
 	}
 	if runID == "" {
 		generated, err := recovery.NewID()
-		if err == nil {
-			puzzleDB, openErr := db.Open(path)
-			if openErr == nil {
-				presented := current.ProblemBoard()
-				run := db.PlayRun{ID: generated, BasePuzzleID: db.BasePuzzleID(key), PresentedPuzzle: presented.ToString()}
-				if insertErr := puzzleDB.InsertPlayRun(run); insertErr == nil {
-					runID = generated
-				}
-				_ = puzzleDB.Close()
-			}
+		if err != nil {
+			return playrun.New(key, completionRecorder{path: path}), fmt.Errorf("create play-run identity: %w", err)
+		}
+		puzzleDB, err := db.Open(path)
+		if err != nil {
+			return playrun.New(key, completionRecorder{path: path}), fmt.Errorf("open play-run database: %w", err)
+		}
+		presented := current.ProblemBoard()
+		run := db.PlayRun{ID: generated, BasePuzzleID: db.BasePuzzleID(key), PresentedPuzzle: presented.ToString()}
+		if err := puzzleDB.InsertPlayRun(run); err != nil {
+			_ = puzzleDB.Close()
+			return playrun.New(key, completionRecorder{path: path}), fmt.Errorf("create play run: %w", err)
+		}
+		runID = generated
+		if err := puzzleDB.Close(); err != nil {
+			return playrun.NewLinked(key, runID, completionRecorder{path: path, runID: runID}), fmt.Errorf("close play-run database: %w", err)
 		}
 	}
 	if runID == "" {
-		return playrun.New(key, completionRecorder{path: path})
+		return playrun.New(key, completionRecorder{path: path}), nil
 	}
-	return playrun.NewLinked(key, runID, completionRecorder{path: path, runID: runID})
+	return playrun.NewLinked(key, runID, completionRecorder{path: path, runID: runID}), nil
 }
 
 func createTrackedSession(request sessionRequest, output, errorOutput io.Writer) (game.Game, string, *playrun.Tracker, error) {
@@ -113,5 +125,9 @@ func createTrackedSession(request sessionRequest, output, errorOutput io.Writer)
 	if err != nil {
 		return game.Game{}, "", nil, err
 	}
-	return current, resumePath, newCompletionTracker(current, request.dbPath), nil
+	tracker, trackingErr := newCompletionTracker(current, request.dbPath)
+	if trackingErr != nil {
+		fmt.Fprintf(errorOutput, "Warning: completion tracking setup failed: %v\n", trackingErr)
+	}
+	return current, resumePath, tracker, nil
 }

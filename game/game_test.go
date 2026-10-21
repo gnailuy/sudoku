@@ -367,3 +367,22 @@ func searchString(s, substr string) bool {
 	}
 	return false
 }
+
+func TestBoundedSolutionQueriesDoNotMutateCallerBoard(t *testing.T) {
+	store := solver.NewStore()
+	board := testProblem()
+	before := board.Copy()
+	current := NewGame(board, NewDefaultOptions(store))
+	if !current.hasSolution(board) {
+		t.Fatal("known puzzle unexpectedly has no solution")
+	}
+	if board != before {
+		t.Fatal("existence query mutated the caller-owned board")
+	}
+	if current.hasMultipleSolutions(board) {
+		t.Fatal("known puzzle unexpectedly has multiple solutions")
+	}
+	if board != before {
+		t.Fatal("bounded multiple-solution query mutated the caller-owned board")
+	}
+}

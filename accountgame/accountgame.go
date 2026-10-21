@@ -21,7 +21,7 @@ var (
 )
 
 type store interface {
-	CreateAccountGame(db.AccountGame) error
+	CreateOwnedGame(db.PlayRun, db.AccountGame) error
 	AccountGameByID(string, string) (*db.AccountGame, error)
 	AccountGamesByUser(string, int) ([]db.AccountGame, error)
 	UpdateAccountGame(string, string, int64, []byte, string) (bool, error)
@@ -100,7 +100,8 @@ func (service *Service) Create(userID string, current game.Game, basePuzzleID, p
 		BasePuzzleID: basePuzzleID, PlayRunID: playRunID, EngineState: serialized,
 		ActualDifficulty: actualDifficulty, Status: string(current.Snapshot().Status),
 	}
-	if err := service.store.CreateAccountGame(record); err != nil {
+	presented := current.ProblemBoard()
+	if err := service.store.CreateOwnedGame(db.PlayRun{ID: playRunID, BasePuzzleID: basePuzzleID, PresentedPuzzle: presented.ToString()}, record); err != nil {
 		return State{}, err
 	}
 	return State{Game: record, Snapshot: current.Snapshot()}, nil

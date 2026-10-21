@@ -111,7 +111,7 @@ func Restore(data []byte, options Options) (Game, error) {
 	}
 	completeSolver := options.solverStore.GetDefaultSolver()
 	problemCopy := problem.Copy()
-	if completeSolver.CountSolutions(&problemCopy) == 0 {
+	if !completeSolver.HasSolution(&problemCopy) {
 		return Game{}, stateError(StateErrorInvalidPuzzle, "serialized puzzle has no solution", nil)
 	}
 
@@ -235,7 +235,7 @@ func deserializeSessionState(problem core.Board, payload serializedSessionState,
 
 func validateSessionSemantics(state sessionState, completeSolver solver.CompleteSolver) error {
 	playBoard := state.playBoard.Copy()
-	if completeSolver.CountSolutions(&playBoard) == 0 {
+	if !completeSolver.HasSolution(&playBoard) {
 		return stateError(StateErrorInvalidSession, "session values have no solution", nil)
 	}
 	for row := 0; row < 9; row++ {
@@ -247,7 +247,7 @@ func validateSessionSemantics(state sessionState, completeSolver solver.Complete
 			}
 			withInvalid := state.playBoard.Copy()
 			_ = withInvalid.Set(position, value)
-			if withInvalid.IsValid() && completeSolver.CountSolutions(&withInvalid) != 0 {
+			if withInvalid.IsValid() && completeSolver.HasSolution(&withInvalid) {
 				return stateError(StateErrorInvalidSession, fmt.Sprintf("invalid entry at row %d, column %d is solvable", row, column), nil)
 			}
 		}

@@ -54,7 +54,7 @@ A player-driven completion atomically changes the active run to `completed` and 
 
 ## Account Ownership
 
-Current schema version 6 stores provider-keyed `external_identities`, digest-only `application_sessions`, owner-scoped `account_games`, serving-cohort definitions, and cohort membership. Account games reference the shared base puzzle and one presentation-specific play run while storing complete durable engine state and an optimistic revision. Deleting a user cascades identities, sessions, and owned games but preserves the catalog and play-run history.
+Current schema version 6 stores provider-keyed `external_identities`, digest-only `application_sessions`, owner-scoped `account_games`, serving-cohort definitions, and cohort membership. Account games reference the shared base puzzle and one presentation-specific play run while storing complete durable engine state and an optimistic revision. Direct account-owned creation inserts the linked play run and account game in one transaction; reusable catalog insertion remains outside that presentation-specific transaction. Deleting a user cascades identities, sessions, and owned games but preserves the catalog and play-run history.
 
 The persistence boundary resolves account games with both owner and game identifiers, so another user's game is indistinguishable from an absent game. External identity uses the provider issuer and subject pair; profile email remains mutable metadata and never links accounts.
 
