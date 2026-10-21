@@ -39,7 +39,7 @@ Copy-only changes cannot close these gaps. The missing relationship must be repr
 
 The replacement contract must:
 
-1. make the observation, logical bridge, and action distinct and complete;
+1. make every necessary observation, logical bridge, and action distinct and complete;
 2. carry the strategy-specific reason as typed data owned by the backend;
 3. let a locale reorder and format complete target, unit, candidate, and digit lists naturally;
 4. make consecutive scenes advance when a new relation is introduced;
@@ -62,19 +62,19 @@ The initial union has three variants:
 
 The full rollout adds variants only when a reasoning family needs facts that cannot be represented by an existing variant. A variant may serve several techniques—for example, the fish variant serves X-Wing, Swordfish, and Jellyfish—so the wire contract follows teaching logic rather than the 23 display names.
 
-Every strategy plan uses exactly three semantic stages:
+Each strategy plan uses an ordered sequence of semantic teaching steps whose length follows the deduction. A direct placement may need only one observation before the action, while a chain may introduce and explain several relations one at a time.
 
-| Stage | Required answer | Scene responsibility |
+| Purpose | Required answer | Sequence and scene responsibility |
 |---|---|---|
-| `observe` | What should the player notice? | Show the bounded premise without the conclusion |
-| `explain` | Why does that premise force a result? | Add the relation that connects the premise to the conclusion |
-| `apply` | What exactly should change? | Preserve necessary context and isolate the placement or grouped eliminations |
+| `observe` | What should the player notice? | Introduce one bounded premise; repeat when the learner must establish several distinct facts |
+| `explain` | Why does that premise force a result? | Add one logical relation at a time; repeat until the complete bridge to the conclusion is explicit |
+| `apply` | What exactly should change? | Finish the sequence by preserving necessary context and isolating the placement or grouped eliminations |
 
-`observe`, `explain`, and `apply` replace the strategy meanings of the current generic `observe`, `compare`, and `eliminate`/`conclude` sequence in one coordinated cutover. Correction plans may retain their focused correction flow because they repair inconsistent player state rather than teach a Sudoku strategy.
+The sequence contains only steps that add learner-visible information. Adjacent steps cannot repeat the same statement and scene without introducing a new fact or relation. The final `apply` step carries the plan's one atomic effect; preceding `observe` and `explain` steps have no effect. Correction plans retain their focused correction flow because they repair inconsistent player state rather than teach a Sudoku strategy.
 
-Each stage carries one complete `MessageDescriptor`. The descriptor argument union gains bounded list variants for `digits`, `cells`, `candidates`, and `units`. List values are typed arrays with the same coordinate and size limits as their scalar forms; they are not comma-joined text. A locale therefore receives one complete message ID plus named semantic arguments and may reorder, pluralize, and format the whole sentence without replaying backend token order.
+Each teaching step carries one complete `MessageDescriptor`. The descriptor argument union gains bounded list variants for `digits`, `cells`, `candidates`, and `units`. List values are typed arrays with the same coordinate and size limits as their scalar forms; they are not comma-joined text. A locale therefore receives one complete message ID plus named semantic arguments and may reorder, pluralize, and format the whole sentence without replaying backend token order.
 
-Structured narration remains available for accessible target references and limited renderers, but it no longer assembles a conclusion from repeated scalar fragments. The stage descriptor is the canonical translatable statement; narration targets identify interactive references within that statement. The existing English fallback remains complete and deterministic.
+Structured narration remains available for accessible target references and limited renderers, but it no longer assembles a conclusion from repeated scalar fragments. The step descriptor is the canonical translatable statement; narration targets identify interactive references within that statement. The existing English fallback remains complete and deterministic.
 
 ## Pilot Teaching Plans
 
@@ -102,9 +102,9 @@ The same variant supports larger naked subsets and hidden subsets only if its fa
 
 The `implication-chain` reason records ordered bivalue groups, typed implication links, the common endpoint digit, and cells that see both endpoints.
 
-1. `observe` introduces the first bounded implication and its two bivalue cells.
-2. `explain` walks the complete ordered implication chain and states why one endpoint must contain the common digit.
-3. `apply` groups removal of that digit from every cell seeing both endpoints while preserving the complete chain scene.
+1. `observe` introduces the first bivalue cell and its bounded alternatives.
+2. Successive `explain` steps walk the ordered implication links one at a time. Each step adds the next bivalue cell and states which candidate forces the next relation, so the number of steps follows the actual chain length.
+3. The final `explain` step establishes why one endpoint must contain the common digit, then `apply` groups removal of that digit from every cell seeing both endpoints while preserving the complete chain scene.
 
 The accessible statement must communicate the same implication order as the visual links; arrows alone are never the explanation.
 
@@ -112,9 +112,10 @@ The accessible statement must communicate the same implication order as the visu
 
 The pilot is accepted only when all three strategies prove the following at engine, HTTP, terminal, and browser boundaries:
 
-- every stage has one valid family reason and one complete descriptor with correctly typed arguments;
-- the explanation stage is strategy-specific and does not use the generic forced-result descriptor;
-- the observation and explanation scenes differ meaningfully unless a fixture records why the same scene is sufficient;
+- every teaching step has one valid family reason and one complete descriptor with correctly typed arguments;
+- every explanation step is strategy-specific and does not use the generic forced-result descriptor;
+- each consecutive scene adds or focuses a learner-visible fact or relation;
+- simple strategies use only the steps their logic requires, while chain fixtures derive their explanation-step count from the represented links;
 - grouped action descriptors round-trip exact effects without parsing fallback text;
 - English, Simplified Chinese, and Traditional Chinese receive editorial review before the family contract expands;
 - desktop and phone browser tests capture screenshots for each pilot family and inspect both visual progression and readable text;

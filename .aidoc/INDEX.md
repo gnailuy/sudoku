@@ -85,7 +85,7 @@ Drafts remain discoverable here and stay out of current-state reading chains unt
 
 | Document | Purpose |
 |---|---|
-| `.aidoc/designs/beginner-hint-reasoning.md` | Proposed typed reasoning, grouped actions, and three-stage beginner teaching contract |
+| `.aidoc/designs/beginner-hint-reasoning.md` | Proposed typed reasoning, grouped actions, and logic-sized beginner teaching sequences |
 
 ### Rating, Generation, and Persistence
 
