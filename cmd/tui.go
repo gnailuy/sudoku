@@ -52,7 +52,11 @@ func newTUICommand() *cobra.Command {
 							for _, record := range records {
 								restored, restoreErr := game.Restore(record.Session, options)
 								if restoreErr == nil {
-									recoveryOptions.Choices = append(recoveryOptions.Choices, front.RecoveryChoice{Record: record, Game: restored, Tracker: newCompletionTracker(restored, dbPath)})
+									tracker, trackingErr := newCompletionTracker(restored, dbPath)
+									if trackingErr != nil && recoveryOptions.Warning == "" {
+										recoveryOptions.Warning = "Completion tracking setup failed: " + trackingErr.Error()
+									}
+									recoveryOptions.Choices = append(recoveryOptions.Choices, front.RecoveryChoice{Record: record, Game: restored, Tracker: tracker})
 								}
 							}
 						}

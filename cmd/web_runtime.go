@@ -314,12 +314,6 @@ func createOwnedSession(database *db.DB, request sessionRequest) (game.Game, str
 		return game.Game{}, "", "", "", fmt.Errorf("create play run identity: %w", err)
 	}
 	baseID := db.BasePuzzleID(canonical)
-	presented := current.ProblemBoard()
-	if err := database.InsertPlayRun(db.PlayRun{
-		ID: runID, BasePuzzleID: baseID, PresentedPuzzle: presented.ToString(),
-	}); err != nil {
-		return game.Game{}, "", "", "", fmt.Errorf("create durable play run: %w", err)
-	}
 	return current, baseID, runID, webapi.Difficulty(classification.Difficulty), nil
 }
 

@@ -30,7 +30,7 @@ The offline Expert/Evil catalog replenisher uses deterministic exact-seed clue a
 
 Catalog-first play already provides reliable exact Hard, Expert, and Evil puzzles without making generation latency part of an interactive request. Offline replenishment can expand supply under controlled budgets while keeping player-facing creation deterministic and responsive.
 
-The validated clue-addition direction starts from an exact-grade puzzle and restores a correct solution clue before authoritative reclassification. The direction uses existing solver feedback without changing strategy order, grade labels, score semantics, or the distinction between Evil and `strategy-unsolved`.
+The validated clue-addition direction starts from an exact-grade puzzle, proves seed and candidate uniqueness with the solver's bounded uniqueness query, and restores a correct solution clue before authoritative reclassification. The direction uses existing solver feedback without changing strategy order, grade labels, score semantics, or the distinction between Evil and `strategy-unsolved`.
 
 ## Product Scope
 

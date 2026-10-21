@@ -52,10 +52,16 @@ func NewGame(problem core.Board, options Options) Game {
 	return game
 }
 
-// countSolutions uses a detached board because complete solvers may mutate their input while searching.
-func (game *Game) countSolutions(board core.Board) int {
+// hasSolution uses a detached board because complete solvers may mutate their input while searching.
+func (game *Game) hasSolution(board core.Board) bool {
 	search := board.Copy()
-	return game.completeSolver.CountSolutions(&search)
+	return game.completeSolver.HasSolution(&search)
+}
+
+// hasMultipleSolutions stops as soon as the distinction is known and keeps the caller's board detached.
+func (game *Game) hasMultipleSolutions(board core.Board) bool {
+	search := board.Copy()
+	return game.completeSolver.CountSolutionsUpTo(&search, 2) > 1
 }
 
 // Function to add a non-zero cell input.
@@ -67,7 +73,7 @@ func (game *Game) addNonZeroInput(input core.Cell) {
 	nextBoard := game.playBoard.Copy()
 	_ = nextBoard.SetCell(input) // cell validated by caller
 	game.invalidInput.Unset(input.Position)
-	if game.countSolutions(nextBoard) <= 0 {
+	if !game.hasSolution(nextBoard) {
 		_ = game.invalidInput.SetCell(input) // cell validated by caller
 		return
 	}
@@ -85,7 +91,7 @@ func (game *Game) addZeroInput(input core.Cell) {
 	game.invalidInput.Unset(input.Position) // Reset the invalid input state when adding a new input.
 
 	// If the board has multiple solutions, we need to check if any previously invalid input is now valid.
-	if !game.invalidInput.IsEmpty() && game.countSolutions(game.playBoard) > 1 {
+	if !game.invalidInput.IsEmpty() && game.hasMultipleSolutions(game.playBoard) {
 		for i := 0; i < 9; i++ {
 			for j := 0; j < 9; j++ {
 				value := game.invalidInput.Get(core.NewPosition(i, j))

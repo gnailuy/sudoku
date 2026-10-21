@@ -54,7 +54,8 @@ func executeCandidate(store solver.Store, job Job) (Execution, error) {
 	if err != nil {
 		return Execution{}, fmt.Errorf("parse seed puzzle: %w", err)
 	}
-	if store.GetDefaultSolver().CountSolutions(&seed) != 1 {
+	seedSearch := seed.Copy()
+	if !store.GetDefaultSolver().HasUniqueSolution(&seedSearch) {
 		return Execution{Outcome: "non-unique", DurationMS: boundedDuration(time.Since(start).Milliseconds(), job.Budget.MaxDurationMS)}, nil
 	}
 	if !time.Now().Before(deadline) {
@@ -84,7 +85,8 @@ func executeCandidate(store solver.Store, job Job) (Execution, error) {
 		if !ok {
 			break
 		}
-		if store.GetDefaultSolver().CountSolutions(&candidate) != 1 {
+		candidateSearch := candidate.Copy()
+		if !store.GetDefaultSolver().HasUniqueSolution(&candidateSearch) {
 			continue
 		}
 		classification := solver.ClassifyPuzzle(store, candidate)

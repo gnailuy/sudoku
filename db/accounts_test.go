@@ -240,3 +240,24 @@ func TestRefreshActiveWebSessionCapsIdleExpiryAtAbsoluteLifetime(t *testing.T) {
 		t.Fatalf("absolute-expired session = %+v, %v", expired, err)
 	}
 }
+
+func TestCreateOwnedGameRollsBackPlayRunWhenAccountInsertFails(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	const puzzle = "atomic-owned-game-puzzle"
+	if _, err := database.InsertPuzzle(Puzzle{Puzzle: puzzle, Difficulty: "easy", Score: 1, MaxTechnique: "single"}); err != nil {
+		t.Fatal(err)
+	}
+	baseID := BasePuzzleID(puzzle)
+	run := PlayRun{ID: "run-rollback", BasePuzzleID: baseID, PresentedPuzzle: puzzle}
+	game := AccountGame{ID: "game-rollback", UserID: "missing-user", BasePuzzleID: baseID, PlayRunID: run.ID, EngineState: []byte("state"), ActualDifficulty: "easy", Status: "in-progress"}
+	if err := database.CreateOwnedGame(run, game); err == nil {
+		t.Fatal("owned game creation unexpectedly succeeded for an absent owner")
+	}
+	if stored, err := database.PlayRunByID(run.ID); err != nil || stored != nil {
+		t.Fatalf("play run survived failed account insert: %+v, %v", stored, err)
+	}
+}

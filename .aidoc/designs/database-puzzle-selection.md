@@ -58,7 +58,7 @@ Default play chooses source order from verified catalog supply:
 4. If generation misses, play stores that candidate unplayed and atomically acquires an exact-grade database puzzle when one is available.
 5. If no exact-grade row exists or the database is unavailable, play may use the generated mismatch, marks it played when storage is available, and preserves the explicit actual-grade warning. If generation completes no puzzle, play reports an error.
 
-`session.Service` owns source ordering and uses one explicitly supplied catalog handle for acquisition, generation persistence, and post-generation fallback. It returns structured source and notice values; `cmd` chooses player-facing wording. Keeping selection and its durable mutation in `db.DB.AcquireForPlay` prevents callers from selecting without marking.
+`session.Service` owns source ordering and uses one explicitly supplied catalog handle for acquisition, generation persistence, and post-generation fallback. It returns structured source and notice values; `cmd` chooses player-facing wording. Required acquisition failures stop creation, while optional reusable-puzzle storage and generated-puzzle acquisition-history failures keep the playable game and return one structured persistence warning. Keeping selection and its durable mutation in `db.DB.AcquireForPlay` prevents callers from selecting without marking.
 
 ## Deterministic User and Test Boundary
 

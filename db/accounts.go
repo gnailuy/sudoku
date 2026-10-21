@@ -336,6 +336,36 @@ func (db *DB) CreateAccountGame(accountGame AccountGame) error {
 	return nil
 }
 
+// CreateOwnedGame atomically creates one presentation-specific play run and its owner-scoped game.
+func (db *DB) CreateOwnedGame(run PlayRun, accountGame AccountGame) error {
+	if run.ID == "" || run.BasePuzzleID == "" || run.PresentedPuzzle == "" || (run.Status != "" && run.Status != "active") {
+		return errors.New("play run identity, base puzzle, active status, and presentation are required")
+	}
+	if accountGame.ID == "" || accountGame.UserID == "" || accountGame.BasePuzzleID == "" || accountGame.PlayRunID == "" || len(accountGame.EngineState) == 0 || accountGame.ActualDifficulty == "" || !validAccountGameStatus(accountGame.Status) {
+		return errors.New("account game identity, owner, puzzle, play run, state, difficulty, and status are required")
+	}
+	if accountGame.Revision < 0 || accountGame.ElapsedSeconds < 0 || accountGame.PlayRunID != run.ID || accountGame.BasePuzzleID != run.BasePuzzleID {
+		return errors.New("account game must match a non-negative linked play run")
+	}
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("begin owned game creation: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err = tx.Exec(`INSERT INTO play_runs (play_run_id, base_puzzle_id, presented_puzzle, status) VALUES (?, ?, ?, 'active')`, run.ID, run.BasePuzzleID, run.PresentedPuzzle); err != nil {
+		return fmt.Errorf("create owned play run: %w", err)
+	}
+	if _, err = tx.Exec(`INSERT INTO account_games
+		(account_game_id, user_id, base_puzzle_id, play_run_id, engine_state, revision, actual_difficulty, status, elapsed_seconds)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, accountGame.ID, accountGame.UserID, accountGame.BasePuzzleID, accountGame.PlayRunID, accountGame.EngineState, accountGame.Revision, accountGame.ActualDifficulty, accountGame.Status, accountGame.ElapsedSeconds); err != nil {
+		return fmt.Errorf("create owned account game: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit owned game creation: %w", err)
+	}
+	return nil
+}
+
 // ClaimGuestGame atomically creates the presentation-specific play run,
 // account game, and stable claim record. A retry by the same owner returns the
 // original game; another owner receives the same bounded claimed error.
