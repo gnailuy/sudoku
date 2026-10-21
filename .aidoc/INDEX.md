@@ -20,7 +20,11 @@ This index is the complete registry for durable project knowledge and a set of s
 
 ## Draft Work
 
-There is no current Draft work. Drafts remain discoverable here when present and stay out of current-state reading chains.
+| Topic | Owner | Status | Document |
+|---|---|---|---|
+| Beginner-facing strategy reasoning, grouped actions, and localized teaching stages | Hint protocol maintainers | Draft | `.aidoc/designs/beginner-hint-reasoning.md` |
+
+Drafts remain discoverable here and stay out of current-state reading chains until implementation is verified.
 
 ## Reading Chains
 
@@ -76,6 +80,12 @@ There is no current Draft work. Drafts remain discoverable here when present and
 | `.aidoc/designs/deployment-hardening.md` | Portable artifact, service, isolation, and replacement contract |
 | `.aidoc/designs/localization-contract.md` | Locale-neutral messages with deterministic shared English fallback |
 | `.aidoc/designs/future-directions.md` | Evidence gates for unapproved product expansion |
+
+### Draft Proposals
+
+| Document | Purpose |
+|---|---|
+| `.aidoc/designs/beginner-hint-reasoning.md` | Proposed typed reasoning, grouped actions, and three-stage beginner teaching contract |
 
 ### Rating, Generation, and Persistence
 
