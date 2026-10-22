@@ -698,7 +698,7 @@ func nakedSubsetSteps(move *solver.Move, _ string) []HintStep {
 		units := []solver.UnitRef{*evidence.Unit}
 		observe := hintDescriptor("hint.subset-reservation.observe", unitsArgument("unit", units), cellsArgument("cells", cells), digitsArgument("digits", digits))
 		explain := hintDescriptor("hint.subset-reservation.explain", unitsArgument("unit", units), cellsArgument("cells", cells), digitsArgument("digits", digits))
-		apply := message.Descriptor{}
+		var apply message.Descriptor
 		if conclusion.Placement != nil {
 			apply = hintDescriptor("hint.subset-reservation.place", digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
 		} else {
