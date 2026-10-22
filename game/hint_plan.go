@@ -590,12 +590,8 @@ func pilotHintReason(move *solver.Move) *HintReason {
 	}
 }
 
-func actionNarration(descriptor message.Descriptor, digit int, refs []solver.CandidateRef) []HintNarrationChunk {
-	chunks := []HintNarrationChunk{narrationMessage(descriptor), narrationDigit(digit)}
-	for _, ref := range refs {
-		chunks = append(chunks, narrationTarget(cellTarget(ref.Position)))
-	}
-	return chunks
+func actionNarration(descriptor message.Descriptor) []HintNarrationChunk {
+	return []HintNarrationChunk{narrationMessage(descriptor)}
 }
 
 func evidenceSteps(move *solver.Move, conclusion HintConclusion) []HintStep {
@@ -685,7 +681,7 @@ func nakedSubsetSteps(move *solver.Move, _ string) []HintStep {
 		return []HintStep{
 			{ID: "find-" + strings.Join(cellIDs, "-"), Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: candidateMarks},
 			{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: premiseMarks},
-			{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply, evidence.Eliminations[0].Value, evidence.Eliminations), Marks: append(candidateMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+			{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(candidateMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 		}
 	}
 	return []HintStep{
@@ -761,7 +757,7 @@ func fishSteps(move *solver.Move, _ string) []HintStep {
 		return []HintStep{
 			{ID: "find-x-wing", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: baseMarks},
 			{ID: "explain-x-wing", Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: explainMarks},
-			{ID: "apply-x-wing", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply, digit, evidence.Eliminations), Marks: append(explainMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+			{ID: "apply-x-wing", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(explainMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 		}
 	}
 	return []HintStep{
@@ -937,7 +933,7 @@ func xyChainSteps(move *solver.Move, _ string) []HintStep {
 		positions[i] = ref.Position
 	}
 	apply := hintDescriptor("hint.implication-chain.apply", digitArgument("digit", endpoint), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
-	steps = append(steps, HintStep{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply, endpoint, evidence.Eliminations), Marks: append(marksForNodes(nodes), conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)})
+	steps = append(steps, HintStep{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marksForNodes(nodes), conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)})
 	return steps
 }
 

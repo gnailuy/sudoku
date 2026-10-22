@@ -1,6 +1,7 @@
 package message
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 )
@@ -44,6 +45,7 @@ func TestDescriptorValidation(t *testing.T) {
 
 func TestCatalogRendersValidatedFallback(t *testing.T) {
 	catalog, err := NewCatalog(map[string]Definition{
+		"hint.constant": {Arguments: []ArgumentSpec{}, Render: func([]Argument) (string, error) { return "Constant.", nil }},
 		"hint.place": {Arguments: []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}}, Render: func(arguments []Argument) (string, error) {
 			return fmt.Sprintf("Place %d in row %d, column %d.", *arguments[1].Digit, arguments[0].Cell.Row, arguments[0].Cell.Column), nil
 		}},
@@ -60,6 +62,17 @@ func TestCatalogRendersValidatedFallback(t *testing.T) {
 	}
 	if descriptor.Text != "Place 9 in row 4, column 7." {
 		t.Fatalf("unexpected text %q", descriptor.Text)
+	}
+	constant, err := catalog.Render("hint.constant")
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(constant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(encoded) != `{"id":"hint.constant","arguments":[],"text":"Constant."}` {
+		t.Fatalf("constant descriptor must emit an empty argument array: %s", encoded)
 	}
 	if _, err := catalog.Render("hint.place", Argument{Name: "digit", Kind: ArgumentDigit, Digit: ptr(9)}); err == nil {
 		t.Fatal("expected contract mismatch")

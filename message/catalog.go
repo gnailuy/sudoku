@@ -55,7 +55,7 @@ func (c *Catalog) Render(id string, arguments ...Argument) (Descriptor, error) {
 	if err != nil {
 		return Descriptor{}, fmt.Errorf("render message %q: %w", id, err)
 	}
-	descriptor := Descriptor{ID: id, Arguments: append([]Argument(nil), arguments...), Text: text}
+	descriptor := Descriptor{ID: id, Arguments: append([]Argument{}, arguments...), Text: text}
 	if err := descriptor.Validate(); err != nil {
 		return Descriptor{}, err
 	}
