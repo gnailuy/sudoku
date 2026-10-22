@@ -28,11 +28,10 @@ No Draft work is currently registered. Drafts remain discoverable here and stay 
 
 1. `.aidoc/designs/game-engine.md` — engine state, actions, history, and serialization.
 2. `.aidoc/designs/authoritative-candidates.md` — one candidate grid across clients.
-3. `.aidoc/designs/hint-presentation-protocol.md` — correction, strategy, preview, and application semantics.
-4. `.aidoc/designs/beginner-hint-reasoning.md` — typed family reasons, grouped actions, and logic-sized teaching stages.
-5. `.aidoc/designs/localization-contract.md` — semantic message descriptors and shared English rendering.
-6. `game/contract.go`, `game/game.go`, `game/hint_plan.go`, and `message/` — authoritative action, orchestration, hint-plan, and catalog implementation.
-7. Read every affected client owner: `.aidoc/designs/cli-sessions.md`, `.aidoc/designs/tui-frontend.md`, and/or `.aidoc/designs/web-api.md`; cross-client rendering changes require all three.
+3. `.aidoc/designs/hint-presentation-protocol.md` — canonical hint-system reasoning, teaching, preview, and exact application semantics.
+4. `.aidoc/designs/localization-contract.md` — semantic message descriptors and shared English rendering.
+5. `game/contract.go`, `game/game.go`, `game/hint_plan.go`, and `message/` — authoritative action, orchestration, hint-plan, and catalog implementation.
+6. Read every affected client owner: `.aidoc/designs/cli-sessions.md`, `.aidoc/designs/tui-frontend.md`, and/or `.aidoc/designs/web-api.md`; cross-client rendering changes require all three.
 
 ### Change Rating, Generation, or Catalog Acquisition
 
@@ -67,8 +66,7 @@ No Draft work is currently registered. Drafts remain discoverable here and stay 
 | `.aidoc/architecture/guidelines.md` | Package boundaries and dependency direction |
 | `.aidoc/designs/game-engine.md` | Authoritative game actions, snapshots, history, and serialization |
 | `.aidoc/designs/authoritative-candidates.md` | Single candidate-state and client-presentation contract |
-| `.aidoc/designs/hint-presentation-protocol.md` | Renderer-neutral teaching plans and exact application |
-| `.aidoc/designs/beginner-hint-reasoning.md` | Typed family reasoning, grouped actions, and logic-sized teaching sequences |
+| `.aidoc/designs/hint-presentation-protocol.md` | Canonical hint system: typed reasoning, teaching plans, preview, and exact application |
 | `.aidoc/designs/hint-reference-plans.md` | Canonical examples for placement and elimination plans |
 | `.aidoc/designs/cli-sessions.md` | Compact line CLI, hint degradation, save, and resume |
 | `.aidoc/designs/tui-frontend.md` | Full-screen interaction and rendering semantics |

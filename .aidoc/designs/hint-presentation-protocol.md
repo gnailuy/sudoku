@@ -14,9 +14,9 @@ dependencies:
   - .aidoc/designs/hint-reference-plans.md
 ---
 
-# Hint Presentation Protocol
+# Hint System
 
-The hint presentation protocol turns one solver recommendation into a portable teaching plan that CLI, TUI, web, and future clients can render without reinterpreting Sudoku logic. The engine owns semantic evidence, ordered explanation, and the logical conclusion; each client owns visual style, interaction, and capability-aware rendering.
+The hint system turns one solver recommendation into a portable teaching plan that CLI, TUI, web, and future clients can render without reinterpreting Sudoku logic. The engine owns semantic evidence, typed reasoning, ordered explanation, and the logical conclusion; each client owns visual style, interaction, and capability-aware rendering.
 
 ## Related Docs
 
@@ -31,7 +31,7 @@ The hint presentation protocol turns one solver recommendation into a portable t
 | `game/contract.go` | Engine hint preview and application boundary |
 | `game/hint_plan.go` | Hint-plan data model, deterministic identity, and family teaching composers |
 
-## Why a Shared Teaching Contract Exists
+## Why One Shared Hint System Exists
 
 A position, value, technique name, and prose reason are enough to apply a hint but not enough to teach it consistently. A browser otherwise invents highlights, a TUI invents symbols, and a CLI invents ordering independently, which lets presentation layers disagree about the same deduction.
 
@@ -43,7 +43,7 @@ The project is still in development, so the protocol replaces superseded hint sh
 
 A strategy produces typed evidence for one deduction: examined units, candidate constraints, eliminations, placements, and the technique identity. Placement and candidate elimination are equally valid conclusions; elimination strategies are not duplicated as hint-only variants. Strategy evidence contains no colors, animation timing, widget commands, prose parsing requirements, or transport models.
 
-A shared engine composer converts typed evidence into one `HintPlan`. The composer owns default teaching order plus descriptor selection and arguments, while the canonical message catalog owns English wording, so 23 strategies do not duplicate client choreography or prose. The beginner pilot gives Naked Pair, X-Wing, and XY-Chain one closed family-level `reason` variant (`subset-reservation`, `fish-confinement`, or `implication-chain`) and strategy-specific descriptors; these migrated strategies no longer use the generic forced-result comparison. Naked Single and Hidden Single establish direct and unit-scoped placement teaching. Naked/Hidden Pair–Quad and Pointing Pair/Box-Line Reduction establish subset and intersection teaching. Fish and wing families identify their typed lines, intersections, pivots, wings, and candidate links before explaining the consequence. XY-Wing records the two pivot-to-wing implications explicitly: the first step introduces one arrow, and the comparison and conclusion preserve both arrows. W-Wing records its conjugate pair as one strong link throughout the plan. BUG+1 and Unique Rectangle Types 1–4 identify their candidate exceptions and uniqueness relationships. Simple Coloring records alternating candidate partitions and must-contain links; X-Cycles records an ordered loop of must-contain and cannot-both links; XY-Chain records ordered bivalue cells and their shared-candidate implications. Every family reveals formal strategy vocabulary only in the concluding because-clause.
+A shared engine composer converts typed evidence into one `HintPlan`. The composer owns teaching order plus descriptor selection and arguments, while the canonical message catalog owns English wording, so 23 strategies do not duplicate client choreography or prose. Migrated reasoning families carry one closed family-level `reason` variant and strategy-specific descriptors instead of the generic forced-result comparison. Naked Single and Hidden Single establish direct and unit-scoped placement teaching. Naked/Hidden Pair–Quad and Pointing Pair/Box-Line Reduction establish subset and intersection teaching. Fish and wing families identify their typed lines, intersections, pivots, wings, and candidate links before explaining the consequence. XY-Wing records the two pivot-to-wing implications explicitly: the first step introduces one arrow, and the explanation and application preserve both arrows. W-Wing records its conjugate pair as one strong link throughout the plan. BUG+1 and Unique Rectangle Types 1–4 identify their candidate exceptions and uniqueness relationships. Simple Coloring records alternating candidate partitions and must-contain links; X-Cycles records an ordered loop of must-contain and cannot-both links; XY-Chain records ordered bivalue cells and their shared-candidate implications. Every family reveals formal strategy vocabulary only in the applying because-clause.
 
 A renderer consumes a complete plan and never infers Sudoku reasoning from technique names or fallback prose. The hint narration IR is a renderer-neutral token stream that separates semantic message descriptors, digits, and typed targets, allowing each interface to name the same cell, candidate, or unit naturally without parsing prose. Each token is one closed discriminated-union variant with exactly one required payload; invalid or unknown variants invalidate the whole stream for that step so the renderer uses the complete fallback descriptor instead of guessing. Every step for all 23 strategies carries valid structured narration, and every concluding stream identifies its exact digit and cell target. Specialized placement and chain wording may expose additional targets while the complete step descriptor remains available as a defensive fallback. Limited renderers receive the plan's complete summary descriptor.
 
@@ -65,6 +65,28 @@ Every plan contains:
 Every step contains a stable ID, a semantic kind, a complete message descriptor, structured narration, a declarative scene, and an optional logical effect. Structured narration never replaces the fallback: every emitted stream contains only valid descriptor, target, or digit variants; every descriptor matches the canonical argument contract; every referenced target is valid in the source plan; and an unsupported stream is discarded as a whole. Scenes carry `marks`, stable candidate `nodes`, and typed `links`; each step sends complete arrays, including empty arrays, so a renderer never retains stale visual state. Step kinds are `observe`, `explain`, and `apply`. Observation and explanation steps have no effect; the final apply step owns the plan's one atomic effect. Logic-sized strategies may emit several explanation steps, but each one must add a fact or relation.
 
 Every scene is a complete snapshot for that step rather than a delta from the previous scene. A client can therefore move forward or backward, render one step, skip unsupported visual reinforcement, or recover after interruption without retaining hidden highlight state.
+
+## Typed Reasoning and Teaching Sequence
+
+A migrated strategy plan carries one closed family-level `reason` object. The object records only the facts needed to establish the logical bridge; scenes still own visual emphasis, and the conclusion remains the sole applicable effect.
+
+| `reason.kind` | Required facts | Current strategies |
+|---|---|---|
+| `subset-reservation` | one unit, reserved digits, premise cells, and exact action targets | Naked Pair, Naked Triple, Naked Quad |
+| `fish-confinement` | one digit, ordered base units, ordered cover units, pattern candidates, and exact action targets | X-Wing |
+| `implication-chain` | ordered bivalue groups, typed links, endpoint digit, and exact action targets | XY-Chain |
+
+A variant follows teaching logic rather than display names and may serve several techniques when the same facts prove their deductions. The subset variant therefore stores the complete reserved-digit union for pairs, triples, and quads. A new variant is justified only when another family needs facts that an existing variant cannot express without an overloaded flag or client inference.
+
+Teaching-sequence length follows the deduction rather than a fixed three-step template:
+
+| Kind | Required answer | Responsibility |
+|---|---|---|
+| `observe` | What should the player notice? | Introduce one bounded premise; repeat only for distinct facts. |
+| `explain` | Why does the premise force a result? | Add one logical relation at a time until the bridge is complete. |
+| `apply` | What exactly should change? | Preserve necessary context and isolate the one atomic placement or grouped elimination. |
+
+Adjacent steps cannot repeat the same statement and scene without adding a fact or relation. Only the final `apply` step carries the plan effect; `observe` and `explain` remain read-only. Complete descriptors use typed scalar or bounded list arguments, so a locale can reorder and pluralize digits, cells, candidates, and units without parsing English or replaying backend token order. The localization contract owns the argument vocabulary and English fallback; this document owns why each descriptor appears in the reasoning sequence.
 
 ## Semantic Scene Vocabulary
 
