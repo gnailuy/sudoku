@@ -1,6 +1,6 @@
 ---
 domain: Designs
-status: Draft
+status: Active
 entry_points:
   - solver/evidence.go
   - game/hint_plan.go
@@ -14,7 +14,7 @@ dependencies:
 
 # Beginner Hint Reasoning
 
-This proposal makes each strategy hint explain what to notice, why the pattern forces a result, and what to change. The backend remains authoritative for Sudoku reasoning, while every client receives enough typed meaning to render natural localized teaching without parsing English or reconstructing a strategy.
+Each migrated strategy hint explains what to notice, why the pattern forces a result, and what to change. The backend remains authoritative for Sudoku reasoning, while every client receives enough typed meaning to render natural localized teaching without parsing English or reconstructing a strategy.
 
 ## Related Docs
 
@@ -48,19 +48,19 @@ The replacement contract must:
 
 This work does not add server-side locale negotiation, move Sudoku inference into a client, change strategy selection, or change the placement and elimination effects that the engine applies.
 
-## Proposed Contract
+## Contract
 
-A strategy `HintPlan` gains one required `reason` object. `reason.kind` is a closed family-level union, not a technique name or prose label. Each variant carries only facts needed to establish the logical bridge; existing scenes continue to carry visual emphasis, and the existing conclusion remains the sole applicable effect.
+A migrated strategy `HintPlan` carries one required `reason` object. `reason.kind` is a closed family-level union, not a technique name or prose label. Each variant carries only facts needed to establish the logical bridge; existing scenes continue to carry visual emphasis, and the existing conclusion remains the sole applicable effect.
 
-The initial union has three variants:
+The current union has three variants:
 
-| `reason.kind` | Required facts | Pilot strategy |
+| `reason.kind` | Required facts | Migrated strategies |
 |---|---|---|
-| `subset-reservation` | one unit, reserved digits, premise cells, and exact action targets | Naked Pair |
+| `subset-reservation` | one unit, reserved digits, premise cells, and exact action targets | Naked Pair, Naked Triple, Naked Quad |
 | `fish-confinement` | one digit, ordered base units, ordered cover units, pattern candidates, and exact action targets | X-Wing |
 | `implication-chain` | ordered bivalue groups, typed links, endpoint digit, and exact action targets | XY-Chain |
 
-The full rollout adds variants only when a reasoning family needs facts that cannot be represented by an existing variant. A variant may serve several techniques—for example, the fish variant serves X-Wing, Swordfish, and Jellyfish—so the wire contract follows teaching logic rather than the 23 display names.
+The rollout adds variants only when a reasoning family needs facts that cannot be represented by an existing variant. A variant may serve several techniques—for example, the fish variant can serve X-Wing, Swordfish, and Jellyfish—so the wire contract follows teaching logic rather than the 23 display names. The subset-reservation variant now serves Naked Pair, Naked Triple, and Naked Quad; it records the complete union of reserved digits rather than only digits shared by every premise cell.
 
 Each strategy plan uses an ordered sequence of semantic teaching steps whose length follows the deduction. A direct placement may need only one observation before the action, while a chain may introduce and explain several relations one at a time.
 
@@ -76,7 +76,7 @@ Each teaching step carries one complete `MessageDescriptor`. The descriptor argu
 
 Structured narration remains available for accessible target references and limited renderers, but it no longer assembles a conclusion from repeated scalar fragments. The step descriptor is the canonical translatable statement; narration targets identify interactive references within that statement. The existing English fallback remains complete and deterministic.
 
-## Pilot Teaching Plans
+## Reference Teaching Plans
 
 ### X-Wing
 
@@ -110,30 +110,22 @@ The accessible statement must communicate the same implication order as the visu
 
 ## Validation
 
-The pilot is accepted only when all three strategies prove the following at engine, HTTP, terminal, and browser boundaries:
+Each migrated family is accepted only when its strategies prove the following at engine, HTTP, terminal, and browser boundaries:
 
 - every teaching step has one valid family reason and one complete descriptor with correctly typed arguments;
 - every explanation step is strategy-specific and does not use the generic forced-result descriptor;
 - each consecutive scene adds or focuses a learner-visible fact or relation;
 - simple strategies use only the steps their logic requires, while chain fixtures derive their explanation-step count from the represented links;
 - grouped action descriptors round-trip exact effects without parsing fallback text;
-- English, Simplified Chinese, and Traditional Chinese receive editorial review before the family contract expands;
-- desktop and phone browser tests capture screenshots for each pilot family and inspect both visual progression and readable text;
+- English, Simplified Chinese, and Traditional Chinese receive editorial review before a family contract expands;
+- desktop and phone browser tests capture screenshots for representative migrated families and inspect both visual progression and readable text;
 - the 23-strategy fixture matrix and nine-game full-stack hint journey remain green; and
 - unsupported or malformed reason variants fail validation and use the complete safe fallback rather than inviting client inference.
 
-The backend exports API-shaped pilot fixtures for the coordinated browser PR. The browser proves translated list formatting, accessible target references, scene progression, and exact application against those fixtures and the real Go service.
+The backend exports API-shaped fixtures for coordinated browser PRs. The browser proves translated list formatting, accessible target references, scene progression, and exact application against those fixtures and the real Go service.
 
 ## Delivery
 
-1. Replace the backend contract for X-Wing, Naked Pair, and XY-Chain; update OpenAPI, generated adapters, canonical English, terminal rendering, fixtures, and acceptance together.
-2. Replace the browser contract for the same three strategies; update generated types, English and Chinese catalogs, accessible rendering, and responsive screenshot acceptance together.
-3. Review the learner-facing pilot before adding more reason variants.
-4. Roll the accepted model through subset, intersection, fish, wing, uniqueness, coloring, cycle, chain, direct-placement, and correction families in reviewable batches.
-5. Finish with one complete 23-strategy English and Chinese audit plus the existing all-strategy and nine-game real-stack suites.
+The shipped pilot established X-Wing, Naked Pair, and XY-Chain across the backend and browser. Continue through subset, intersection, fish, wing, uniqueness, coloring, cycle, chain, direct-placement, and correction families in reviewable coordinated batches. Finish with one complete 23-strategy English and Chinese audit plus the existing all-strategy and nine-game real-stack suites.
 
 Each implementation batch removes the superseded generic path for its migrated family. The project is development-only, so it does not add compatibility aliases, parallel schema versions, or adapters that preserve an unimplemented intermediate contract.
-
-## Promotion
-
-This Draft becomes Active only after the coordinated backend and browser pilot ships and the three pilot strategies satisfy the validation above. At promotion, merge the resulting current-state contract into `hint-presentation-protocol.md`, `localization-contract.md`, and `hint-reference-plans.md`; retain this document only if it remains the clearest canonical owner, otherwise remove it after preserving all durable rationale.

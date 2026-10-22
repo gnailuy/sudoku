@@ -228,13 +228,28 @@ func (reason HintReason) Validate() error {
 	switch reason.Kind {
 	case HintReasonSubsetReservation:
 		value := reason.SubsetReservation
-		if value == nil || !validUnit(value.Unit) || len(value.ReservedDigits) < 2 || len(value.PremiseCells) < 2 || !validRefs(value.ActionTargets) {
+		if value == nil || !validUnit(value.Unit) || len(value.ReservedDigits) < 2 || len(value.ReservedDigits) > 4 || len(value.PremiseCells) != len(value.ReservedDigits) || !validRefs(value.ActionTargets) {
 			return fmt.Errorf("invalid subset-reservation reason")
 		}
+		seenDigits := make(map[int]struct{}, len(value.ReservedDigits))
+		for _, digit := range value.ReservedDigits {
+			if digit < 1 || digit > 9 {
+				return fmt.Errorf("invalid subset reserved digit")
+			}
+			seenDigits[digit] = struct{}{}
+		}
+		if len(seenDigits) != len(value.ReservedDigits) {
+			return fmt.Errorf("duplicate subset reserved digit")
+		}
+		seenCells := make(map[core.Position]struct{}, len(value.PremiseCells))
 		for _, position := range value.PremiseCells {
 			if !position.IsValid() {
 				return fmt.Errorf("invalid subset premise cell")
 			}
+			seenCells[position] = struct{}{}
+		}
+		if len(seenCells) != len(value.PremiseCells) {
+			return fmt.Errorf("duplicate subset premise cell")
 		}
 	case HintReasonFishConfinement:
 		value := reason.FishConfinement
@@ -491,7 +506,7 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 	default:
 		plan.Steps = evidenceSteps(move, plan.Conclusion)
 	}
-	plan.Reason = pilotHintReason(move)
+	plan.Reason = familyHintReason(move)
 	for index := range plan.Steps {
 		populateStrategyStep(&plan.Steps[index], index, len(plan.Steps), move.Technique)
 		if plan.Steps[index].Marks == nil {
@@ -545,20 +560,27 @@ func populateStrategyStep(step *HintStep, index, total int, strategy string) {
 
 func narrationID(id string) HintNarrationChunk { return narrationMessage(hintDescriptor(id)) }
 
-func pilotHintReason(move *solver.Move) *HintReason {
+func familyHintReason(move *solver.Move) *HintReason {
 	if move == nil || move.Evidence == nil {
 		return nil
 	}
 	evidence := move.Evidence
 	switch move.Technique {
-	case "naked-pair":
-		if evidence.Unit == nil || len(evidence.Premises) != 2 || len(evidence.Eliminations) == 0 {
+	case "naked-pair", "naked-triple", "naked-quad":
+		if evidence.Unit == nil || len(evidence.Premises) < 2 || (len(evidence.Eliminations) == 0 && !move.IsPlacement()) {
 			return nil
 		}
-		cells := []core.Position{evidence.Premises[0].Position, evidence.Premises[1].Position}
+		cells := make([]core.Position, len(evidence.Premises))
+		for index, premise := range evidence.Premises {
+			cells[index] = premise.Position
+		}
+		digits := combinedValues(evidence.Premises...)
+		targets := append([]solver.CandidateRef(nil), evidence.Eliminations...)
+		if len(targets) == 0 && move.IsPlacement() {
+			targets = append(targets, solver.CandidateRef{Position: move.Cell.Position, Value: move.Cell.Value})
+		}
 		return &HintReason{Kind: HintReasonSubsetReservation, SubsetReservation: &SubsetReservationReason{
-			Unit: *evidence.Unit, ReservedDigits: sharedValues(evidence.Premises...), PremiseCells: cells,
-			ActionTargets: append([]solver.CandidateRef(nil), evidence.Eliminations...),
+			Unit: *evidence.Unit, ReservedDigits: digits, PremiseCells: cells, ActionTargets: targets,
 		}}
 	case "x-wing":
 		if len(evidence.Units) != 4 || len(evidence.Premises) == 0 || len(evidence.Eliminations) == 0 {
@@ -671,12 +693,17 @@ func nakedSubsetSteps(move *solver.Move, _ string) []HintStep {
 		}
 	}
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	if move.Technique == "naked-pair" {
-		digits := sharedValues(evidence.Premises...)
+	if move.Technique == "naked-pair" || move.Technique == "naked-triple" || move.Technique == "naked-quad" {
+		digits := combinedValues(evidence.Premises...)
 		units := []solver.UnitRef{*evidence.Unit}
 		observe := hintDescriptor("hint.subset-reservation.observe", unitsArgument("unit", units), cellsArgument("cells", cells), digitsArgument("digits", digits))
 		explain := hintDescriptor("hint.subset-reservation.explain", unitsArgument("unit", units), cellsArgument("cells", cells), digitsArgument("digits", digits))
-		apply := hintDescriptor("hint.subset-reservation.apply", candidatesArgument("candidates", evidence.Eliminations), strategyArgument("strategy", move.Technique))
+		apply := message.Descriptor{}
+		if conclusion.Placement != nil {
+			apply = hintDescriptor("hint.subset-reservation.place", digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+		} else {
+			apply = hintDescriptor("hint.subset-reservation.apply", candidatesArgument("candidates", evidence.Eliminations), strategyArgument("strategy", move.Technique))
+		}
 		candidateMarks := append([]HintMark(nil), premiseMarks[1:]...)
 		return []HintStep{
 			{ID: "find-" + strings.Join(cellIDs, "-"), Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: candidateMarks},
@@ -1034,6 +1061,21 @@ func sharedValues(groups ...solver.CandidateGroup) []int {
 		if count == len(groups) {
 			values = append(values, value)
 		}
+	}
+	sort.Ints(values)
+	return values
+}
+
+func combinedValues(groups ...solver.CandidateGroup) []int {
+	seen := make(map[int]struct{})
+	for _, group := range groups {
+		for _, value := range group.Values {
+			seen[value] = struct{}{}
+		}
+	}
+	values := make([]int, 0, len(seen))
+	for value := range seen {
+		values = append(values, value)
 	}
 	sort.Ints(values)
 	return values

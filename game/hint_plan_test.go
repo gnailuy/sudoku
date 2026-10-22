@@ -506,9 +506,20 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
 			}
-			if key == "naked-pair" {
-				if plan.Reason == nil || plan.Reason.Kind != HintReasonSubsetReservation || plan.Steps[2].Message.ID != "hint.subset-reservation.apply" {
-					t.Fatalf("naked-pair pilot contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+			if key == "naked-pair" || key == "naked-triple" || key == "naked-quad" {
+				if plan.Reason == nil || plan.Reason.Kind != HintReasonSubsetReservation {
+					t.Fatalf("naked-subset contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+				}
+				expectedMessage := "hint.subset-reservation.apply"
+				if plan.Conclusion.Placement != nil {
+					expectedMessage = "hint.subset-reservation.place"
+				}
+				if plan.Steps[2].Message.ID != expectedMessage {
+					t.Fatalf("naked-subset action descriptor = %q, want %q", plan.Steps[2].Message.ID, expectedMessage)
+				}
+				reason := plan.Reason.SubsetReservation
+				if reason == nil || len(reason.PremiseCells) != len(reason.ReservedDigits) || len(reason.PremiseCells) < 2 || len(reason.ActionTargets) == 0 {
+					t.Fatalf("naked-subset reason does not preserve its complete cardinality and action: %+v", reason)
 				}
 			} else if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
 				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)

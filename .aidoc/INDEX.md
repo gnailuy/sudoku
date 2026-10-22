@@ -20,11 +20,7 @@ This index is the complete registry for durable project knowledge and a set of s
 
 ## Draft Work
 
-| Topic | Owner | Status | Document |
-|---|---|---|---|
-| Beginner-facing strategy reasoning, grouped actions, and localized teaching stages | Hint protocol maintainers | Draft | `.aidoc/designs/beginner-hint-reasoning.md` |
-
-Drafts remain discoverable here and stay out of current-state reading chains until implementation is verified.
+No Draft work is currently registered. Drafts remain discoverable here and stay out of current-state reading chains until implementation is verified.
 
 ## Reading Chains
 
@@ -33,9 +29,10 @@ Drafts remain discoverable here and stay out of current-state reading chains unt
 1. `.aidoc/designs/game-engine.md` — engine state, actions, history, and serialization.
 2. `.aidoc/designs/authoritative-candidates.md` — one candidate grid across clients.
 3. `.aidoc/designs/hint-presentation-protocol.md` — correction, strategy, preview, and application semantics.
-4. `.aidoc/designs/localization-contract.md` — semantic message descriptors and shared English rendering.
-5. `game/contract.go`, `game/game.go`, `game/hint_plan.go`, and `message/` — authoritative action, orchestration, hint-plan, and catalog implementation.
-6. Read every affected client owner: `.aidoc/designs/cli-sessions.md`, `.aidoc/designs/tui-frontend.md`, and/or `.aidoc/designs/web-api.md`; cross-client rendering changes require all three.
+4. `.aidoc/designs/beginner-hint-reasoning.md` — typed family reasons, grouped actions, and logic-sized teaching stages.
+5. `.aidoc/designs/localization-contract.md` — semantic message descriptors and shared English rendering.
+6. `game/contract.go`, `game/game.go`, `game/hint_plan.go`, and `message/` — authoritative action, orchestration, hint-plan, and catalog implementation.
+7. Read every affected client owner: `.aidoc/designs/cli-sessions.md`, `.aidoc/designs/tui-frontend.md`, and/or `.aidoc/designs/web-api.md`; cross-client rendering changes require all three.
 
 ### Change Rating, Generation, or Catalog Acquisition
 
@@ -71,6 +68,7 @@ Drafts remain discoverable here and stay out of current-state reading chains unt
 | `.aidoc/designs/game-engine.md` | Authoritative game actions, snapshots, history, and serialization |
 | `.aidoc/designs/authoritative-candidates.md` | Single candidate-state and client-presentation contract |
 | `.aidoc/designs/hint-presentation-protocol.md` | Renderer-neutral teaching plans and exact application |
+| `.aidoc/designs/beginner-hint-reasoning.md` | Typed family reasoning, grouped actions, and logic-sized teaching sequences |
 | `.aidoc/designs/hint-reference-plans.md` | Canonical examples for placement and elimination plans |
 | `.aidoc/designs/cli-sessions.md` | Compact line CLI, hint degradation, save, and resume |
 | `.aidoc/designs/tui-frontend.md` | Full-screen interaction and rendering semantics |
@@ -80,12 +78,6 @@ Drafts remain discoverable here and stay out of current-state reading chains unt
 | `.aidoc/designs/deployment-hardening.md` | Portable artifact, service, isolation, and replacement contract |
 | `.aidoc/designs/localization-contract.md` | Locale-neutral messages with deterministic shared English fallback |
 | `.aidoc/designs/future-directions.md` | Evidence gates for unapproved product expansion |
-
-### Draft Proposals
-
-| Document | Purpose |
-|---|---|
-| `.aidoc/designs/beginner-hint-reasoning.md` | Proposed typed reasoning, grouped actions, and logic-sized beginner teaching sequences |
 
 ### Rating, Generation, and Persistence
 
