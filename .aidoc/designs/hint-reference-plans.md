@@ -10,7 +10,7 @@ dependencies:
 
 # Hint Reference Plans
 
-The reference plans make the canonical hint system concrete for placement and elimination conclusions. Each plan preserves one machine-readable deduction while allowing every renderer to choose its own visual treatment.
+The reference plans make the portable teaching protocol within the canonical hint system concrete for placement and elimination conclusions. Each plan preserves one machine-readable deduction while allowing every renderer to choose its own visual treatment.
 
 ## Related Docs
 

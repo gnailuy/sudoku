@@ -14,9 +14,9 @@ dependencies:
   - .aidoc/designs/hint-reference-plans.md
 ---
 
-# Hint System
+# Hint Presentation Protocol
 
-The hint system turns one solver recommendation into a portable teaching plan that CLI, TUI, web, and future clients can render without reinterpreting Sudoku logic. The engine owns semantic evidence, typed reasoning, ordered explanation, and the logical conclusion; each client owns visual style, interaction, and capability-aware rendering.
+The hint presentation protocol is the portable teaching contract within the one shared hint system. It turns one solver recommendation into a plan that CLI, TUI, web, and future clients can render without reinterpreting Sudoku logic. The engine owns semantic evidence, typed reasoning, ordered explanation, and the logical conclusion; each client owns visual style, interaction, and capability-aware rendering.
 
 ## Related Docs
 
