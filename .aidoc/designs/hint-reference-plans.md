@@ -10,7 +10,7 @@ dependencies:
 
 # Hint Reference Plans
 
-The reference plans make the portable teaching protocol concrete for placement and elimination conclusions. Each plan preserves one machine-readable deduction while allowing every renderer to choose its own visual treatment.
+The reference plans make the portable teaching protocol within the canonical hint system concrete for placement and elimination conclusions. Each plan preserves one machine-readable deduction while allowing every renderer to choose its own visual treatment.
 
 ## Related Docs
 
@@ -32,7 +32,7 @@ The Naked Single reference uses cell `r4c2`, whose candidate set is exactly `{7}
 | Step | Kind | Complete scene | Effect | Canonical English fallback |
 |------|------|----------------|--------|------------------|
 | `inspect-r4c2` | `observe` | focus cell `r4c2`; premise candidate `r4c2:7` | none | “Look at row 4, column 2. It has only one candidate: 7.” |
-| `place-r4c2-7` | `conclude` | focus cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Because no other digit can go in row 4, column 2, place 7 there. This is called a Naked Single.” |
+| `place-r4c2-7` | `apply` | focus cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Because no other digit can go in row 4, column 2, place 7 there. This is called a Naked Single.” |
 
 ## Hidden Single Placement
 
@@ -41,24 +41,24 @@ The Hidden Single reference examines digit `7` in row 4, records that row constr
 | Step | Kind | Complete scene | Effect | Canonical English fallback |
 |------|------|----------------|--------|------------------|
 | `scan-row4-for-7` | `observe` | focus row 4; premise candidate `r4c2:7` | none | “In row 4, consider where 7 can appear.” |
-| `compare-row4-7` | `compare` | focus row 4; eliminated candidate targets for every ruled-out empty cell; premise candidate `r4c2:7` | none | “Every other empty cell in row 4 cannot contain 7, leaving only row 4, column 2.” |
-| `place-r4c2-7` | `conclude` | focus row 4 and cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Because row 4 still needs 7 and row 4, column 2 is the only possible cell, place 7 there. This is called a Hidden Single.” |
+| `explain-row4-7` | `explain` | focus row 4; eliminated candidate targets for every ruled-out empty cell; premise candidate `r4c2:7` | none | “Every other empty cell in row 4 cannot contain 7, leaving only row 4, column 2.” |
+| `place-r4c2-7` | `apply` | focus row 4 and cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Because row 4 still needs 7 and row 4, column 2 is the only possible cell, place 7 there. This is called a Hidden Single.” |
 
 ## Naked Pair Elimination
 
-The Naked Pair reference examines row 4, where `r4c2` and `r4c7` each contain exactly `{2,7}`, and concludes only that candidate `2` must be removed from `r4c9`:
+The Naked Pair reference examines row 4, where `r4c2` and `r4c7` each contain exactly `{2,7}`, carries a `subset-reservation` reason for those cells and digits, and concludes only that candidate `2` must be removed from `r4c9`:
 
 | Step | Kind | Complete scene | Effect | Canonical English fallback |
 |------|------|----------------|--------|------------------|
 | `find-r4c2-r4c7` | `observe` | focus row 4; premise candidates `r4c2:{2,7}` and `r4c7:{2,7}` | none | “In row 4, the cells at row 4, column 2 and row 4, column 7 each have exactly the same two candidates: 2 and 7.” |
-| `reserve-r4c2-r4c7` | `compare` | focus row 4; premise pair cells; focus candidate `r4c9:2` | none | “Those two cells must contain 2 and 7 in some order, so no other cell in row 4 can contain either digit.” |
-| `remove-pair-candidates` | `eliminate` | premise pair cells; conclusion candidate `r4c9:2` | eliminate candidate `2` from `r4c9` | “Because those two cells reserve 2 and 7, remove candidate 2 from row 4, column 9; this deduction does not place a value. This pattern is called a Naked Pair.” |
+| `reserve-r4c2-r4c7` | `explain` | focus row 4; premise pair cells; focus candidate `r4c9:2` | none | “Those two cells must contain 2 and 7 in some order, so no other cell in row 4 can contain either digit.” |
+| `remove-pair-candidates` | `apply` | premise pair cells; conclusion candidate `r4c9:2` | eliminate candidate `2` from `r4c9` | “Because those two cells reserve 2 and 7, remove candidate 2 from row 4, column 9; this deduction does not place a value. This pattern is called a Naked Pair.” |
 
 Every renderer applies the same conclusion from typed effects without parsing descriptor fallback prose or reconstructing logic from the technique name. The Naked Pair reference explicitly proves that a valid hint may change notes without placing a value.
 
 ## Subset Family
 
-Naked Pair–Quad plans first identify the exact cells and their combined candidate set, then explain that the cells reserve the same number of digits before applying the placement or elimination. Hidden Pair–Quad plans invert the relationship: the selected digits appear only in the highlighted cells, so other candidates in those cells can be removed. `solver.Evidence.Premises` and `solver.Evidence.Unit` carry these facts without prose parsing.
+Naked Pair–Quad plans first identify the exact cells and their combined candidate set, then explain that the cells reserve the same number of digits before applying the placement or elimination. Their `subset-reservation` reason records the complete digit union, premise cells, unit, and exact action targets; it does not keep only digits shared by every premise cell. Hidden Pair–Quad plans invert the relationship: the selected digits appear only in the highlighted cells, so other candidates in those cells can be removed. `solver.Evidence.Premises` and `solver.Evidence.Unit` carry these facts without prose parsing.
 
 ## Box/Line Intersections
 
@@ -66,7 +66,7 @@ Pointing Pair and Box-Line Reduction plans identify one candidate, its exact pre
 
 ## Fish Family
 
-X-Wing, Swordfish, and Jellyfish plans identify one candidate, two to four base lines, the same number of cross lines, and every highlighted intersection where that candidate remains. The comparison explains that confinement across the base lines removes the candidate from other cells on the cross lines. `solver.FishSolver` preserves the ordered base and cross units plus exact premise candidates, so the composer never infers orientation from prose or strategy names.
+X-Wing, Swordfish, and Jellyfish plans identify one candidate, two to four base lines, the same number of cross lines, and every highlighted intersection where that candidate remains. The explanation shows that confinement across the base lines removes the candidate from other cells on the cross lines. X-Wing carries a `fish-confinement` reason with the digit, ordered base and cover units, pattern candidates, and exact action targets. Its `observe` step shows the corners and base lines, its `explain` step adds the cover-line relationship, and its `apply` step isolates only the removable candidates while retaining enough pattern context to justify them. `solver.FishSolver` preserves the ordered units and exact premise candidates, so the composer never infers orientation from prose or strategy names.
 
 ## Relational Wing Family
 
@@ -84,4 +84,4 @@ Simple Coloring plans begin with the concrete either-or fact behind each highlig
 
 X-Cycles plans preserve the ordered single-candidate loop and classify each typed link as must-contain or cannot-both. The comparison follows the alternating loop back to its first cell and explains why two closing must-contain links force the candidate there or two closing cannot-both links remove it. The renderer never reconstructs the loop from the strategy name or diagnostic prose.
 
-XY-Chain plans preserve every ordered bivalue cell plus the candidate shared by each neighboring pair. The comparison walks the implication from the first endpoint to the last: if the first endpoint lacks the common endpoint digit, each cell's other candidate forces the next shared candidate until the final endpoint must contain it. A cell seeing both endpoints can therefore remove that digit before the conclusion names XY-Chain.
+XY-Chain plans preserve every ordered bivalue cell plus the candidate shared by each neighboring pair in an `implication-chain` reason. The `observe` step introduces the first cell and its alternatives. Successive `explain` steps add exactly one typed implication and one cumulative relation to the complete scene, so sequence length follows the represented chain. The final explanation establishes why one endpoint must contain the common digit; the `apply` step preserves the full chain while isolating removal of that digit from cells that see both endpoints. Accessible narration communicates the same implication order as the links; arrows alone are never the explanation.

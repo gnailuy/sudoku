@@ -102,9 +102,9 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 					}
 				}
 				switch key {
-				case "naked-pair":
+				case "naked-pair", "naked-triple", "naked-quad":
 					if first.Reason == nil || first.Reason.Kind != HintReasonSubsetReservation || first.Steps[1].Message.ID == "hint.strategy.compare" {
-						t.Fatalf("naked-pair did not use its typed pilot reason: %+v", first)
+						t.Fatalf("naked subset did not use its typed family reason: %+v", first)
 					}
 				case "x-wing":
 					if first.Reason == nil || first.Reason.Kind != HintReasonFishConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {

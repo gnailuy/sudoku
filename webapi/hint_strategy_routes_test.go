@@ -76,17 +76,20 @@ func TestGuestHTTPRoutesPreviewAndApplyEveryRegisteredHintStrategy(t *testing.T)
 					if hint.Hint.Summary.Id != "hint.strategy.summary" || hint.Hint.Summary.Text == "" || len(hint.Hint.Summary.Arguments) != 2 {
 						t.Fatalf("summary descriptor = %+v", hint.Hint.Summary)
 					}
-					pilotReasons := map[string]string{"naked-pair": "subset-reservation", "x-wing": "fish-confinement", "xy-chain": "implication-chain"}
-					if want, pilot := pilotReasons[testCase.Strategy]; pilot {
+					migratedReasons := map[string]string{
+						"naked-pair": "subset-reservation", "naked-triple": "subset-reservation", "naked-quad": "subset-reservation",
+						"x-wing": "fish-confinement", "xy-chain": "implication-chain",
+					}
+					if want, migrated := migratedReasons[testCase.Strategy]; migrated {
 						if hint.Hint.Reason == nil {
-							t.Fatalf("pilot strategy %s has no typed reason", testCase.Strategy)
+							t.Fatalf("migrated strategy %s has no typed reason", testCase.Strategy)
 						}
 						kind, err := hint.Hint.Reason.Discriminator()
 						if err != nil || kind != want {
-							t.Fatalf("pilot strategy %s reason = %q, %v; want %q", testCase.Strategy, kind, err, want)
+							t.Fatalf("migrated strategy %s reason = %q, %v; want %q", testCase.Strategy, kind, err, want)
 						}
 					} else if hint.Hint.Reason != nil {
-						t.Fatalf("unmigrated strategy %s unexpectedly exposed a pilot reason", testCase.Strategy)
+						t.Fatalf("unmigrated strategy %s unexpectedly exposed a typed reason", testCase.Strategy)
 					}
 					marks := 0
 					for _, step := range hint.Hint.Steps {
