@@ -1,6 +1,9 @@
 package message
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 var englishConstantMessages = map[string]string{
 	"difficulty.easy.name":   "Easy",
@@ -100,6 +103,49 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 		}
 		return *argument.Strategy
 	}
+	list := func(items []string) string {
+		switch len(items) {
+		case 0:
+			return ""
+		case 1:
+			return items[0]
+		case 2:
+			return items[0] + " and " + items[1]
+		default:
+			return strings.Join(items[:len(items)-1], ", ") + ", and " + items[len(items)-1]
+		}
+	}
+	cells := func(argument Argument) string {
+		items := make([]string, len(argument.Cells))
+		for i, value := range argument.Cells {
+			items[i] = fmt.Sprintf("row %d, column %d", value.Row, value.Column)
+		}
+		return list(items)
+	}
+	digits := func(argument Argument) string {
+		items := make([]string, len(argument.Digits))
+		for i, value := range argument.Digits {
+			items[i] = fmt.Sprint(value)
+		}
+		return list(items)
+	}
+	units := func(argument Argument) string {
+		items := make([]string, len(argument.Units))
+		for i, value := range argument.Units {
+			items[i] = fmt.Sprintf("%s %d", value.Kind, value.Index)
+		}
+		return list(items)
+	}
+	candidates := func(argument Argument) string {
+		items := make([]string, len(argument.Candidates))
+		for i, value := range argument.Candidates {
+			items[i] = fmt.Sprintf("candidate %d at row %d, column %d", value.Digit, value.Cell.Row, value.Cell.Column)
+		}
+		return list(items)
+	}
+	many := func(id string, specs []ArgumentSpec, render func([]Argument) string) {
+		definitions[id] = Definition{Arguments: specs, Render: func(arguments []Argument) (string, error) { return render(arguments), nil }}
+	}
 
 	one("hint.value-correction.summary", "cell", ArgumentCell, func(argument Argument) string {
 		return fmt.Sprintf("The value at %s conflicts with the puzzle. Clear it before continuing.", cell(argument))
@@ -127,6 +173,33 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	constant("hint.strategy.compare", "Compare the highlighted constraints to identify the forced result.")
 	one("hint.strategy.conclude", "strategy", ArgumentStrategy, func(argument Argument) string {
 		return fmt.Sprintf("Apply the highlighted deduction. This pattern is called %s.", strategy(argument))
+	})
+	many("hint.subset-reservation.observe", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, the cells at %s contain only %s.", units(a[0]), cells(a[1]), digits(a[2]))
+	})
+	many("hint.subset-reservation.explain", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("Those %d cells reserve %s in %s, so no other cell there can contain those digits.", len(a[1].Cells), digits(a[2]), units(a[0]))
+	})
+	many("hint.subset-reservation.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove %s. This pattern is called %s.", candidates(a[0]), strategy(a[1]))
+	})
+	many("hint.fish-confinement.observe", []ArgumentSpec{{Name: "base_units", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cover_units", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, candidate %d appears only in %s.", units(a[0]), *a[1].Digit, units(a[2]))
+	})
+	many("hint.fish-confinement.explain", []ArgumentSpec{{Name: "base_units", Kind: ArgumentUnits}, {Name: "cover_units", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Whichever highlighted position contains %d in each of %s, %s must each receive that digit in one of those base units.", *a[2].Digit, units(a[0]), units(a[1]))
+	})
+	many("hint.fish-confinement.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove candidate %d from %s. This pattern is called %s.", *a[0].Digit, cells(a[1]), strategy(a[2]))
+	})
+	many("hint.implication-chain.observe", []ArgumentSpec{{Name: "cell", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("Start at %s, which has only candidates %s.", cells(a[0]), digits(a[1]))
+	})
+	many("hint.implication-chain.explain", []ArgumentSpec{{Name: "from", Kind: ArgumentCandidate}, {Name: "to", Kind: ArgumentCandidate}}, func(a []Argument) string {
+		return fmt.Sprintf("The bivalue cells at row %d, column %d and row %d, column %d share candidate %d and see each other, so that candidate cannot be true in both and the implication continues.", a[0].Candidate.Cell.Row, a[0].Candidate.Cell.Column, a[1].Candidate.Cell.Row, a[1].Candidate.Cell.Column, a[0].Candidate.Digit)
+	})
+	many("hint.implication-chain.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("One endpoint must contain %d, so remove candidate %d from %s. This pattern is called %s.", *a[0].Digit, *a[0].Digit, cells(a[1]), strategy(a[2]))
 	})
 	constant("hint.narration.apply", "Apply the deduction: ")
 	constant("hint.narration.look-at", "Look at ")

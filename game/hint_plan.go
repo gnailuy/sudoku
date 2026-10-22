@@ -16,10 +16,9 @@ import (
 type HintStepKind string
 
 const (
-	HintStepObserve   HintStepKind = "observe"
-	HintStepCompare   HintStepKind = "compare"
-	HintStepEliminate HintStepKind = "eliminate"
-	HintStepConclude  HintStepKind = "conclude"
+	HintStepObserve HintStepKind = "observe"
+	HintStepExplain HintStepKind = "explain"
+	HintStepApply   HintStepKind = "apply"
 )
 
 type HintRole string
@@ -164,6 +163,105 @@ type HintConclusion struct {
 	SetCandidates *CandidateReplacement
 }
 
+type HintReasonKind string
+
+const (
+	HintReasonSubsetReservation HintReasonKind = "subset-reservation"
+	HintReasonFishConfinement   HintReasonKind = "fish-confinement"
+	HintReasonImplicationChain  HintReasonKind = "implication-chain"
+)
+
+type SubsetReservationReason struct {
+	Unit           solver.UnitRef
+	ReservedDigits []int
+	PremiseCells   []core.Position
+	ActionTargets  []solver.CandidateRef
+}
+
+type FishConfinementReason struct {
+	Digit             int
+	BaseUnits         []solver.UnitRef
+	CoverUnits        []solver.UnitRef
+	PatternCandidates []solver.CandidateRef
+	ActionTargets     []solver.CandidateRef
+}
+
+type ImplicationChainReason struct {
+	BivalueGroups []solver.CandidateGroup
+	Links         []solver.CandidateLink
+	EndpointDigit int
+	ActionTargets []solver.CandidateRef
+}
+
+type HintReason struct {
+	Kind              HintReasonKind
+	SubsetReservation *SubsetReservationReason
+	FishConfinement   *FishConfinementReason
+	ImplicationChain  *ImplicationChainReason
+}
+
+// Validate rejects incomplete or mismatched family reasons before transport.
+func (reason HintReason) Validate() error {
+	validUnit := func(unit solver.UnitRef) bool {
+		return (unit.Kind == solver.UnitRow || unit.Kind == solver.UnitColumn || unit.Kind == solver.UnitBox) && unit.Index >= 0 && unit.Index < 9
+	}
+	validRefs := func(refs []solver.CandidateRef) bool {
+		if len(refs) == 0 || len(refs) > 64 {
+			return false
+		}
+		for _, ref := range refs {
+			if !ref.Position.IsValid() || ref.Value < 1 || ref.Value > 9 {
+				return false
+			}
+		}
+		return true
+	}
+	payloads := 0
+	for _, present := range []bool{reason.SubsetReservation != nil, reason.FishConfinement != nil, reason.ImplicationChain != nil} {
+		if present {
+			payloads++
+		}
+	}
+	if payloads != 1 {
+		return fmt.Errorf("hint reason must carry exactly one family payload")
+	}
+	switch reason.Kind {
+	case HintReasonSubsetReservation:
+		value := reason.SubsetReservation
+		if value == nil || !validUnit(value.Unit) || len(value.ReservedDigits) < 2 || len(value.PremiseCells) < 2 || !validRefs(value.ActionTargets) {
+			return fmt.Errorf("invalid subset-reservation reason")
+		}
+		for _, position := range value.PremiseCells {
+			if !position.IsValid() {
+				return fmt.Errorf("invalid subset premise cell")
+			}
+		}
+	case HintReasonFishConfinement:
+		value := reason.FishConfinement
+		if value == nil || value.Digit < 1 || value.Digit > 9 || len(value.BaseUnits) < 2 || len(value.CoverUnits) != len(value.BaseUnits) || !validRefs(value.PatternCandidates) || !validRefs(value.ActionTargets) {
+			return fmt.Errorf("invalid fish-confinement reason")
+		}
+		for _, unit := range append(append([]solver.UnitRef(nil), value.BaseUnits...), value.CoverUnits...) {
+			if !validUnit(unit) {
+				return fmt.Errorf("invalid fish unit")
+			}
+		}
+	case HintReasonImplicationChain:
+		value := reason.ImplicationChain
+		if value == nil || len(value.BivalueGroups) < 2 || len(value.Links) != len(value.BivalueGroups)-1 || value.EndpointDigit < 1 || value.EndpointDigit > 9 || !validRefs(value.ActionTargets) {
+			return fmt.Errorf("invalid implication-chain reason")
+		}
+		for _, group := range value.BivalueGroups {
+			if !group.Position.IsValid() || len(group.Values) != 2 {
+				return fmt.Errorf("invalid chain bivalue group")
+			}
+		}
+	default:
+		return fmt.Errorf("unknown hint reason kind %q", reason.Kind)
+	}
+	return nil
+}
+
 type HintKind string
 
 const (
@@ -178,6 +276,7 @@ type HintPlan struct {
 	Title      message.Descriptor
 	Strategy   HintStrategy
 	Summary    message.Descriptor
+	Reason     *HintReason
 	Steps      []HintStep
 	Conclusion HintConclusion
 }
@@ -255,6 +354,43 @@ func countArgument(name string, count int) message.Argument {
 	return message.Argument{Name: name, Kind: message.ArgumentCount, Count: &count}
 }
 
+func digitArgument(name string, digit int) message.Argument {
+	return message.Argument{Name: name, Kind: message.ArgumentDigit, Digit: &digit}
+}
+
+func candidateArgument(name string, ref solver.CandidateRef) message.Argument {
+	candidate := message.Candidate{Cell: message.Cell{Row: ref.Position.Row + 1, Column: ref.Position.Column + 1}, Digit: ref.Value}
+	return message.Argument{Name: name, Kind: message.ArgumentCandidate, Candidate: &candidate}
+}
+
+func digitsArgument(name string, values []int) message.Argument {
+	return message.Argument{Name: name, Kind: message.ArgumentDigits, Digits: append([]int(nil), values...)}
+}
+
+func cellsArgument(name string, positions []core.Position) message.Argument {
+	values := make([]message.Cell, len(positions))
+	for i, position := range positions {
+		values[i] = message.Cell{Row: position.Row + 1, Column: position.Column + 1}
+	}
+	return message.Argument{Name: name, Kind: message.ArgumentCells, Cells: values}
+}
+
+func candidatesArgument(name string, refs []solver.CandidateRef) message.Argument {
+	values := make([]message.Candidate, len(refs))
+	for i, ref := range refs {
+		values[i] = message.Candidate{Cell: message.Cell{Row: ref.Position.Row + 1, Column: ref.Position.Column + 1}, Digit: ref.Value}
+	}
+	return message.Argument{Name: name, Kind: message.ArgumentCandidates, Candidates: values}
+}
+
+func unitsArgument(name string, refs []solver.UnitRef) message.Argument {
+	values := make([]message.Unit, len(refs))
+	for i, ref := range refs {
+		values[i] = message.Unit{Kind: string(ref.Kind), Index: ref.Index + 1}
+	}
+	return message.Argument{Name: name, Kind: message.ArgumentUnits, Units: values}
+}
+
 func composeValueCorrectionPlan(snapshot Snapshot, position core.Position) *HintPlan {
 	positionCopy := position
 	conclusion := HintConclusion{ClearValue: &positionCopy}
@@ -266,7 +402,7 @@ func composeValueCorrectionPlan(snapshot Snapshot, position core.Position) *Hint
 		Summary: hintDescriptor("hint.value-correction.summary", cellArgument("cell", position)),
 		Steps: []HintStep{
 			{ID: "find-wrong-value", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationID("hint.narration.look-at"), narrationTarget(cellTarget(position)), narrationID("hint.narration.value-conflict")}, Marks: []HintMark{{Target: cellTarget(position), Role: HintRoleProblem}}, Nodes: []HintNode{}, Links: []HintLink{}},
-			{ID: "clear-wrong-value", Kind: HintStepConclude, Message: conclude, Narration: []HintNarrationChunk{narrationID("hint.narration.clear-value"), narrationTarget(cellTarget(position)), narrationID("hint.narration.clear-value-tail")}, Marks: []HintMark{{Target: cellTarget(position), Role: HintRoleConclusion}}, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{ClearValue: &positionCopy}},
+			{ID: "clear-wrong-value", Kind: HintStepApply, Message: conclude, Narration: []HintNarrationChunk{narrationID("hint.narration.clear-value"), narrationTarget(cellTarget(position)), narrationID("hint.narration.clear-value-tail")}, Marks: []HintMark{{Target: cellTarget(position), Role: HintRoleConclusion}}, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{ClearValue: &positionCopy}},
 		},
 		Conclusion: conclusion,
 	}
@@ -292,8 +428,8 @@ func composeCandidateCorrectionPlan(snapshot Snapshot, position core.Position, c
 		Summary: hintDescriptor("hint.candidate-correction.summary", cellArgument("cell", position)),
 		Steps: []HintStep{
 			{ID: "find-candidate-problem", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationID("hint.narration.look-at"), narrationTarget(cellTarget(position)), narrationID("hint.narration.candidate-inconsistent")}, Marks: append([]HintMark{{Target: cellTarget(position), Role: HintRoleProblem}}, problemMarks...), Nodes: []HintNode{}, Links: []HintLink{}},
-			{ID: "compare-candidate-cell", Kind: HintStepCompare, Message: compare, Narration: []HintNarrationChunk{narrationMessage(compare)}, Marks: problemMarks, Nodes: []HintNode{}, Links: []HintLink{}},
-			{ID: "set-candidate-cell", Kind: HintStepConclude, Message: conclude, Narration: []HintNarrationChunk{narrationID("hint.narration.reset-candidates"), narrationTarget(cellTarget(position)), narrationID("hint.narration.reset-candidates-tail")}, Marks: correctionMarks, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{SetCandidates: replacement}},
+			{ID: "compare-candidate-cell", Kind: HintStepExplain, Message: compare, Narration: []HintNarrationChunk{narrationMessage(compare)}, Marks: problemMarks, Nodes: []HintNode{}, Links: []HintLink{}},
+			{ID: "set-candidate-cell", Kind: HintStepApply, Message: conclude, Narration: []HintNarrationChunk{narrationID("hint.narration.reset-candidates"), narrationTarget(cellTarget(position)), narrationID("hint.narration.reset-candidates-tail")}, Marks: correctionMarks, Nodes: []HintNode{}, Links: []HintLink{}, Effect: &HintEffect{SetCandidates: replacement}},
 		},
 		Conclusion: HintConclusion{SetCandidates: replacement},
 	}
@@ -355,6 +491,7 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 	default:
 		plan.Steps = evidenceSteps(move, plan.Conclusion)
 	}
+	plan.Reason = pilotHintReason(move)
 	for index := range plan.Steps {
 		populateStrategyStep(&plan.Steps[index], index, len(plan.Steps), move.Technique)
 		if plan.Steps[index].Marks == nil {
@@ -375,6 +512,12 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 // populateStrategyStep attaches catalog-backed wording after the composer has
 // built the renderer-neutral scene and effect.
 func populateStrategyStep(step *HintStep, index, total int, strategy string) {
+	if step.Message.ID != "" {
+		if !step.HasValidNarration() {
+			step.Narration = []HintNarrationChunk{narrationMessage(step.Message)}
+		}
+		return
+	}
 	id := "hint.strategy.compare"
 	if index == 0 {
 		id = "hint.strategy.observe"
@@ -402,6 +545,59 @@ func populateStrategyStep(step *HintStep, index, total int, strategy string) {
 
 func narrationID(id string) HintNarrationChunk { return narrationMessage(hintDescriptor(id)) }
 
+func pilotHintReason(move *solver.Move) *HintReason {
+	if move == nil || move.Evidence == nil {
+		return nil
+	}
+	evidence := move.Evidence
+	switch move.Technique {
+	case "naked-pair":
+		if evidence.Unit == nil || len(evidence.Premises) != 2 || len(evidence.Eliminations) == 0 {
+			return nil
+		}
+		cells := []core.Position{evidence.Premises[0].Position, evidence.Premises[1].Position}
+		return &HintReason{Kind: HintReasonSubsetReservation, SubsetReservation: &SubsetReservationReason{
+			Unit: *evidence.Unit, ReservedDigits: sharedValues(evidence.Premises...), PremiseCells: cells,
+			ActionTargets: append([]solver.CandidateRef(nil), evidence.Eliminations...),
+		}}
+	case "x-wing":
+		if len(evidence.Units) != 4 || len(evidence.Premises) == 0 || len(evidence.Eliminations) == 0 {
+			return nil
+		}
+		digit := evidence.Premises[0].Values[0]
+		patterns := make([]solver.CandidateRef, 0, len(evidence.Premises))
+		for _, premise := range evidence.Premises {
+			patterns = append(patterns, solver.CandidateRef{Position: premise.Position, Value: digit})
+		}
+		return &HintReason{Kind: HintReasonFishConfinement, FishConfinement: &FishConfinementReason{
+			Digit: digit, BaseUnits: append([]solver.UnitRef(nil), evidence.Units[:2]...), CoverUnits: append([]solver.UnitRef(nil), evidence.Units[2:]...),
+			PatternCandidates: patterns, ActionTargets: append([]solver.CandidateRef(nil), evidence.Eliminations...),
+		}}
+	case "xy-chain":
+		if len(evidence.Chain) < 2 || len(evidence.Links) == 0 || len(evidence.Eliminations) == 0 {
+			return nil
+		}
+		endpoint := sharedValues(evidence.Chain[0], evidence.Chain[len(evidence.Chain)-1])
+		if len(endpoint) != 1 {
+			return nil
+		}
+		return &HintReason{Kind: HintReasonImplicationChain, ImplicationChain: &ImplicationChainReason{
+			BivalueGroups: append([]solver.CandidateGroup(nil), evidence.Chain...), Links: append([]solver.CandidateLink(nil), evidence.Links...), EndpointDigit: endpoint[0],
+			ActionTargets: append([]solver.CandidateRef(nil), evidence.Eliminations...),
+		}}
+	default:
+		return nil
+	}
+}
+
+func actionNarration(descriptor message.Descriptor, digit int, refs []solver.CandidateRef) []HintNarrationChunk {
+	chunks := []HintNarrationChunk{narrationMessage(descriptor), narrationDigit(digit)}
+	for _, ref := range refs {
+		chunks = append(chunks, narrationTarget(cellTarget(ref.Position)))
+	}
+	return chunks
+}
+
 func evidenceSteps(move *solver.Move, conclusion HintConclusion) []HintStep {
 	evidence := move.Evidence
 	var premiseMarks []HintMark
@@ -425,11 +621,11 @@ func evidenceSteps(move *solver.Move, conclusion HintConclusion) []HintStep {
 	}
 	steps := []HintStep{
 		{ID: "observe-candidate-pattern", Kind: HintStepObserve, Marks: premiseMarks},
-		{ID: "compare-candidate-constraints", Kind: HintStepCompare, Marks: append(append([]HintMark(nil), premiseMarks...), comparisonMarks...)},
+		{ID: "compare-candidate-constraints", Kind: HintStepExplain, Marks: append(append([]HintMark(nil), premiseMarks...), comparisonMarks...)},
 	}
-	kind := HintStepConclude
+	kind := HintStepApply
 	if conclusion.Placement == nil {
-		kind = HintStepEliminate
+		kind = HintStepApply
 	}
 	steps = append(steps, HintStep{ID: "apply-deduction", Kind: kind, Marks: conclusionMarks(conclusion), Effect: conclusionEffect(conclusion)})
 	return steps
@@ -445,7 +641,7 @@ func nakedSingleSteps(move *solver.Move) []HintStep {
 	observeMarks := append(units, HintMark{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, HintMark{Target: candidateTarget(ref), Role: HintRolePremise})
 	return []HintStep{
 		{ID: "inspect-" + compactCellName(move.Cell.Position), Kind: HintStepObserve, Narration: []HintNarrationChunk{narrationID("hint.narration.look-at"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.only-candidate"), narrationDigit(move.Cell.Value), narrationID("hint.narration.period")}, Marks: observeMarks},
-		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Narration: []HintNarrationChunk{narrationID("hint.narration.no-other-digit"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.place"), narrationDigit(move.Cell.Value), narrationID("hint.narration.naked-single-tail")}, Marks: []HintMark{{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
+		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepApply, Narration: []HintNarrationChunk{narrationID("hint.narration.no-other-digit"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.place"), narrationDigit(move.Cell.Value), narrationID("hint.narration.naked-single-tail")}, Marks: []HintMark{{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
 	}
 }
 
@@ -460,8 +656,8 @@ func hiddenSingleSteps(move *solver.Move) []HintStep {
 	unitName := fmt.Sprintf("%s %d", move.Evidence.Unit.Kind, move.Evidence.Unit.Index+1)
 	return []HintStep{
 		{ID: fmt.Sprintf("scan-%s-for-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepObserve, Narration: []HintNarrationChunk{narrationID("hint.narration.in-unit"), narrationTarget(unit), narrationID("hint.narration.consider-digit"), narrationDigit(move.Cell.Value), narrationID("hint.narration.can-appear")}, Marks: marks},
-		{ID: fmt.Sprintf("compare-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepCompare, Narration: []HintNarrationChunk{narrationID("hint.narration.other-cells"), narrationTarget(unit), narrationID("hint.narration.cannot-contain"), narrationDigit(move.Cell.Value), narrationID("hint.narration.leaving-only"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.period")}, Marks: compare},
-		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepConclude, Narration: []HintNarrationChunk{narrationID("hint.narration.because-unit"), narrationTarget(unit), narrationID("hint.narration.still-needs"), narrationDigit(move.Cell.Value), narrationID("hint.narration.only-cell"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.hidden-single-tail"), narrationDigit(move.Cell.Value), narrationID("hint.narration.hidden-single-name")}, Marks: []HintMark{{Target: unit, Role: HintRoleFocus}, {Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
+		{ID: fmt.Sprintf("compare-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepExplain, Narration: []HintNarrationChunk{narrationID("hint.narration.other-cells"), narrationTarget(unit), narrationID("hint.narration.cannot-contain"), narrationDigit(move.Cell.Value), narrationID("hint.narration.leaving-only"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.period")}, Marks: compare},
+		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepApply, Narration: []HintNarrationChunk{narrationID("hint.narration.because-unit"), narrationTarget(unit), narrationID("hint.narration.still-needs"), narrationDigit(move.Cell.Value), narrationID("hint.narration.only-cell"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.hidden-single-tail"), narrationDigit(move.Cell.Value), narrationID("hint.narration.hidden-single-name")}, Marks: []HintMark{{Target: unit, Role: HintRoleFocus}, {Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
 	}
 }
 
@@ -470,16 +666,31 @@ func nakedSubsetSteps(move *solver.Move, _ string) []HintStep {
 	unit, _ := unitTarget(evidence.Unit)
 	premiseMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
 	var cellIDs []string
+	var cells []core.Position
 	for _, premise := range evidence.Premises {
 		cellIDs = append(cellIDs, compactCellName(premise.Position))
+		cells = append(cells, premise.Position)
 		for _, value := range premise.Values {
 			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: value}), Role: HintRolePremise})
 		}
 	}
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	if move.Technique == "naked-pair" {
+		digits := sharedValues(evidence.Premises...)
+		units := []solver.UnitRef{*evidence.Unit}
+		observe := hintDescriptor("hint.subset-reservation.observe", unitsArgument("unit", units), cellsArgument("cells", cells), digitsArgument("digits", digits))
+		explain := hintDescriptor("hint.subset-reservation.explain", unitsArgument("unit", units), cellsArgument("cells", cells), digitsArgument("digits", digits))
+		apply := hintDescriptor("hint.subset-reservation.apply", candidatesArgument("candidates", evidence.Eliminations), strategyArgument("strategy", move.Technique))
+		candidateMarks := append([]HintMark(nil), premiseMarks[1:]...)
+		return []HintStep{
+			{ID: "find-" + strings.Join(cellIDs, "-"), Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: candidateMarks},
+			{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: premiseMarks},
+			{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply, evidence.Eliminations[0].Value, evidence.Eliminations), Marks: append(candidateMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		}
+	}
 	return []HintStep{
 		{ID: "find-" + strings.Join(cellIDs, "-"), Kind: HintStepObserve, Marks: premiseMarks},
-		{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepCompare, Marks: premiseMarks},
+		{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepExplain, Marks: premiseMarks},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(premiseMarks[1:], conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
@@ -496,7 +707,7 @@ func hiddenSubsetSteps(move *solver.Move, _ string) []HintStep {
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	return []HintStep{
 		{ID: "find-confined-" + move.Technique, Kind: HintStepObserve, Marks: premiseMarks},
-		{ID: "compare-confined-" + move.Technique, Kind: HintStepCompare, Marks: premiseMarks},
+		{ID: "compare-confined-" + move.Technique, Kind: HintStepExplain, Marks: premiseMarks},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(premiseMarks[1:], conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
@@ -517,7 +728,7 @@ func intersectionSteps(move *solver.Move) []HintStep {
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	return []HintStep{
 		{ID: "find-intersection", Kind: HintStepObserve, Marks: premiseMarks},
-		{ID: "compare-intersection", Kind: HintStepCompare, Marks: premiseMarks},
+		{ID: "compare-intersection", Kind: HintStepExplain, Marks: premiseMarks},
 		{ID: "apply-intersection", Kind: conclusionKind(conclusion), Marks: append(premiseMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
@@ -526,9 +737,36 @@ func fishSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	marks := unitAndPremiseMarks(evidence)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	if move.Technique == "x-wing" && len(evidence.Units) == 4 && len(evidence.Premises) > 0 && len(evidence.Eliminations) > 0 {
+		baseUnits, coverUnits := evidence.Units[:2], evidence.Units[2:]
+		digit := evidence.Premises[0].Values[0]
+		observe := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits), digitArgument("digit", digit), unitsArgument("cover_units", coverUnits))
+		explain := hintDescriptor("hint.fish-confinement.explain", unitsArgument("base_units", baseUnits), unitsArgument("cover_units", coverUnits), digitArgument("digit", digit))
+		positions := make([]core.Position, len(evidence.Eliminations))
+		for i, ref := range evidence.Eliminations {
+			positions[i] = ref.Position
+		}
+		apply := hintDescriptor("hint.fish-confinement.apply", digitArgument("digit", digit), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
+		premiseMarks := premiseCandidateMarks(evidence)
+		baseMarks := append([]HintMark(nil), premiseMarks...)
+		for _, ref := range baseUnits {
+			target, _ := unitTarget(&ref)
+			baseMarks = append(baseMarks, HintMark{Target: target, Role: HintRoleFocus})
+		}
+		explainMarks := append([]HintMark(nil), baseMarks...)
+		for _, ref := range coverUnits {
+			target, _ := unitTarget(&ref)
+			explainMarks = append(explainMarks, HintMark{Target: target, Role: HintRoleFocus})
+		}
+		return []HintStep{
+			{ID: "find-x-wing", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: baseMarks},
+			{ID: "explain-x-wing", Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: explainMarks},
+			{ID: "apply-x-wing", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply, digit, evidence.Eliminations), Marks: append(explainMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		}
+	}
 	return []HintStep{
 		{ID: "find-" + move.Technique, Kind: HintStepObserve, Marks: marks},
-		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Marks: marks},
+		{ID: "compare-" + move.Technique, Kind: HintStepExplain, Marks: marks},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
@@ -560,7 +798,7 @@ func relationalSteps(move *solver.Move, _ string) []HintStep {
 	}
 	return []HintStep{
 		{ID: "find-" + move.Technique, Kind: HintStepObserve, Marks: observeMarks, Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "compare-" + move.Technique, Kind: HintStepExplain, Marks: marks, Nodes: nodes, Links: links},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
@@ -573,8 +811,8 @@ func bugPlusOneSteps(move *solver.Move, _ string) []HintStep {
 	conclusion := HintConclusion{Placement: placement(move)}
 	return []HintStep{
 		{ID: "find-trivalue-cell", Kind: HintStepObserve, Marks: marks},
-		{ID: "compare-extra-candidate", Kind: HintStepCompare, Marks: marks},
-		{ID: "apply-bug-plus-one", Kind: HintStepConclude, Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "compare-extra-candidate", Kind: HintStepExplain, Marks: marks},
+		{ID: "apply-bug-plus-one", Kind: HintStepApply, Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 
@@ -594,7 +832,7 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	return []HintStep{
 		{ID: "find-" + move.Technique, Kind: HintStepObserve, Marks: marks},
-		{ID: "compare-" + move.Technique, Kind: HintStepCompare, Marks: marks},
+		{ID: "compare-" + move.Technique, Kind: HintStepExplain, Marks: marks},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
@@ -614,7 +852,7 @@ func coloringSteps(move *solver.Move, _ string) []HintStep {
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	return []HintStep{
 		{ID: "find-simple-coloring", Kind: HintStepObserve, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-simple-coloring", Kind: HintStepCompare, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "compare-simple-coloring", Kind: HintStepExplain, Marks: marks, Nodes: nodes, Links: links},
 		{ID: "apply-simple-coloring", Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
@@ -634,7 +872,7 @@ func xCycleSteps(move *solver.Move, _ string) []HintStep {
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	return []HintStep{
 		{ID: "find-x-cycle", Kind: HintStepObserve, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-x-cycle", Kind: HintStepCompare, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "compare-x-cycle", Kind: HintStepExplain, Marks: marks, Nodes: nodes, Links: links},
 		{ID: "apply-x-cycle", Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
@@ -658,19 +896,49 @@ func xyChainSteps(move *solver.Move, _ string) []HintStep {
 	if evidence == nil {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
 	}
-	if len(evidence.Chain) < 4 {
+	if len(evidence.Chain) < 4 || len(evidence.Links) == 0 || len(evidence.Eliminations) == 0 {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
 	}
-	marks := premiseCandidateMarks(evidence)
 	nodes := visualNodes(evidence, true)
 	links := visualLinks(evidence)
-	firstNodes, firstLinks := visualPrefix(nodes, links)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	return []HintStep{
-		{ID: "find-xy-chain", Kind: HintStepObserve, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-xy-chain", Kind: HintStepCompare, Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+	first := evidence.Chain[0]
+	observe := hintDescriptor("hint.implication-chain.observe", cellsArgument("cell", []core.Position{first.Position}), digitsArgument("digits", first.Values))
+	firstNodeIDs := map[string]struct{}{}
+	for _, value := range first.Values {
+		firstNodeIDs[candidateNodeID(solver.CandidateRef{Position: first.Position, Value: value})] = struct{}{}
 	}
+	var firstNodes []HintNode
+	for _, node := range nodes {
+		if _, ok := firstNodeIDs[node.ID]; ok {
+			firstNodes = append(firstNodes, node)
+		}
+	}
+	steps := []HintStep{{ID: "find-xy-chain", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: []HintLink{}}}
+	for index, relation := range evidence.Links {
+		descriptor := hintDescriptor("hint.implication-chain.explain", candidateArgument("from", relation.From), candidateArgument("to", relation.To))
+		visibleLinks := append([]HintLink(nil), links[:index+1]...)
+		ids := make(map[string]struct{})
+		for _, link := range visibleLinks {
+			ids[link.From] = struct{}{}
+			ids[link.To] = struct{}{}
+		}
+		var visibleNodes []HintNode
+		for _, node := range nodes {
+			if _, ok := ids[node.ID]; ok {
+				visibleNodes = append(visibleNodes, node)
+			}
+		}
+		steps = append(steps, HintStep{ID: fmt.Sprintf("explain-xy-chain-%d", index+1), Kind: HintStepExplain, Message: descriptor, Narration: []HintNarrationChunk{narrationMessage(descriptor), narrationTarget(candidateTarget(relation.From)), narrationTarget(candidateTarget(relation.To))}, Marks: marksForNodes(visibleNodes), Nodes: visibleNodes, Links: visibleLinks})
+	}
+	endpoint := sharedValues(evidence.Chain[0], evidence.Chain[len(evidence.Chain)-1])[0]
+	positions := make([]core.Position, len(evidence.Eliminations))
+	for i, ref := range evidence.Eliminations {
+		positions[i] = ref.Position
+	}
+	apply := hintDescriptor("hint.implication-chain.apply", digitArgument("digit", endpoint), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
+	steps = append(steps, HintStep{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply, endpoint, evidence.Eliminations), Marks: append(marksForNodes(nodes), conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)})
+	return steps
 }
 
 func candidateNodeID(ref solver.CandidateRef) string {
@@ -802,9 +1070,9 @@ func placement(move *solver.Move) *core.Cell {
 
 func conclusionKind(conclusion HintConclusion) HintStepKind {
 	if conclusion.Placement != nil {
-		return HintStepConclude
+		return HintStepApply
 	}
-	return HintStepEliminate
+	return HintStepApply
 }
 
 func conclusionMarks(conclusion HintConclusion) []HintMark {

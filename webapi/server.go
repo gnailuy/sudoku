@@ -13,6 +13,7 @@ import (
 	"github.com/gnailuy/sudoku/core"
 	"github.com/gnailuy/sudoku/game"
 	usermessage "github.com/gnailuy/sudoku/message"
+	"github.com/gnailuy/sudoku/solver"
 )
 
 var canonicalEnglishMessages = func() *usermessage.Catalog {
@@ -350,6 +351,10 @@ func apiHintPlan(plan *game.HintPlan) HintPlan {
 	if plan.Strategy.ID != "" {
 		out.Strategy = &HintStrategy{Id: plan.Strategy.ID, Name: apiMessageDescriptor(plan.Strategy.Name), Grade: Difficulty(plan.Strategy.Grade), GradeName: apiMessageDescriptor(plan.Strategy.GradeName)}
 	}
+	if plan.Reason != nil && plan.Reason.Validate() == nil {
+		reason := apiHintReason(*plan.Reason)
+		out.Reason = &reason
+	}
 	return out
 }
 
@@ -397,11 +402,94 @@ func mustAPIMessageArgument(argument usermessage.Argument) MessageArgument {
 		err = out.FromMessageStrategyArgument(MessageStrategyArgument{Name: argument.Name, Kind: string(argument.Kind), Strategy: *argument.Strategy})
 	case usermessage.ArgumentCount:
 		err = out.FromMessageCountArgument(MessageCountArgument{Name: argument.Name, Kind: string(argument.Kind), Count: *argument.Count})
+	case usermessage.ArgumentDigits:
+		values := make([]Digit, len(argument.Digits))
+		for i, value := range argument.Digits {
+			values[i] = Digit(value)
+		}
+		err = out.FromMessageDigitsArgument(MessageDigitsArgument{Name: argument.Name, Kind: string(argument.Kind), Digits: values})
+	case usermessage.ArgumentCells:
+		values := make([]CellPosition, len(argument.Cells))
+		for i, value := range argument.Cells {
+			values[i] = CellPosition{Row: value.Row, Column: value.Column}
+		}
+		err = out.FromMessageCellsArgument(MessageCellsArgument{Name: argument.Name, Kind: string(argument.Kind), Cells: values})
+	case usermessage.ArgumentCandidates:
+		values := make([]HintCandidate, len(argument.Candidates))
+		for i, value := range argument.Candidates {
+			values[i] = HintCandidate{Cell: CellPosition{Row: value.Cell.Row, Column: value.Cell.Column}, Digit: Digit(value.Digit)}
+		}
+		err = out.FromMessageCandidatesArgument(MessageCandidatesArgument{Name: argument.Name, Kind: string(argument.Kind), Candidates: values})
+	case usermessage.ArgumentUnits:
+		values := make([]HintUnit, len(argument.Units))
+		for i, value := range argument.Units {
+			values[i] = HintUnit{Kind: HintUnitKind(value.Kind), Index: value.Index}
+		}
+		err = out.FromMessageUnitsArgument(MessageUnitsArgument{Name: argument.Name, Kind: string(argument.Kind), Units: values})
 	default:
 		panic(fmt.Sprintf("unsupported canonical message argument kind %q", argument.Kind))
 	}
 	if err != nil {
 		panic(fmt.Sprintf("encode canonical message argument %q: %v", argument.Name, err))
+	}
+	return out
+}
+
+func apiHintReason(reason game.HintReason) HintReason {
+	var out HintReason
+	var err error
+	candidate := func(ref solver.CandidateRef) HintCandidate {
+		return HintCandidate{Cell: CellPosition{Row: ref.Position.Row + 1, Column: ref.Position.Column + 1}, Digit: Digit(ref.Value)}
+	}
+	candidates := func(refs []solver.CandidateRef) []HintCandidate {
+		values := make([]HintCandidate, len(refs))
+		for i, ref := range refs {
+			values[i] = candidate(ref)
+		}
+		return values
+	}
+	units := func(refs []solver.UnitRef) []HintUnit {
+		values := make([]HintUnit, len(refs))
+		for i, ref := range refs {
+			values[i] = HintUnit{Kind: HintUnitKind(ref.Kind), Index: ref.Index + 1}
+		}
+		return values
+	}
+	switch reason.Kind {
+	case game.HintReasonSubsetReservation:
+		value := reason.SubsetReservation
+		cells := make([]CellPosition, len(value.PremiseCells))
+		for i, position := range value.PremiseCells {
+			cells[i] = CellPosition{Row: position.Row + 1, Column: position.Column + 1}
+		}
+		digits := make([]Digit, len(value.ReservedDigits))
+		for i, digit := range value.ReservedDigits {
+			digits[i] = Digit(digit)
+		}
+		err = out.FromSubsetReservationReason(SubsetReservationReason{Kind: string(reason.Kind), Unit: units([]solver.UnitRef{value.Unit})[0], ReservedDigits: digits, PremiseCells: cells, ActionTargets: candidates(value.ActionTargets)})
+	case game.HintReasonFishConfinement:
+		value := reason.FishConfinement
+		err = out.FromFishConfinementReason(FishConfinementReason{Kind: string(reason.Kind), Digit: Digit(value.Digit), BaseUnits: units(value.BaseUnits), CoverUnits: units(value.CoverUnits), PatternCandidates: candidates(value.PatternCandidates), ActionTargets: candidates(value.ActionTargets)})
+	case game.HintReasonImplicationChain:
+		value := reason.ImplicationChain
+		groups := make([]HintCandidateGroup, len(value.BivalueGroups))
+		for i, group := range value.BivalueGroups {
+			digits := make([]Digit, len(group.Values))
+			for j, digit := range group.Values {
+				digits[j] = Digit(digit)
+			}
+			groups[i] = HintCandidateGroup{Cell: CellPosition{Row: group.Position.Row + 1, Column: group.Position.Column + 1}, Digits: digits}
+		}
+		links := make([]HintCandidateLink, len(value.Links))
+		for i, link := range value.Links {
+			links[i] = HintCandidateLink{From: candidate(link.From), To: candidate(link.To), Kind: HintLinkKind(link.Kind)}
+		}
+		err = out.FromImplicationChainReason(ImplicationChainReason{Kind: string(reason.Kind), BivalueGroups: groups, Links: links, EndpointDigit: Digit(value.EndpointDigit), ActionTargets: candidates(value.ActionTargets)})
+	default:
+		panic(fmt.Sprintf("unsupported hint reason kind %q", reason.Kind))
+	}
+	if err != nil {
+		panic(fmt.Sprintf("encode hint reason %q: %v", reason.Kind, err))
 	}
 	return out
 }

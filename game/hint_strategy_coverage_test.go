@@ -101,6 +101,20 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 						}
 					}
 				}
+				switch key {
+				case "naked-pair":
+					if first.Reason == nil || first.Reason.Kind != HintReasonSubsetReservation || first.Steps[1].Message.ID == "hint.strategy.compare" {
+						t.Fatalf("naked-pair did not use its typed pilot reason: %+v", first)
+					}
+				case "x-wing":
+					if first.Reason == nil || first.Reason.Kind != HintReasonFishConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {
+						t.Fatalf("x-wing did not use its typed pilot reason: %+v", first)
+					}
+				case "xy-chain":
+					if first.Reason == nil || first.Reason.Kind != HintReasonImplicationChain || first.Reason.ImplicationChain == nil || len(first.Steps) != len(first.Reason.ImplicationChain.Links)+2 {
+						t.Fatalf("xy-chain did not use one explanation step per link: %+v", first)
+					}
+				}
 				if !planHasRole(*first, HintRolePremise) {
 					t.Fatal("plan has no typed candidate premise")
 				}

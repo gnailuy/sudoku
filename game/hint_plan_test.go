@@ -305,7 +305,7 @@ func TestHiddenSingleHintPlanHasUnitEvidence(t *testing.T) {
 			t.Fatalf("hidden-single step lacks structured narration: %+v", step)
 		}
 	}
-	if plan.Steps[0].Kind != HintStepObserve || plan.Steps[1].Kind != HintStepCompare || plan.Steps[2].Kind != HintStepConclude {
+	if plan.Steps[0].Kind != HintStepObserve || plan.Steps[1].Kind != HintStepExplain || plan.Steps[2].Kind != HintStepApply {
 		t.Fatalf("unexpected step order: %+v", plan.Steps)
 	}
 	if plan.Steps[0].Message.ID != "hint.strategy.observe" || plan.Steps[1].Message.ID != "hint.strategy.compare" || plan.Steps[2].Message.ID != "hint.strategy.conclude" {
@@ -337,7 +337,10 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	if plan == nil || plan.Strategy.ID != "naked-pair" || len(plan.Steps) != 3 || len(plan.Conclusion.Eliminations) == 0 || plan.Conclusion.Placement != nil {
 		t.Fatalf("unexpected naked-pair plan: %+v", plan)
 	}
-	if plan.Steps[0].Message.ID != "hint.strategy.observe" || plan.Steps[1].Message.ID != "hint.strategy.compare" || plan.Steps[2].Message.ID != "hint.strategy.conclude" {
+	if plan.Reason == nil || plan.Reason.Kind != HintReasonSubsetReservation || plan.Reason.SubsetReservation == nil {
+		t.Fatalf("naked-pair reason is incomplete: %+v", plan.Reason)
+	}
+	if plan.Steps[0].Message.ID != "hint.subset-reservation.observe" || plan.Steps[1].Message.ID != "hint.subset-reservation.explain" || plan.Steps[2].Message.ID != "hint.subset-reservation.apply" {
 		t.Fatalf("naked-pair descriptors are incomplete: %+v", plan.Steps)
 	}
 	before := game.Snapshot()
@@ -503,7 +506,11 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
 			}
-			if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
+			if key == "naked-pair" {
+				if plan.Reason == nil || plan.Reason.Kind != HintReasonSubsetReservation || plan.Steps[2].Message.ID != "hint.subset-reservation.apply" {
+					t.Fatalf("naked-pair pilot contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+				}
+			} else if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
 				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
 			}
 		})
@@ -544,7 +551,11 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message.Text)
 				}
 			}
-			if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
+			if key == "x-wing" {
+				if plan.Reason == nil || plan.Reason.Kind != HintReasonFishConfinement || plan.Steps[2].Message.ID != "hint.fish-confinement.apply" {
+					t.Fatalf("x-wing pilot contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+				}
+			} else if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
 				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
 			}
 			switch key {
@@ -631,7 +642,14 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != 3 {
+			if plan == nil || plan.Strategy.ID != key {
+				t.Fatalf("unexpected family plan: %+v", plan)
+			}
+			if key == "xy-chain" {
+				if plan.Reason == nil || plan.Reason.ImplicationChain == nil || len(plan.Steps) != len(plan.Reason.ImplicationChain.Links)+2 {
+					t.Fatalf("unexpected logic-sized XY-chain plan: %+v", plan)
+				}
+			} else if len(plan.Steps) != 3 {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
 			for _, step := range plan.Steps[:2] {
@@ -642,10 +660,15 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatalf("family plan exposes compact notation: %q", step.Message.Text)
 				}
 			}
-			if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
-				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
+			last := plan.Steps[len(plan.Steps)-1]
+			if key == "xy-chain" {
+				if plan.Reason == nil || plan.Reason.Kind != HintReasonImplicationChain || last.Message.ID != "hint.implication-chain.apply" {
+					t.Fatalf("xy-chain pilot contract = reason %+v, conclusion %+v", plan.Reason, last.Message)
+				}
+			} else if last.Message.ID != "hint.strategy.conclude" || len(last.Message.Arguments) != 1 {
+				t.Fatalf("conclusion descriptor = %+v", last.Message)
 			}
-			if len(plan.Steps[0].Links) != 1 || len(plan.Steps[1].Links) <= len(plan.Steps[0].Links) {
+			if len(plan.Steps[1].Links) <= len(plan.Steps[0].Links) {
 				t.Fatalf("complex scene is not progressive: %+v", plan.Steps)
 			}
 			for _, mark := range plan.Steps[1].Marks {

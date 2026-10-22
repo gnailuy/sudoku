@@ -31,6 +31,17 @@ func TestAPIHintPlanUsesStableNameDescriptors(t *testing.T) {
 	}
 }
 
+func TestAPIHintPlanOmitsMalformedReasonAndKeepsFallback(t *testing.T) {
+	descriptor := usermessage.Descriptor{ID: "test.summary", Arguments: []usermessage.Argument{}, Text: "Safe complete fallback."}
+	plan := apiHintPlan(&game.HintPlan{
+		PlanID: "plan", Kind: game.HintKindStrategy, Title: descriptor, Summary: descriptor,
+		Reason: &game.HintReason{Kind: game.HintReasonFishConfinement},
+	})
+	if plan.Reason != nil || plan.Summary.Text != descriptor.Text {
+		t.Fatalf("malformed reason/fallback = %#v/%#v", plan.Reason, plan.Summary)
+	}
+}
+
 func TestAPIHintPlanUsesCorrectionTitleDescriptors(t *testing.T) {
 	cases := []struct {
 		kind game.HintKind
@@ -84,6 +95,10 @@ func TestAPIMessageDescriptorPreservesClosedArgumentKinds(t *testing.T) {
 		{Name: "difficulty", Kind: usermessage.ArgumentDifficulty, Difficulty: &difficulty},
 		{Name: "strategy", Kind: usermessage.ArgumentStrategy, Strategy: &strategy},
 		{Name: "count", Kind: usermessage.ArgumentCount, Count: &count},
+		{Name: "digits", Kind: usermessage.ArgumentDigits, Digits: []int{2, 7}},
+		{Name: "cells", Kind: usermessage.ArgumentCells, Cells: []usermessage.Cell{{Row: 4, Column: 2}, {Row: 4, Column: 7}}},
+		{Name: "candidates", Kind: usermessage.ArgumentCandidates, Candidates: []usermessage.Candidate{{Cell: usermessage.Cell{Row: 4, Column: 9}, Digit: 2}}},
+		{Name: "units", Kind: usermessage.ArgumentUnits, Units: []usermessage.Unit{{Kind: "row", Index: 4}}},
 	}}
 	if err := descriptor.Validate(); err != nil {
 		t.Fatal(err)
