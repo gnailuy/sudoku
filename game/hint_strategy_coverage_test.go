@@ -101,6 +101,20 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 						}
 					}
 				}
+				switch key {
+				case "naked-pair":
+					if first.Reason == nil || first.Reason.Kind != HintReasonSubsetReservation || first.Steps[1].Message.ID == "hint.strategy.compare" {
+						t.Fatalf("naked-pair did not use its typed pilot reason: %+v", first)
+					}
+				case "x-wing":
+					if first.Reason == nil || first.Reason.Kind != HintReasonFishConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {
+						t.Fatalf("x-wing did not use its typed pilot reason: %+v", first)
+					}
+				case "xy-chain":
+					if first.Reason == nil || first.Reason.Kind != HintReasonImplicationChain || first.Reason.ImplicationChain == nil || len(first.Steps) != len(first.Reason.ImplicationChain.Links)+2 {
+						t.Fatalf("xy-chain did not use one explanation step per link: %+v", first)
+					}
+				}
 				if !planHasRole(*first, HintRolePremise) {
 					t.Fatal("plan has no typed candidate premise")
 				}
@@ -115,7 +129,7 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 				if last.Effect == nil {
 					t.Fatal("final step has no exact effect")
 				}
-				if !narrationHasKind(last.Narration, HintNarrationDigit) || !narrationHasKind(last.Narration, HintNarrationTarget) {
+				if !narrationHasTypedConclusion(last.Narration) {
 					t.Fatal("final narration has no typed digit and target")
 				}
 				if first.Conclusion.Placement == nil && len(first.Conclusion.Eliminations) == 0 {
@@ -149,6 +163,26 @@ func boardFromPuzzle(t *testing.T, puzzle string) core.Board {
 func narrationHasKind(chunks []HintNarrationChunk, kind HintNarrationKind) bool {
 	for _, chunk := range chunks {
 		if chunk.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func narrationHasTypedConclusion(chunks []HintNarrationChunk) bool {
+	if narrationHasKind(chunks, HintNarrationDigit) && narrationHasKind(chunks, HintNarrationTarget) {
+		return true
+	}
+	for _, chunk := range chunks {
+		if chunk.Message == nil {
+			continue
+		}
+		hasDigit, hasCells := false, false
+		for _, argument := range chunk.Message.Arguments {
+			hasDigit = hasDigit || argument.Kind == message.ArgumentDigit || argument.Kind == message.ArgumentDigits || argument.Kind == message.ArgumentCandidate || argument.Kind == message.ArgumentCandidates
+			hasCells = hasCells || argument.Kind == message.ArgumentCell || argument.Kind == message.ArgumentCells || argument.Kind == message.ArgumentCandidate || argument.Kind == message.ArgumentCandidates
+		}
+		if hasDigit && hasCells {
 			return true
 		}
 	}
