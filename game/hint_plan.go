@@ -166,14 +166,22 @@ type HintConclusion struct {
 type HintReasonKind string
 
 const (
-	HintReasonSubsetReservation HintReasonKind = "subset-reservation"
-	HintReasonFishConfinement   HintReasonKind = "fish-confinement"
-	HintReasonImplicationChain  HintReasonKind = "implication-chain"
+	HintReasonSubsetReservation       HintReasonKind = "subset-reservation"
+	HintReasonHiddenSubsetConfinement HintReasonKind = "hidden-subset-confinement"
+	HintReasonFishConfinement         HintReasonKind = "fish-confinement"
+	HintReasonImplicationChain        HintReasonKind = "implication-chain"
 )
 
 type SubsetReservationReason struct {
 	Unit           solver.UnitRef
 	ReservedDigits []int
+	PremiseCells   []core.Position
+	ActionTargets  []solver.CandidateRef
+}
+
+type HiddenSubsetConfinementReason struct {
+	Unit           solver.UnitRef
+	ConfinedDigits []int
 	PremiseCells   []core.Position
 	ActionTargets  []solver.CandidateRef
 }
@@ -194,10 +202,11 @@ type ImplicationChainReason struct {
 }
 
 type HintReason struct {
-	Kind              HintReasonKind
-	SubsetReservation *SubsetReservationReason
-	FishConfinement   *FishConfinementReason
-	ImplicationChain  *ImplicationChainReason
+	Kind                    HintReasonKind
+	SubsetReservation       *SubsetReservationReason
+	HiddenSubsetConfinement *HiddenSubsetConfinementReason
+	FishConfinement         *FishConfinementReason
+	ImplicationChain        *ImplicationChainReason
 }
 
 // Validate rejects incomplete or mismatched family reasons before transport.
@@ -217,7 +226,7 @@ func (reason HintReason) Validate() error {
 		return true
 	}
 	payloads := 0
-	for _, present := range []bool{reason.SubsetReservation != nil, reason.FishConfinement != nil, reason.ImplicationChain != nil} {
+	for _, present := range []bool{reason.SubsetReservation != nil, reason.HiddenSubsetConfinement != nil, reason.FishConfinement != nil, reason.ImplicationChain != nil} {
 		if present {
 			payloads++
 		}
@@ -250,6 +259,31 @@ func (reason HintReason) Validate() error {
 		}
 		if len(seenCells) != len(value.PremiseCells) {
 			return fmt.Errorf("duplicate subset premise cell")
+		}
+	case HintReasonHiddenSubsetConfinement:
+		value := reason.HiddenSubsetConfinement
+		if value == nil || !validUnit(value.Unit) || len(value.ConfinedDigits) < 2 || len(value.ConfinedDigits) > 4 || len(value.PremiseCells) != len(value.ConfinedDigits) || !validRefs(value.ActionTargets) {
+			return fmt.Errorf("invalid hidden-subset-confinement reason")
+		}
+		seenDigits := make(map[int]struct{}, len(value.ConfinedDigits))
+		for _, digit := range value.ConfinedDigits {
+			if digit < 1 || digit > 9 {
+				return fmt.Errorf("invalid hidden-subset confined digit")
+			}
+			seenDigits[digit] = struct{}{}
+		}
+		if len(seenDigits) != len(value.ConfinedDigits) {
+			return fmt.Errorf("duplicate hidden-subset confined digit")
+		}
+		seenCells := make(map[core.Position]struct{}, len(value.PremiseCells))
+		for _, position := range value.PremiseCells {
+			if !position.IsValid() {
+				return fmt.Errorf("invalid hidden-subset premise cell")
+			}
+			seenCells[position] = struct{}{}
+		}
+		if len(seenCells) != len(value.PremiseCells) {
+			return fmt.Errorf("duplicate hidden-subset premise cell")
 		}
 	case HintReasonFishConfinement:
 		value := reason.FishConfinement
@@ -582,6 +616,22 @@ func familyHintReason(move *solver.Move) *HintReason {
 		return &HintReason{Kind: HintReasonSubsetReservation, SubsetReservation: &SubsetReservationReason{
 			Unit: *evidence.Unit, ReservedDigits: digits, PremiseCells: cells, ActionTargets: targets,
 		}}
+	case "hidden-pair", "hidden-triple", "hidden-quad":
+		if evidence.Unit == nil || len(evidence.Premises) < 2 || (len(evidence.Eliminations) == 0 && !move.IsPlacement()) {
+			return nil
+		}
+		cells := make([]core.Position, len(evidence.Premises))
+		for index, premise := range evidence.Premises {
+			cells[index] = premise.Position
+		}
+		digits := combinedValues(evidence.Premises...)
+		targets := append([]solver.CandidateRef(nil), evidence.Eliminations...)
+		if len(targets) == 0 && move.IsPlacement() {
+			targets = append(targets, solver.CandidateRef{Position: move.Cell.Position, Value: move.Cell.Value})
+		}
+		return &HintReason{Kind: HintReasonHiddenSubsetConfinement, HiddenSubsetConfinement: &HiddenSubsetConfinementReason{
+			Unit: *evidence.Unit, ConfinedDigits: digits, PremiseCells: cells, ActionTargets: targets,
+		}}
 	case "x-wing":
 		if len(evidence.Units) != 4 || len(evidence.Premises) == 0 || len(evidence.Eliminations) == 0 {
 			return nil
@@ -722,16 +772,29 @@ func hiddenSubsetSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	unit, _ := unitTarget(evidence.Unit)
 	premiseMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+	var cells []core.Position
 	for _, premise := range evidence.Premises {
+		cells = append(cells, premise.Position)
 		for _, value := range premise.Values {
 			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: value}), Role: HintRolePremise})
 		}
 	}
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	digits := combinedValues(evidence.Premises...)
+	units := []solver.UnitRef{*evidence.Unit}
+	observe := hintDescriptor("hint.hidden-subset-confinement.observe", unitsArgument("unit", units), digitsArgument("digits", digits), cellsArgument("cells", cells))
+	explain := hintDescriptor("hint.hidden-subset-confinement.explain", digitsArgument("digits", digits), unitsArgument("unit", units), cellsArgument("cells", cells))
+	var apply message.Descriptor
+	if conclusion.Placement != nil {
+		apply = hintDescriptor("hint.hidden-subset-confinement.place", digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+	} else {
+		apply = hintDescriptor("hint.hidden-subset-confinement.apply", candidatesArgument("candidates", evidence.Eliminations), strategyArgument("strategy", move.Technique))
+	}
+	candidateMarks := append([]HintMark(nil), premiseMarks[1:]...)
 	return []HintStep{
-		{ID: "find-confined-" + move.Technique, Kind: HintStepObserve, Marks: premiseMarks},
-		{ID: "compare-confined-" + move.Technique, Kind: HintStepExplain, Marks: premiseMarks},
-		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(premiseMarks[1:], conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-confined-" + move.Technique, Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: candidateMarks},
+		{ID: "compare-confined-" + move.Technique, Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: premiseMarks},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(candidateMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 
