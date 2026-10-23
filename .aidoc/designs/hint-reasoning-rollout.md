@@ -29,7 +29,7 @@ This Draft defines the unimplemented family-specific reasoning and localized tea
 
 ## Proposed Contract
 
-Each remaining listed family replaces generic comparison with the smallest closed reason variant that expresses its proof. Hidden Pair–Quad have completed this migration through the Active Hint Presentation Protocol. Existing variants are reused when their facts are sufficient; a new variant is added only when reuse would require an overloaded flag, strategy-name inference, or prose parsing.
+Each remaining listed family replaces generic comparison with the smallest closed reason variant that expresses its proof. Hidden Pair–Quad and Pointing Pair/Box-Line Reduction have completed this migration through the Active Hint Presentation Protocol. Existing variants are reused when their facts are sufficient; a new variant is added only when reuse would require an overloaded flag, strategy-name inference, or prose parsing.
 
 Every family change must:
 
@@ -44,7 +44,6 @@ Every family change must:
 
 | Family | Proposed reasoning boundary |
 |---|---|
-| Pointing Pair and Box-Line Reduction | Identify the candidate's confinement in intersecting units and distinguish source and affected units without parsing the technique name. |
 | Swordfish and Jellyfish | Use `fish-confinement` when their ordered base units, cover units, pattern candidates, and targets satisfy the existing variant. |
 | XY-Wing, XYZ-Wing, and W-Wing | Carry pivot, wing, shared-candidate, and strong-link implications as complete typed relations. |
 | BUG+1 and Unique Rectangle Types 1–4 | Express the exact uniqueness exception or relationship that forces the placement or elimination. |
@@ -62,7 +61,7 @@ Deliver one coherent reasoning family per coordinated backend and browser change
 4. review learner-facing wording and scene progression before selecting another family; and
 5. after all listed families are implemented, run one complete 23-strategy English and Chinese audit plus the maintained all-strategy matrix and nine-game real-stack journey.
 
-Implement intersections first, then larger fish, relational wings, uniqueness, and coloring and cycles. Change that order only when concrete implementation evidence exposes a safer shared contract; do not combine unrelated reason families merely to reduce PR count.
+Implement larger fish next, then relational wings, uniqueness, and coloring and cycles. Change that order only when concrete implementation evidence exposes a safer shared contract; do not combine unrelated reason families merely to reduce PR count.
 
 ## Validation
 

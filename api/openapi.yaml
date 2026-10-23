@@ -1179,6 +1179,7 @@ components:
       oneOf:
         - $ref: "#/components/schemas/SubsetReservationReason"
         - $ref: "#/components/schemas/HiddenSubsetConfinementReason"
+        - $ref: "#/components/schemas/IntersectionConfinementReason"
         - $ref: "#/components/schemas/FishConfinementReason"
         - $ref: "#/components/schemas/ImplicationChainReason"
       discriminator:
@@ -1186,6 +1187,7 @@ components:
         mapping:
           subset-reservation: "#/components/schemas/SubsetReservationReason"
           hidden-subset-confinement: "#/components/schemas/HiddenSubsetConfinementReason"
+          intersection-confinement: "#/components/schemas/IntersectionConfinementReason"
           fish-confinement: "#/components/schemas/FishConfinementReason"
           implication-chain: "#/components/schemas/ImplicationChainReason"
 
@@ -1266,6 +1268,26 @@ components:
           minItems: 2
           maxItems: 4
           items: { $ref: "#/components/schemas/CellPosition" }
+        action_targets:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items: { $ref: "#/components/schemas/HintCandidate" }
+
+    IntersectionConfinementReason:
+      type: object
+      additionalProperties: false
+      required: [kind, digit, source_unit, intersecting_unit, premise_candidates, action_targets]
+      properties:
+        kind: { type: string, const: intersection-confinement }
+        digit: { $ref: "#/components/schemas/Digit" }
+        source_unit: { $ref: "#/components/schemas/HintUnit" }
+        intersecting_unit: { $ref: "#/components/schemas/HintUnit" }
+        premise_candidates:
+          type: array
+          minItems: 2
+          maxItems: 9
+          items: { $ref: "#/components/schemas/HintCandidate" }
         action_targets:
           type: array
           minItems: 1

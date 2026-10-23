@@ -536,6 +536,21 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				if len(reason.PremiseCells) != len(reason.ConfinedDigits) || len(reason.PremiseCells) < 2 || len(reason.ActionTargets) == 0 {
 					t.Fatalf("hidden-subset reason does not preserve its complete cardinality and action: %+v", reason)
 				}
+			} else if key == "pointing-pair" {
+				if plan.Reason == nil || plan.Reason.Kind != HintReasonIntersectionConfinement || plan.Reason.IntersectionConfinement == nil {
+					t.Fatalf("intersection contract = reason %+v", plan.Reason)
+				}
+				expectedMessage := "hint.intersection-confinement.apply"
+				if plan.Conclusion.Placement != nil {
+					expectedMessage = "hint.intersection-confinement.place"
+				}
+				if plan.Steps[0].Message.ID != "hint.intersection-confinement.observe" || plan.Steps[1].Message.ID != "hint.intersection-confinement.explain" || plan.Steps[2].Message.ID != expectedMessage {
+					t.Fatalf("intersection descriptors are incomplete: %+v", plan.Steps)
+				}
+				reason := plan.Reason.IntersectionConfinement
+				if len(reason.PremiseCandidates) < 2 || len(reason.ActionTargets) == 0 || reason.SourceUnit == reason.IntersectingUnit {
+					t.Fatalf("intersection reason is incomplete: %+v", reason)
+				}
 			} else if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
 				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
 			}
@@ -741,7 +756,10 @@ func TestBoxLineReductionUsesItsSpecificRelationshipName(t *testing.T) {
 		},
 	}
 	steps := intersectionSteps(move)
-	if len(steps) != 3 || steps[0].Marks[0].Target.Kind != HintTargetRow || steps[0].Marks[1].Target.Kind != HintTargetBox {
+	if len(steps) != 3 || steps[0].Marks[0].Target.Kind != HintTargetRow || steps[1].Marks[len(steps[1].Marks)-1].Target.Kind != HintTargetBox {
 		t.Fatalf("unexpected box-line scene: %+v", steps)
+	}
+	if steps[0].Message.ID != "hint.intersection-confinement.observe" || steps[1].Message.ID != "hint.intersection-confinement.explain" {
+		t.Fatalf("box-line relationship uses generic descriptors: %+v", steps)
 	}
 }

@@ -168,6 +168,7 @@ type HintReasonKind string
 const (
 	HintReasonSubsetReservation       HintReasonKind = "subset-reservation"
 	HintReasonHiddenSubsetConfinement HintReasonKind = "hidden-subset-confinement"
+	HintReasonIntersectionConfinement HintReasonKind = "intersection-confinement"
 	HintReasonFishConfinement         HintReasonKind = "fish-confinement"
 	HintReasonImplicationChain        HintReasonKind = "implication-chain"
 )
@@ -184,6 +185,14 @@ type HiddenSubsetConfinementReason struct {
 	ConfinedDigits []int
 	PremiseCells   []core.Position
 	ActionTargets  []solver.CandidateRef
+}
+
+type IntersectionConfinementReason struct {
+	Digit             int
+	SourceUnit        solver.UnitRef
+	IntersectingUnit  solver.UnitRef
+	PremiseCandidates []solver.CandidateRef
+	ActionTargets     []solver.CandidateRef
 }
 
 type FishConfinementReason struct {
@@ -205,6 +214,7 @@ type HintReason struct {
 	Kind                    HintReasonKind
 	SubsetReservation       *SubsetReservationReason
 	HiddenSubsetConfinement *HiddenSubsetConfinementReason
+	IntersectionConfinement *IntersectionConfinementReason
 	FishConfinement         *FishConfinementReason
 	ImplicationChain        *ImplicationChainReason
 }
@@ -226,7 +236,7 @@ func (reason HintReason) Validate() error {
 		return true
 	}
 	payloads := 0
-	for _, present := range []bool{reason.SubsetReservation != nil, reason.HiddenSubsetConfinement != nil, reason.FishConfinement != nil, reason.ImplicationChain != nil} {
+	for _, present := range []bool{reason.SubsetReservation != nil, reason.HiddenSubsetConfinement != nil, reason.IntersectionConfinement != nil, reason.FishConfinement != nil, reason.ImplicationChain != nil} {
 		if present {
 			payloads++
 		}
@@ -284,6 +294,16 @@ func (reason HintReason) Validate() error {
 		}
 		if len(seenCells) != len(value.PremiseCells) {
 			return fmt.Errorf("duplicate hidden-subset premise cell")
+		}
+	case HintReasonIntersectionConfinement:
+		value := reason.IntersectionConfinement
+		if value == nil || value.Digit < 1 || value.Digit > 9 || !validUnit(value.SourceUnit) || !validUnit(value.IntersectingUnit) || value.SourceUnit == value.IntersectingUnit || len(value.PremiseCandidates) < 2 || !validRefs(value.PremiseCandidates) || !validRefs(value.ActionTargets) {
+			return fmt.Errorf("invalid intersection-confinement reason")
+		}
+		for _, ref := range value.PremiseCandidates {
+			if ref.Value != value.Digit {
+				return fmt.Errorf("intersection premise digit does not match reason")
+			}
 		}
 	case HintReasonFishConfinement:
 		value := reason.FishConfinement
@@ -632,6 +652,25 @@ func familyHintReason(move *solver.Move) *HintReason {
 		return &HintReason{Kind: HintReasonHiddenSubsetConfinement, HiddenSubsetConfinement: &HiddenSubsetConfinementReason{
 			Unit: *evidence.Unit, ConfinedDigits: digits, PremiseCells: cells, ActionTargets: targets,
 		}}
+	case "pointing-pair":
+		if len(evidence.Units) != 2 || len(evidence.Premises) < 2 || (len(evidence.Eliminations) == 0 && !move.IsPlacement()) {
+			return nil
+		}
+		digit := evidence.Premises[0].Values[0]
+		premises := make([]solver.CandidateRef, 0, len(evidence.Premises))
+		for _, premise := range evidence.Premises {
+			if len(premise.Values) != 1 || premise.Values[0] != digit {
+				return nil
+			}
+			premises = append(premises, solver.CandidateRef{Position: premise.Position, Value: digit})
+		}
+		targets := append([]solver.CandidateRef(nil), evidence.Eliminations...)
+		if len(targets) == 0 && move.IsPlacement() {
+			targets = append(targets, solver.CandidateRef{Position: move.Cell.Position, Value: move.Cell.Value})
+		}
+		return &HintReason{Kind: HintReasonIntersectionConfinement, IntersectionConfinement: &IntersectionConfinementReason{
+			Digit: digit, SourceUnit: evidence.Units[0], IntersectingUnit: evidence.Units[1], PremiseCandidates: premises, ActionTargets: targets,
+		}}
 	case "x-wing":
 		if len(evidence.Units) != 4 || len(evidence.Premises) == 0 || len(evidence.Eliminations) == 0 {
 			return nil
@@ -800,22 +839,45 @@ func hiddenSubsetSteps(move *solver.Move, _ string) []HintStep {
 
 func intersectionSteps(move *solver.Move) []HintStep {
 	evidence := move.Evidence
-	var premiseMarks []HintMark
-	for _, unitRef := range evidence.Units {
-		unit := unitRef
-		target, _ := unitTarget(&unit)
+	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	if len(evidence.Units) != 2 || len(evidence.Premises) < 2 {
+		return evidenceSteps(move, conclusion)
+	}
+	digit := evidence.Premises[0].Values[0]
+	source, intersection := evidence.Units[0], evidence.Units[1]
+	premiseRefs := make([]solver.CandidateRef, 0, len(evidence.Premises))
+	premiseCells := make([]core.Position, 0, len(evidence.Premises))
+	for _, premise := range evidence.Premises {
+		premiseRefs = append(premiseRefs, solver.CandidateRef{Position: premise.Position, Value: digit})
+		premiseCells = append(premiseCells, premise.Position)
+	}
+	observe := hintDescriptor("hint.intersection-confinement.observe", unitsArgument("source_unit", []solver.UnitRef{source}), digitArgument("digit", digit), unitsArgument("intersection_unit", []solver.UnitRef{intersection}), cellsArgument("cells", premiseCells))
+	explain := hintDescriptor("hint.intersection-confinement.explain", digitArgument("digit", digit), unitsArgument("source_unit", []solver.UnitRef{source}), unitsArgument("intersection_unit", []solver.UnitRef{intersection}))
+	var apply message.Descriptor
+	if conclusion.Placement != nil {
+		apply = hintDescriptor("hint.intersection-confinement.place", digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+	} else {
+		positions := make([]core.Position, len(evidence.Eliminations))
+		for i, ref := range evidence.Eliminations {
+			positions[i] = ref.Position
+		}
+		apply = hintDescriptor("hint.intersection-confinement.apply", digitArgument("digit", digit), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
+	}
+	premiseMarks := []HintMark{}
+	if target, ok := unitTarget(&source); ok {
 		premiseMarks = append(premiseMarks, HintMark{Target: target, Role: HintRoleFocus})
 	}
-	for _, premise := range evidence.Premises {
-		for _, candidate := range premise.Values {
-			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: candidate}), Role: HintRolePremise})
-		}
+	for _, ref := range premiseRefs {
+		premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(ref), Role: HintRolePremise})
 	}
-	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	explainMarks := append([]HintMark(nil), premiseMarks...)
+	if target, ok := unitTarget(&intersection); ok {
+		explainMarks = append(explainMarks, HintMark{Target: target, Role: HintRoleFocus})
+	}
 	return []HintStep{
-		{ID: "find-intersection", Kind: HintStepObserve, Marks: premiseMarks},
-		{ID: "compare-intersection", Kind: HintStepExplain, Marks: premiseMarks},
-		{ID: "apply-intersection", Kind: conclusionKind(conclusion), Marks: append(premiseMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-intersection", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: premiseMarks},
+		{ID: "explain-intersection", Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: explainMarks},
+		{ID: "apply-intersection", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(explainMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 

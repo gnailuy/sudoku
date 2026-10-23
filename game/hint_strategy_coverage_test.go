@@ -106,6 +106,10 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 					if first.Reason == nil || first.Reason.Kind != HintReasonSubsetReservation || first.Steps[1].Message.ID == "hint.strategy.compare" {
 						t.Fatalf("naked subset did not use its typed family reason: %+v", first)
 					}
+				case "pointing-pair":
+					if first.Reason == nil || first.Reason.Kind != HintReasonIntersectionConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {
+						t.Fatalf("intersection did not use its typed family reason: %+v", first)
+					}
 				case "x-wing":
 					if first.Reason == nil || first.Reason.Kind != HintReasonFishConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {
 						t.Fatalf("x-wing did not use its typed pilot reason: %+v", first)
