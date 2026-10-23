@@ -198,6 +198,18 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.hidden-subset-confinement.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s after removing the other candidates. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
+	many("hint.intersection-confinement.observe", []ArgumentSpec{{Name: "source_unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "intersection_unit", Kind: ArgumentUnits}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, candidate %d is confined to %s at %s.", units(a[0]), *a[1].Digit, units(a[2]), cells(a[3]))
+	})
+	many("hint.intersection-confinement.explain", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "source_unit", Kind: ArgumentUnits}, {Name: "intersection_unit", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("Because every %d in %s lies in %s, cells outside the source but inside the intersection cannot contain it.", *a[0].Digit, units(a[1]), units(a[2]))
+	})
+	many("hint.intersection-confinement.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove candidate %d from %s. This pattern is called %s.", *a[0].Digit, cells(a[1]), strategy(a[2]))
+	})
+	many("hint.intersection-confinement.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Place %d in %s after applying the intersection. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
+	})
 	many("hint.fish-confinement.observe", []ArgumentSpec{{Name: "base_units", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cover_units", Kind: ArgumentUnits}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, candidate %d appears only in %s.", units(a[0]), *a[1].Digit, units(a[2]))
 	})
