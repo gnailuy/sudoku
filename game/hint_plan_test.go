@@ -601,8 +601,17 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 				if reason == nil || len(reason.BaseUnits) != expectedSize || len(reason.CoverUnits) != expectedSize || len(reason.PatternCandidates) < expectedSize || len(reason.ActionTargets) == 0 {
 					t.Fatalf("fish reason is incomplete: %+v", reason)
 				}
-			} else if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
-				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
+			} else {
+				if plan.Steps[1].Message.ID == "hint.strategy.compare" || plan.Steps[2].Message.ID == "hint.strategy.conclude" {
+					t.Fatalf("relational-wing descriptors remain generic: %+v", plan.Steps)
+				}
+				expectedApply := "hint.relational-wing.apply"
+				if plan.Conclusion.Placement != nil {
+					expectedApply = "hint.relational-wing.place"
+				}
+				if plan.Steps[2].Message.ID != expectedApply {
+					t.Fatalf("relational-wing action descriptor = %q, want %q", plan.Steps[2].Message.ID, expectedApply)
+				}
 			}
 			switch key {
 			case "xy-wing":
