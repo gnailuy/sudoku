@@ -118,6 +118,10 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 					if first.Steps[1].Message.ID == "hint.strategy.compare" || first.Steps[len(first.Steps)-1].Message.ID == "hint.strategy.conclude" {
 						t.Fatalf("%s did not use complete relational-wing descriptors: %+v", key, first)
 					}
+				case "bug-plus-one", "unique-rectangle", "unique-rectangle-2", "unique-rectangle-3", "unique-rectangle-4":
+					if first.Steps[1].Message.ID == "hint.strategy.compare" || first.Steps[len(first.Steps)-1].Message.ID == "hint.strategy.conclude" {
+						t.Fatalf("%s did not use complete uniqueness descriptors: %+v", key, first)
+					}
 				case "xy-chain":
 					if first.Reason == nil || first.Reason.Kind != HintReasonImplicationChain || first.Reason.ImplicationChain == nil || len(first.Steps) != len(first.Reason.ImplicationChain.Links)+2 {
 						t.Fatalf("xy-chain did not use one explanation step per link: %+v", first)

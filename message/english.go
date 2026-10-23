@@ -237,6 +237,36 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.relational-wing.place", []ArgumentSpec{{Name: "removed_digit", Kind: ArgumentDigit}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Remove candidate %d from %s, so place %d there. This pattern is called %s.", *a[0].Digit, cell(a[2]), *a[1].Digit, strategy(a[3]))
 	})
+	many("hint.bug-plus-one.observe", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("Every other unsolved cell has two candidates, while %s has %s.", cell(a[0]), digits(a[1]))
+	})
+	many("hint.bug-plus-one.explain", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "units", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("Removing %d from %s would leave every unsolved cell bivalue and make the solution interchangeable across %s, so %d must be true.", *a[0].Digit, cell(a[1]), units(a[2]), *a[0].Digit)
+	})
+	many("hint.bug-plus-one.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Place %d in %s. This uniqueness exception is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
+	})
+	many("hint.unique-rectangle.observe", []ArgumentSpec{{Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("The cells at %s form a rectangle and all contain the pair %s.", cells(a[0]), digits(a[1]))
+	})
+	many("hint.unique-rectangle.type1", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("Three corners contain exactly %s. If %s also used either digit, the rectangle would allow two interchangeable solutions.", digits(a[1]), cell(a[0]))
+	})
+	many("hint.unique-rectangle.type2", []ArgumentSpec{{Name: "cells", Kind: ArgumentCells}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("The two expanded corners at %s share extra candidate %d, so any cell that sees both corners cannot contain %d.", cells(a[0]), *a[1].Digit, *a[1].Digit)
+	})
+	many("hint.unique-rectangle.type3", []ArgumentSpec{{Name: "digits", Kind: ArgumentDigits}, {Name: "cells", Kind: ArgumentCells}, {Name: "unit", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("The rectangle's extra digits %s combine with %s as a reserved subset in %s, so those digits can be removed elsewhere in that unit.", digits(a[0]), cells(a[1]), units(a[2]))
+	})
+	many("hint.unique-rectangle.type4", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "unit", Kind: ArgumentUnits}, {Name: "removed_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Candidate %d appears in %s as a conjugate pair in %s, so candidate %d cannot occupy either expanded corner without creating interchangeable solutions.", *a[0].Digit, cells(a[1]), units(a[2]), *a[3].Digit)
+	})
+	many("hint.unique-rectangle.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove %s. This uniqueness relationship is called %s.", candidates(a[0]), strategy(a[1]))
+	})
+	many("hint.unique-rectangle.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Place %d in %s after applying the uniqueness relationship. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
+	})
 	many("hint.implication-chain.observe", []ArgumentSpec{{Name: "cell", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("Start at %s, which has only candidates %s.", cells(a[0]), digits(a[1]))
 	})
