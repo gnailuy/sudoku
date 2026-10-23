@@ -300,9 +300,9 @@ func (reason HintReason) Validate() error {
 		if value == nil || value.Digit < 1 || value.Digit > 9 || !validUnit(value.SourceUnit) || !validUnit(value.IntersectingUnit) || value.SourceUnit == value.IntersectingUnit || len(value.PremiseCandidates) < 2 || !validRefs(value.PremiseCandidates) || !validRefs(value.ActionTargets) {
 			return fmt.Errorf("invalid intersection-confinement reason")
 		}
-		for _, ref := range append(append([]solver.CandidateRef(nil), value.PremiseCandidates...), value.ActionTargets...) {
+		for _, ref := range value.PremiseCandidates {
 			if ref.Value != value.Digit {
-				return fmt.Errorf("intersection candidate digit does not match reason")
+				return fmt.Errorf("intersection premise digit does not match reason")
 			}
 		}
 	case HintReasonFishConfinement:
