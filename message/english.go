@@ -226,10 +226,19 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 		return fmt.Sprintf("Each wing at %s shares one candidate with the pivot at %s, and both wings contain %d. Whichever pivot candidate is true, one wing must contain %d.", cells(a[2]), cell(a[1]), *a[0].Digit, *a[0].Digit)
 	})
 	many("hint.strong-link-wing.observe", []ArgumentSpec{{Name: "wing_cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
-		return fmt.Sprintf("The wing cells at %s contain the same candidates %s.", cells(a[0]), digits(a[1]))
+		return fmt.Sprintf("The cells at %s can each contain only %s.", cells(a[0]), digits(a[1]))
 	})
-	many("hint.strong-link-wing.explain", []ArgumentSpec{{Name: "link_digit", Kind: ArgumentDigit}, {Name: "link_cells", Kind: ArgumentCells}, {Name: "wing_cells", Kind: ArgumentCells}}, func(a []Argument) string {
-		return fmt.Sprintf("Candidate %d has a strong link between %s. That link connects the wing cells at %s, so one wing must contain %d.", *a[0].Digit, cells(a[1]), cells(a[2]), *a[0].Digit)
+	many("hint.strong-link-wing.bridge", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "link_digit", Kind: ArgumentDigit}, {Name: "link_cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, candidate %d can appear only at %s, so at least one of those cells must contain %d.", units(a[0]), *a[1].Digit, cells(a[2]), *a[1].Digit)
+	})
+	many("hint.strong-link-wing.force", []ArgumentSpec{{Name: "link_digit", Kind: ArgumentDigit}, {Name: "first_link_cell", Kind: ArgumentCell}, {Name: "first_wing_cell", Kind: ArgumentCell}, {Name: "second_link_cell", Kind: ArgumentCell}, {Name: "second_wing_cell", Kind: ArgumentCell}, {Name: "forced_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("If %s is %d, then %s cannot be %d and must be %d. If %s is %d, then %s must be %d. Therefore, at least one of those two cells is %d.", cell(a[1]), *a[0].Digit, cell(a[2]), *a[0].Digit, *a[5].Digit, cell(a[3]), *a[0].Digit, cell(a[4]), *a[5].Digit, *a[5].Digit)
+	})
+	many("hint.strong-link-wing.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "wing_cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("At least one of %s is %d. Remove candidate %d from %s because those cells see both of them. This pattern is called %s.", cells(a[2]), *a[0].Digit, *a[0].Digit, cells(a[1]), strategy(a[3]))
+	})
+	many("hint.strong-link-wing.place", []ArgumentSpec{{Name: "removed_digit", Kind: ArgumentDigit}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "wing_cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("At least one of %s is %d. Remove candidate %d from %s because it sees both of them, so place %d there. This pattern is called %s.", cells(a[3]), *a[0].Digit, *a[0].Digit, cell(a[2]), *a[1].Digit, strategy(a[4]))
 	})
 	many("hint.relational-wing.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Remove candidate %d from %s. This pattern is called %s.", *a[0].Digit, cells(a[1]), strategy(a[2]))

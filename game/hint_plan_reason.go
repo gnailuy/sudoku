@@ -372,10 +372,51 @@ func relationalSteps(move *solver.Move, _ string) []HintStep {
 		}
 		wingCells := []core.Position{wings[0].Position, wings[1].Position}
 		linkCells := []core.Position{evidence.Links[0].From.Position, evidence.Links[0].To.Position}
+		linkUnit, ok := sharedHintUnit(linkCells[0], linkCells[1])
+		if !ok {
+			return evidenceSteps(move, conclusion)
+		}
 		observe = hintDescriptor("hint.strong-link-wing.observe", cellsArgument("wing_cells", wingCells), digitsArgument("digits", pair))
-		explain = hintDescriptor("hint.strong-link-wing.explain", digitArgument("link_digit", linkDigit), cellsArgument("link_cells", linkCells), cellsArgument("wing_cells", wingCells))
+		bridge := hintDescriptor("hint.strong-link-wing.bridge", unitsArgument("unit", []solver.UnitRef{linkUnit}), digitArgument("link_digit", linkDigit), cellsArgument("link_cells", linkCells))
+		force := hintDescriptor("hint.strong-link-wing.force",
+			digitArgument("link_digit", linkDigit),
+			cellArgument("first_link_cell", linkCells[0]),
+			cellArgument("first_wing_cell", wingCells[0]),
+			cellArgument("second_link_cell", linkCells[1]),
+			cellArgument("second_wing_cell", wingCells[1]),
+			digitArgument("forced_digit", actionDigit),
+		)
 		links = visualLinks(evidence)
-		firstNodes, firstLinks = nodes, links
+		caseLinks := append([]HintLink(nil), links...)
+		caseLinks = append(caseLinks,
+			HintLink{From: candidateNodeID(solver.CandidateRef{Position: linkCells[0], Value: linkDigit}), To: candidateNodeID(solver.CandidateRef{Position: wingCells[0], Value: actionDigit}), Kind: solver.LinkImplication},
+			HintLink{From: candidateNodeID(solver.CandidateRef{Position: linkCells[1], Value: linkDigit}), To: candidateNodeID(solver.CandidateRef{Position: wingCells[1], Value: actionDigit}), Kind: solver.LinkImplication},
+		)
+		bridgeMarks := marksForNodes(nodes)
+		if target, valid := unitTarget(&linkUnit); valid {
+			bridgeMarks = append(bridgeMarks, HintMark{Target: target, Role: HintRoleFocus})
+		}
+		for _, node := range nodes {
+			if node.Target.Position != nil && (*node.Target.Position == wingCells[0] || *node.Target.Position == wingCells[1]) {
+				firstNodes = append(firstNodes, node)
+			}
+		}
+		var apply message.Descriptor
+		if conclusion.Placement != nil {
+			apply = hintDescriptor("hint.strong-link-wing.place", digitArgument("removed_digit", actionDigit), digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), cellsArgument("wing_cells", wingCells), strategyArgument("strategy", move.Technique))
+		} else {
+			positions := make([]core.Position, len(evidence.Eliminations))
+			for i, ref := range evidence.Eliminations {
+				positions[i] = ref.Position
+			}
+			apply = hintDescriptor("hint.strong-link-wing.apply", digitArgument("digit", actionDigit), cellsArgument("cells", positions), cellsArgument("wing_cells", wingCells), strategyArgument("strategy", move.Technique))
+		}
+		return []HintStep{
+			{ID: "find-w-wing-pair", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: []HintLink{}},
+			{ID: "find-w-wing-bridge", Kind: HintStepObserve, Message: bridge, Narration: []HintNarrationChunk{narrationMessage(bridge)}, Marks: bridgeMarks, Nodes: nodes, Links: links},
+			{ID: "explain-w-wing-cases", Kind: HintStepExplain, Message: force, Narration: []HintNarrationChunk{narrationMessage(force)}, Marks: bridgeMarks, Nodes: nodes, Links: caseLinks},
+			{ID: "apply-w-wing", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(bridgeMarks, conclusionMarks(conclusion)...), Nodes: nodes, Links: caseLinks, Effect: conclusionEffect(conclusion)},
+		}
 	default:
 		return evidenceSteps(move, conclusion)
 	}
@@ -397,6 +438,19 @@ func relationalSteps(move *solver.Move, _ string) []HintStep {
 		{ID: "explain-" + move.Technique, Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: baseMarks, Nodes: nodes, Links: links},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(baseMarks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
+}
+
+func sharedHintUnit(a, b core.Position) (solver.UnitRef, bool) {
+	if a.Row == b.Row {
+		return solver.UnitRef{Kind: solver.UnitRow, Index: a.Row}, true
+	}
+	if a.Column == b.Column {
+		return solver.UnitRef{Kind: solver.UnitColumn, Index: a.Column}, true
+	}
+	if a.Row/3 == b.Row/3 && a.Column/3 == b.Column/3 {
+		return solver.UnitRef{Kind: solver.UnitBox, Index: (a.Row/3)*3 + b.Column/3}, true
+	}
+	return solver.UnitRef{}, false
 }
 
 func bugPlusOneSteps(move *solver.Move, _ string) []HintStep {
