@@ -671,17 +671,24 @@ func familyHintReason(move *solver.Move) *HintReason {
 		return &HintReason{Kind: HintReasonIntersectionConfinement, IntersectionConfinement: &IntersectionConfinementReason{
 			Digit: digit, SourceUnit: evidence.Units[0], IntersectingUnit: evidence.Units[1], PremiseCandidates: premises, ActionTargets: targets,
 		}}
-	case "x-wing":
-		if len(evidence.Units) != 4 || len(evidence.Premises) == 0 || len(evidence.Eliminations) == 0 {
+	case "x-wing", "swordfish", "jellyfish":
+		size := map[string]int{"x-wing": 2, "swordfish": 3, "jellyfish": 4}[move.Technique]
+		if len(evidence.Units) != size*2 || len(evidence.Premises) == 0 || len(evidence.Eliminations) == 0 {
+			return nil
+		}
+		if len(evidence.Premises[0].Values) != 1 {
 			return nil
 		}
 		digit := evidence.Premises[0].Values[0]
 		patterns := make([]solver.CandidateRef, 0, len(evidence.Premises))
 		for _, premise := range evidence.Premises {
+			if len(premise.Values) != 1 || premise.Values[0] != digit {
+				return nil
+			}
 			patterns = append(patterns, solver.CandidateRef{Position: premise.Position, Value: digit})
 		}
 		return &HintReason{Kind: HintReasonFishConfinement, FishConfinement: &FishConfinementReason{
-			Digit: digit, BaseUnits: append([]solver.UnitRef(nil), evidence.Units[:2]...), CoverUnits: append([]solver.UnitRef(nil), evidence.Units[2:]...),
+			Digit: digit, BaseUnits: append([]solver.UnitRef(nil), evidence.Units[:size]...), CoverUnits: append([]solver.UnitRef(nil), evidence.Units[size:]...),
 			PatternCandidates: patterns, ActionTargets: append([]solver.CandidateRef(nil), evidence.Eliminations...),
 		}}
 	case "xy-chain":
@@ -885,8 +892,9 @@ func fishSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	marks := unitAndPremiseMarks(evidence)
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	if move.Technique == "x-wing" && len(evidence.Units) == 4 && len(evidence.Premises) > 0 && len(evidence.Eliminations) > 0 {
-		baseUnits, coverUnits := evidence.Units[:2], evidence.Units[2:]
+	size := map[string]int{"x-wing": 2, "swordfish": 3, "jellyfish": 4}[move.Technique]
+	if size != 0 && len(evidence.Units) == size*2 && len(evidence.Premises) > 0 && len(evidence.Premises[0].Values) == 1 && len(evidence.Eliminations) > 0 {
+		baseUnits, coverUnits := evidence.Units[:size], evidence.Units[size:]
 		digit := evidence.Premises[0].Values[0]
 		observe := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits), digitArgument("digit", digit), unitsArgument("cover_units", coverUnits))
 		explain := hintDescriptor("hint.fish-confinement.explain", unitsArgument("base_units", baseUnits), unitsArgument("cover_units", coverUnits), digitArgument("digit", digit))
@@ -907,9 +915,9 @@ func fishSteps(move *solver.Move, _ string) []HintStep {
 			explainMarks = append(explainMarks, HintMark{Target: target, Role: HintRoleFocus})
 		}
 		return []HintStep{
-			{ID: "find-x-wing", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: baseMarks},
-			{ID: "explain-x-wing", Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: explainMarks},
-			{ID: "apply-x-wing", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(explainMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+			{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: baseMarks},
+			{ID: "explain-" + move.Technique, Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: explainMarks},
+			{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(explainMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 		}
 	}
 	return []HintStep{
