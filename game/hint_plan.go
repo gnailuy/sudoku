@@ -929,33 +929,78 @@ func fishSteps(move *solver.Move, _ string) []HintStep {
 
 func relationalSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
-	marks := unitAndPremiseMarks(evidence)
+	if evidence == nil || len(evidence.Premises) < 3 || len(evidence.Eliminations) == 0 {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	var firstNodes, nodes []HintNode
+	baseMarks := unitAndPremiseMarks(evidence)
+	nodes := visualNodes(evidence, false)
+	var firstNodes []HintNode
 	var firstLinks, links []HintLink
+	var observe, explain message.Descriptor
+	actionDigit := 0
 	switch move.Technique {
-	case "xy-wing":
-		if len(evidence.Links) == 2 {
-			nodes = visualNodes(evidence, false)
-			links = visualLinks(evidence)
+	case "xy-wing", "xyz-wing":
+		pivot, wings := evidence.Premises[0], evidence.Premises[1:3]
+		shared := sharedValues(wings...)
+		if len(shared) != 1 || (move.Technique == "xy-wing" && len(evidence.Links) != 2) {
+			return evidenceSteps(move, conclusion)
+		}
+		actionDigit = shared[0]
+		wingCells := []core.Position{wings[0].Position, wings[1].Position}
+		observe = hintDescriptor("hint.pivot-wing.observe", cellArgument("pivot", pivot.Position), digitsArgument("pivot_digits", pivot.Values), cellsArgument("wing_cells", wingCells))
+		explain = hintDescriptor("hint.pivot-wing.explain", digitArgument("shared_digit", actionDigit), cellArgument("pivot", pivot.Position), cellsArgument("wing_cells", wingCells))
+		links = visualLinks(evidence)
+		if len(links) > 0 {
 			firstNodes, firstLinks = visualPrefix(nodes, links)
+		} else {
+			for _, node := range nodes {
+				if node.Target.Position != nil && *node.Target.Position == pivot.Position {
+					firstNodes = append(firstNodes, node)
+				}
+			}
 		}
 	case "w-wing":
-		if len(evidence.Links) == 1 {
-			nodes = visualNodes(evidence, false)
-			links = visualLinks(evidence)
-			firstNodes, firstLinks = nodes, links
+		if len(evidence.Premises) < 4 || len(evidence.Links) != 1 || evidence.Links[0].Kind != solver.LinkStrong {
+			return evidenceSteps(move, conclusion)
 		}
-	case "xyz-wing":
+		wings := evidence.Premises[:2]
+		pair := sharedValues(wings...)
+		linkDigit := evidence.Links[0].From.Value
+		if len(pair) != 2 || evidence.Links[0].To.Value != linkDigit {
+			return evidenceSteps(move, conclusion)
+		}
+		for _, digit := range pair {
+			if digit != linkDigit {
+				actionDigit = digit
+			}
+		}
+		wingCells := []core.Position{wings[0].Position, wings[1].Position}
+		linkCells := []core.Position{evidence.Links[0].From.Position, evidence.Links[0].To.Position}
+		observe = hintDescriptor("hint.strong-link-wing.observe", cellsArgument("wing_cells", wingCells), digitsArgument("digits", pair))
+		explain = hintDescriptor("hint.strong-link-wing.explain", digitArgument("link_digit", linkDigit), cellsArgument("link_cells", linkCells), cellsArgument("wing_cells", wingCells))
+		links = visualLinks(evidence)
+		firstNodes, firstLinks = nodes, links
+	default:
+		return evidenceSteps(move, conclusion)
 	}
-	observeMarks := marks
-	if len(firstNodes) > 0 {
-		observeMarks = marksForNodes(firstNodes)
+	if actionDigit == 0 {
+		return evidenceSteps(move, conclusion)
+	}
+	var apply message.Descriptor
+	if conclusion.Placement != nil {
+		apply = hintDescriptor("hint.relational-wing.place", digitArgument("removed_digit", actionDigit), digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+	} else {
+		positions := make([]core.Position, len(evidence.Eliminations))
+		for i, ref := range evidence.Eliminations {
+			positions[i] = ref.Position
+		}
+		apply = hintDescriptor("hint.relational-wing.apply", digitArgument("digit", actionDigit), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
 	}
 	return []HintStep{
-		{ID: "find-" + move.Technique, Kind: HintStepObserve, Marks: observeMarks, Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-" + move.Technique, Kind: HintStepExplain, Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+		{ID: "find-" + move.Technique, Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
+		{ID: "explain-" + move.Technique, Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: baseMarks, Nodes: nodes, Links: links},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(baseMarks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
 

@@ -114,6 +114,10 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 					if first.Reason == nil || first.Reason.Kind != HintReasonFishConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {
 						t.Fatalf("fish did not use its typed family reason: %+v", first)
 					}
+				case "xy-wing", "xyz-wing", "w-wing":
+					if first.Steps[1].Message.ID == "hint.strategy.compare" || first.Steps[len(first.Steps)-1].Message.ID == "hint.strategy.conclude" {
+						t.Fatalf("%s did not use complete relational-wing descriptors: %+v", key, first)
+					}
 				case "xy-chain":
 					if first.Reason == nil || first.Reason.Kind != HintReasonImplicationChain || first.Reason.ImplicationChain == nil || len(first.Steps) != len(first.Reason.ImplicationChain.Links)+2 {
 						t.Fatalf("xy-chain did not use one explanation step per link: %+v", first)
