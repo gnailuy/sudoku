@@ -521,6 +521,21 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				if reason == nil || len(reason.PremiseCells) != len(reason.ReservedDigits) || len(reason.PremiseCells) < 2 || len(reason.ActionTargets) == 0 {
 					t.Fatalf("naked-subset reason does not preserve its complete cardinality and action: %+v", reason)
 				}
+			} else if key == "hidden-pair" || key == "hidden-triple" || key == "hidden-quad" {
+				if plan.Reason == nil || plan.Reason.Kind != HintReasonHiddenSubsetConfinement || plan.Reason.HiddenSubsetConfinement == nil {
+					t.Fatalf("hidden-subset contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+				}
+				expectedMessage := "hint.hidden-subset-confinement.apply"
+				if plan.Conclusion.Placement != nil {
+					expectedMessage = "hint.hidden-subset-confinement.place"
+				}
+				if plan.Steps[0].Message.ID != "hint.hidden-subset-confinement.observe" || plan.Steps[1].Message.ID != "hint.hidden-subset-confinement.explain" || plan.Steps[2].Message.ID != expectedMessage {
+					t.Fatalf("hidden-subset descriptors are incomplete: %+v", plan.Steps)
+				}
+				reason := plan.Reason.HiddenSubsetConfinement
+				if len(reason.PremiseCells) != len(reason.ConfinedDigits) || len(reason.PremiseCells) < 2 || len(reason.ActionTargets) == 0 {
+					t.Fatalf("hidden-subset reason does not preserve its complete cardinality and action: %+v", reason)
+				}
 			} else if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
 				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
 			}

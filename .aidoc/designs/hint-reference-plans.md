@@ -58,7 +58,7 @@ Every renderer applies the same conclusion from typed effects without parsing de
 
 ## Subset Family
 
-Naked Pair–Quad plans first identify the exact cells and their combined candidate set, then explain that the cells reserve the same number of digits before applying the placement or elimination. Their `subset-reservation` reason records the complete digit union, premise cells, unit, and exact action targets; it does not keep only digits shared by every premise cell. Hidden Pair–Quad plans invert the relationship: the selected digits appear only in the highlighted cells, so other candidates in those cells can be removed. `solver.Evidence.Premises` and `solver.Evidence.Unit` carry these facts without prose parsing.
+Naked Pair–Quad plans first identify the exact cells and their combined candidate set, then explain that the cells reserve the same number of digits before applying the placement or elimination. Their `subset-reservation` reason records the complete digit union, premise cells, unit, and exact action targets; it does not keep only digits shared by every premise cell. Hidden Pair–Quad plans invert the relationship: the selected digits appear only in the highlighted cells, so other candidates in those cells can be removed. Their `hidden-subset-confinement` reason records the complete confined-digit set, exact cells, unit, and action targets. The observation introduces the confinement, the explanation states why no other candidates can remain in those cells, and the final descriptor groups the exact removal or resulting placement. `solver.Evidence.Premises` and `solver.Evidence.Unit` carry these facts without prose parsing.
 
 ## Box/Line Intersections
 

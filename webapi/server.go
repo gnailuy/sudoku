@@ -467,6 +467,17 @@ func apiHintReason(reason game.HintReason) HintReason {
 			digits[i] = Digit(digit)
 		}
 		err = out.FromSubsetReservationReason(SubsetReservationReason{Kind: string(reason.Kind), Unit: units([]solver.UnitRef{value.Unit})[0], ReservedDigits: digits, PremiseCells: cells, ActionTargets: candidates(value.ActionTargets)})
+	case game.HintReasonHiddenSubsetConfinement:
+		value := reason.HiddenSubsetConfinement
+		digits := make([]Digit, len(value.ConfinedDigits))
+		for index, digit := range value.ConfinedDigits {
+			digits[index] = Digit(digit)
+		}
+		cells := make([]CellPosition, len(value.PremiseCells))
+		for index, position := range value.PremiseCells {
+			cells[index] = CellPosition{Row: position.Row + 1, Column: position.Column + 1}
+		}
+		err = out.FromHiddenSubsetConfinementReason(HiddenSubsetConfinementReason{Kind: string(reason.Kind), Unit: units([]solver.UnitRef{value.Unit})[0], ConfinedDigits: digits, PremiseCells: cells, ActionTargets: candidates(value.ActionTargets)})
 	case game.HintReasonFishConfinement:
 		value := reason.FishConfinement
 		err = out.FromFishConfinementReason(FishConfinementReason{Kind: string(reason.Kind), Digit: Digit(value.Digit), BaseUnits: units(value.BaseUnits), CoverUnits: units(value.CoverUnits), PatternCandidates: candidates(value.PatternCandidates), ActionTargets: candidates(value.ActionTargets)})

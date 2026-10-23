@@ -186,6 +186,18 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.subset-reservation.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
+	many("hint.hidden-subset-confinement.observe", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "digits", Kind: ArgumentDigits}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, the digits %s can appear only in %s.", units(a[0]), digits(a[1]), cells(a[2]))
+	})
+	many("hint.hidden-subset-confinement.explain", []ArgumentSpec{{Name: "digits", Kind: ArgumentDigits}, {Name: "unit", Kind: ArgumentUnits}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("Because %s are confined to those %d cells in %s, those cells cannot contain any other candidates.", digits(a[0]), len(a[2].Cells), units(a[1]))
+	})
+	many("hint.hidden-subset-confinement.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove %s from the confined cells. This pattern is called %s.", candidates(a[0]), strategy(a[1]))
+	})
+	many("hint.hidden-subset-confinement.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Place %d in %s after removing the other candidates. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
+	})
 	many("hint.fish-confinement.observe", []ArgumentSpec{{Name: "base_units", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cover_units", Kind: ArgumentUnits}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, candidate %d appears only in %s.", units(a[0]), *a[1].Digit, units(a[2]))
 	})
