@@ -110,9 +110,9 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 					if first.Reason == nil || first.Reason.Kind != HintReasonIntersectionConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {
 						t.Fatalf("intersection did not use its typed family reason: %+v", first)
 					}
-				case "x-wing":
+				case "x-wing", "swordfish", "jellyfish":
 					if first.Reason == nil || first.Reason.Kind != HintReasonFishConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {
-						t.Fatalf("x-wing did not use its typed pilot reason: %+v", first)
+						t.Fatalf("fish did not use its typed family reason: %+v", first)
 					}
 				case "xy-chain":
 					if first.Reason == nil || first.Reason.Kind != HintReasonImplicationChain || first.Reason.ImplicationChain == nil || len(first.Steps) != len(first.Reason.ImplicationChain.Links)+2 {

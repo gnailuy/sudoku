@@ -66,7 +66,7 @@ Pointing Pair and Box-Line Reduction plans identify one candidate, its exact pre
 
 ## Fish Family
 
-X-Wing, Swordfish, and Jellyfish plans identify one candidate, two to four base lines, the same number of cross lines, and every highlighted intersection where that candidate remains. The explanation shows that confinement across the base lines removes the candidate from other cells on the cross lines. X-Wing carries a `fish-confinement` reason with the digit, ordered base and cover units, pattern candidates, and exact action targets. Its `observe` step shows the corners and base lines, its `explain` step adds the cover-line relationship, and its `apply` step isolates only the removable candidates while retaining enough pattern context to justify them. `solver.FishSolver` preserves the ordered units and exact premise candidates, so the composer never infers orientation from prose or strategy names.
+X-Wing, Swordfish, and Jellyfish plans identify one candidate, two to four base lines, the same number of cross lines, and every highlighted intersection where that candidate remains. The explanation shows that confinement across the base lines removes the candidate from other cells on the cross lines. Every fish size carries a `fish-confinement` reason with the digit, ordered base and cover units, pattern candidates, and exact action targets. Its `observe` step shows the pattern candidates and base lines, its `explain` step adds the cover-line relationship, and its `apply` step isolates only the removable candidates while retaining enough pattern context to justify them. `solver.FishSolver` preserves the ordered units and exact premise candidates, so the composer never infers orientation from prose or strategy names.
 
 ## Relational Wing Family
 

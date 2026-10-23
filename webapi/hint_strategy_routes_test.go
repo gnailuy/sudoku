@@ -79,7 +79,7 @@ func TestGuestHTTPRoutesPreviewAndApplyEveryRegisteredHintStrategy(t *testing.T)
 					migratedReasons := map[string]string{
 						"naked-pair": "subset-reservation", "naked-triple": "subset-reservation", "naked-quad": "subset-reservation",
 						"hidden-pair": "hidden-subset-confinement", "hidden-triple": "hidden-subset-confinement", "hidden-quad": "hidden-subset-confinement",
-						"pointing-pair": "intersection-confinement", "x-wing": "fish-confinement", "xy-chain": "implication-chain",
+						"pointing-pair": "intersection-confinement", "x-wing": "fish-confinement", "swordfish": "fish-confinement", "jellyfish": "fish-confinement", "xy-chain": "implication-chain",
 					}
 					if want, migrated := migratedReasons[testCase.Strategy]; migrated {
 						if hint.Hint.Reason == nil {

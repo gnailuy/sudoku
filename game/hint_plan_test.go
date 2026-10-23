@@ -592,9 +592,14 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message.Text)
 				}
 			}
-			if key == "x-wing" {
+			if key == "x-wing" || key == "swordfish" || key == "jellyfish" {
 				if plan.Reason == nil || plan.Reason.Kind != HintReasonFishConfinement || plan.Steps[2].Message.ID != "hint.fish-confinement.apply" {
-					t.Fatalf("x-wing pilot contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+					t.Fatalf("fish contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+				}
+				expectedSize := map[string]int{"x-wing": 2, "swordfish": 3, "jellyfish": 4}[key]
+				reason := plan.Reason.FishConfinement
+				if reason == nil || len(reason.BaseUnits) != expectedSize || len(reason.CoverUnits) != expectedSize || len(reason.PatternCandidates) < expectedSize || len(reason.ActionTargets) == 0 {
+					t.Fatalf("fish reason is incomplete: %+v", reason)
 				}
 			} else if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
 				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
