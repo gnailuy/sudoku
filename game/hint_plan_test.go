@@ -668,8 +668,27 @@ func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
 					t.Fatalf("family plan exposes coordinate shorthand: %q", step.Message.Text)
 				}
 			}
-			if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
-				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
+			if key == "bug-plus-one" {
+				if plan.Steps[0].Message.ID != "hint.bug-plus-one.observe" || plan.Steps[1].Message.ID != "hint.bug-plus-one.explain" || plan.Steps[2].Message.ID != "hint.bug-plus-one.place" {
+					t.Fatalf("BUG+1 descriptors remain generic: %+v", plan.Steps)
+				}
+			} else {
+				explainID := map[string]string{
+					"unique-rectangle":   "hint.unique-rectangle.type1",
+					"unique-rectangle-2": "hint.unique-rectangle.type2",
+					"unique-rectangle-3": "hint.unique-rectangle.type3",
+					"unique-rectangle-4": "hint.unique-rectangle.type4",
+				}[key]
+				if plan.Steps[0].Message.ID != "hint.unique-rectangle.observe" || plan.Steps[1].Message.ID != explainID {
+					t.Fatalf("unique-rectangle descriptors remain generic: %+v", plan.Steps)
+				}
+				expectedApply := "hint.unique-rectangle.apply"
+				if plan.Conclusion.Placement != nil {
+					expectedApply = "hint.unique-rectangle.place"
+				}
+				if plan.Steps[2].Message.ID != expectedApply {
+					t.Fatalf("unique-rectangle action descriptor = %q, want %q", plan.Steps[2].Message.ID, expectedApply)
+				}
 			}
 		})
 	}

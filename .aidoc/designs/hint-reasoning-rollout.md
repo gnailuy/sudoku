@@ -29,7 +29,7 @@ This Draft defines the unimplemented family-specific reasoning and localized tea
 
 ## Proposed Contract
 
-Each remaining listed family replaces generic comparison with the smallest closed reason variant that expresses its proof. Hidden Pair–Quad, Pointing Pair/Box-Line Reduction, X-Wing/Swordfish/Jellyfish, and XY-Wing/XYZ-Wing/W-Wing have completed this migration through the Active Hint Presentation Protocol. Existing variants are reused when their facts are sufficient; a new variant is added only when reuse would require an overloaded flag, strategy-name inference, or prose parsing.
+Each remaining listed family replaces generic comparison with the smallest closed reason variant that expresses its proof. Hidden Pair–Quad, Pointing Pair/Box-Line Reduction, X-Wing/Swordfish/Jellyfish, XY-Wing/XYZ-Wing/W-Wing, and BUG+1/Unique Rectangle Types 1–4 have completed this migration through the Active Hint Presentation Protocol. Existing variants are reused when their facts are sufficient; a new variant is added only when reuse would require an overloaded flag, strategy-name inference, or prose parsing.
 
 Every family change must:
 
@@ -44,7 +44,6 @@ Every family change must:
 
 | Family | Proposed reasoning boundary |
 |---|---|
-| BUG+1 and Unique Rectangle Types 1–4 | Express the exact uniqueness exception or relationship that forces the placement or elimination. |
 | Simple Coloring and X-Cycles | Explain ordered strong/weak relationships, alternating partitions, conflict or visibility conditions, and the resulting action. |
 
 If implementation evidence shows that a listed family does not need a new reason object, the change may instead complete its family descriptors using existing typed evidence. The acceptance requirement is explicit backend-owned reasoning, not one schema shape per display name.
@@ -59,7 +58,7 @@ Deliver one coherent reasoning family per coordinated backend and browser change
 4. review learner-facing wording and scene progression before selecting another family; and
 5. after all listed families are implemented, run one complete 23-strategy English and Chinese audit plus the maintained all-strategy matrix and nine-game real-stack journey.
 
-Implement uniqueness next, then coloring and cycles. Change that order only when concrete implementation evidence exposes a safer shared contract; do not combine unrelated reason families merely to reduce PR count.
+Implement coloring and cycles next. Do not combine unrelated reason families merely to reduce PR count.
 
 ## Validation
 
