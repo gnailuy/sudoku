@@ -18,14 +18,6 @@ This index is the complete registry for durable project knowledge and a set of s
 | `.aidoc/architecture/guidelines.md` | Package boundaries and cross-cutting design constraints |
 | `.aidoc/designs/future-directions.md` | Evidence gates for work that is not current behavior |
 
-## Draft Work
-
-| Topic | Owner | Status | Document |
-|---|---|---|---|
-| Remaining strategy-family reasoning, grouped actions, and localized teaching stages | Hint protocol maintainers | Draft | `.aidoc/designs/hint-reasoning-rollout.md` |
-
-Drafts remain discoverable here and stay out of current-state reading chains until implementation is verified.
-
 ## Reading Chains
 
 ### Change Engine, Candidates, or Hints
@@ -80,12 +72,6 @@ Drafts remain discoverable here and stay out of current-state reading chains unt
 | `.aidoc/designs/deployment-hardening.md` | Portable artifact, service, isolation, and replacement contract |
 | `.aidoc/designs/localization-contract.md` | Locale-neutral messages with deterministic shared English fallback |
 | `.aidoc/designs/future-directions.md` | Evidence gates for unapproved product expansion |
-
-### Draft Proposals
-
-| Document | Purpose |
-|---|---|
-| `.aidoc/designs/hint-reasoning-rollout.md` | Remaining typed reasoning, grouped actions, and logic-sized localized teaching migration |
 
 ### Rating, Generation, and Persistence
 

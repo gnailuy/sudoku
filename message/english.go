@@ -276,6 +276,24 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.unique-rectangle.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s after applying the uniqueness relationship. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
+	many("hint.coloring.observe", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "group_a", Kind: ArgumentCells}, {Name: "group_b", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("Candidate %d forms two alternating groups: A at %s and B at %s.", *a[0].Digit, cells(a[1]), cells(a[2]))
+	})
+	one("hint.coloring.explain", "digit", ArgumentDigit, func(a Argument) string {
+		return fmt.Sprintf("Each solid link means exactly one endpoint contains %d, so the linked candidates alternate between groups A and B. A conflict can rule out one group, while a cell that sees both groups cannot contain %d.", *a.Digit, *a.Digit)
+	})
+	many("hint.x-cycle.observe", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("Candidate %d returns to its starting point through the ordered cells at %s.", *a[0].Digit, cells(a[1]))
+	})
+	one("hint.x-cycle.explain", "digit", ArgumentDigit, func(a Argument) string {
+		return fmt.Sprintf("Follow the loop in order: each solid link must contain %d at one endpoint, and each dashed link cannot contain %d at both endpoints. The two links that meet at the starting cell force its result.", *a.Digit, *a.Digit)
+	})
+	many("hint.linked-candidates.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "linked_digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("The linked candidates force the result for %d. Remove %s. This pattern is called %s.", *a[1].Digit, candidates(a[0]), strategy(a[2]))
+	})
+	many("hint.linked-candidates.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "linked_digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("The linked candidates for %d force the result. Place %d in %s. This pattern is called %s.", *a[2].Digit, *a[0].Digit, cell(a[1]), strategy(a[3]))
+	})
 	many("hint.implication-chain.observe", []ArgumentSpec{{Name: "cell", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("Start at %s, which has only candidates %s.", cells(a[0]), digits(a[1]))
 	})

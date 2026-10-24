@@ -758,8 +758,19 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 				if plan.Reason == nil || plan.Reason.Kind != HintReasonImplicationChain || last.Message.ID != "hint.implication-chain.apply" {
 					t.Fatalf("xy-chain pilot contract = reason %+v, conclusion %+v", plan.Reason, last.Message)
 				}
-			} else if last.Message.ID != "hint.strategy.conclude" || len(last.Message.Arguments) != 1 {
-				t.Fatalf("conclusion descriptor = %+v", last.Message)
+			} else {
+				expectedObserve := map[string]string{"simple-coloring": "hint.coloring.observe", "x-cycles": "hint.x-cycle.observe"}[key]
+				expectedExplain := map[string]string{"simple-coloring": "hint.coloring.explain", "x-cycles": "hint.x-cycle.explain"}[key]
+				if plan.Steps[0].Message.ID != expectedObserve || plan.Steps[1].Message.ID != expectedExplain {
+					t.Fatalf("coloring/cycle descriptors remain generic: %+v", plan.Steps)
+				}
+				expectedApply := "hint.linked-candidates.apply"
+				if plan.Conclusion.Placement != nil {
+					expectedApply = "hint.linked-candidates.place"
+				}
+				if last.Message.ID != expectedApply {
+					t.Fatalf("conclusion descriptor = %+v", last.Message)
+				}
 			}
 			if len(plan.Steps[1].Links) <= len(plan.Steps[0].Links) {
 				t.Fatalf("complex scene is not progressive: %+v", plan.Steps)
