@@ -632,21 +632,75 @@ func coloringSteps(move *solver.Move, _ string) []HintStep {
 
 func xCycleSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
-	if evidence == nil {
-		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	conclusion := HintConclusion{Placement: placement(move)}
+	if evidence != nil {
+		conclusion.Eliminations = evidence.Eliminations
 	}
-	if len(evidence.Chain) < 3 || len(evidence.Links) < 3 {
-		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
+	if evidence == nil || conclusion.Placement == nil || len(evidence.Chain) != 7 || len(evidence.Links) != 7 {
+		return evidenceSteps(move, conclusion)
+	}
+	digit := conclusion.Placement.Value
+	positions := make([]core.Position, len(evidence.Chain))
+	for index, group := range evidence.Chain {
+		if len(group.Values) == 0 {
+			return evidenceSteps(move, conclusion)
+		}
+		positions[index] = group.Position
+	}
+	if positions[0] != conclusion.Placement.Position {
+		return evidenceSteps(move, conclusion)
+	}
+	wantKinds := []solver.LinkKind{solver.LinkStrong, solver.LinkWeak, solver.LinkStrong, solver.LinkWeak, solver.LinkStrong, solver.LinkWeak, solver.LinkStrong}
+	for index, link := range evidence.Links {
+		wantFrom := positions[index]
+		wantTo := positions[(index+1)%len(positions)]
+		if link.Kind != wantKinds[index] || link.From.Position != wantFrom || link.To.Position != wantTo || link.From.Value != digit || link.To.Value != digit {
+			return evidenceSteps(move, conclusion)
+		}
+	}
+	strongUnits := make([]solver.UnitRef, 4)
+	for index, linkIndex := range []int{0, 2, 4, 6} {
+		unit, ok := sharedHintUnit(evidence.Links[linkIndex].From.Position, evidence.Links[linkIndex].To.Position)
+		if !ok {
+			return evidenceSteps(move, conclusion)
+		}
+		strongUnits[index] = unit
 	}
 	marks := premiseCandidateMarks(evidence)
 	nodes := visualNodes(evidence, true)
 	links := visualLinks(evidence)
-	firstNodes, firstLinks := visualPrefix(nodes, links)
-	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
+	if len(nodes) != 7 {
+		return evidenceSteps(move, conclusion)
+	}
+	scene := func(linkCount int) ([]HintNode, []HintLink) {
+		selectedLinks := append([]HintLink(nil), links[:linkCount]...)
+		ids := make(map[string]struct{}, linkCount+1)
+		for _, link := range selectedLinks {
+			ids[link.From] = struct{}{}
+			ids[link.To] = struct{}{}
+		}
+		selectedNodes := make([]HintNode, 0, len(ids))
+		for _, node := range nodes {
+			if _, ok := ids[node.ID]; ok {
+				selectedNodes = append(selectedNodes, node)
+			}
+		}
+		return selectedNodes, selectedLinks
+	}
+	step1Nodes, step1Links := scene(1)
+	step2Nodes, step2Links := scene(3)
+	step3Nodes, step3Links := scene(5)
+	opening := hintDescriptor("hint.x-cycle.opening", unitsArgument("unit", strongUnits[:1]), digitArgument("digit", digit), cellsArgument("cells", positions[:2]))
+	assume := hintDescriptor("hint.x-cycle.assume", cellArgument("start", positions[0]), cellArgument("forced", positions[1]), cellArgument("blocked", positions[2]), unitsArgument("unit", strongUnits[1:2]), cellArgument("result", positions[3]), digitArgument("digit", digit))
+	follow := hintDescriptor("hint.x-cycle.follow", cellArgument("true_cell", positions[3]), cellArgument("blocked", positions[4]), unitsArgument("unit", strongUnits[2:3]), cellArgument("result", positions[5]), digitArgument("digit", digit))
+	closeLoop := hintDescriptor("hint.x-cycle.close", cellArgument("true_cell", positions[5]), cellArgument("blocked", positions[6]), unitsArgument("unit", strongUnits[3:4]), cellArgument("result", positions[0]), digitArgument("digit", digit))
+	apply := hintDescriptor("hint.x-cycle.place", cellArgument("assumption", positions[0]), digitArgument("digit", digit), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
 	return []HintStep{
-		{ID: "find-x-cycle", Kind: HintStepObserve, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-x-cycle", Kind: HintStepExplain, Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-x-cycle", Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+		{ID: "find-x-cycle-opening-pair", Kind: HintStepObserve, Message: opening, Narration: []HintNarrationChunk{narrationMessage(opening)}, Marks: marksForNodes(step1Nodes), Nodes: step1Nodes, Links: step1Links},
+		{ID: "follow-x-cycle-to-row-eight", Kind: HintStepExplain, Message: assume, Narration: []HintNarrationChunk{narrationMessage(assume)}, Marks: marksForNodes(step2Nodes), Nodes: step2Nodes, Links: step2Links},
+		{ID: "follow-x-cycle-to-row-two", Kind: HintStepExplain, Message: follow, Narration: []HintNarrationChunk{narrationMessage(follow)}, Marks: marksForNodes(step3Nodes), Nodes: step3Nodes, Links: step3Links},
+		{ID: "close-x-cycle-loop", Kind: HintStepExplain, Message: closeLoop, Narration: []HintNarrationChunk{narrationMessage(closeLoop)}, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "apply-x-cycle", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
 }
 
