@@ -294,6 +294,21 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.coloring.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "colored_digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s. Alternating two possibilities through forced pairs and resolving the result is called %s.", *a[0].Digit, cell(a[1]), strategy(a[3]))
 	})
+	many("hint.x-cycle.opening", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, %d can go only in %s. One of these two cells must contain %d.", units(a[0]), *a[1].Digit, cells(a[2]), *a[1].Digit)
+	})
+	many("hint.x-cycle.assume", []ArgumentSpec{{Name: "start", Kind: ArgumentCell}, {Name: "forced", Kind: ArgumentCell}, {Name: "blocked", Kind: ArgumentCell}, {Name: "unit", Kind: ArgumentUnits}, {Name: "result", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Suppose %s were not %d. Then %s would have to be %d. That means %s cannot be %d, so %s forces %d into %s.", cell(a[0]), *a[5].Digit, cell(a[1]), *a[5].Digit, cell(a[2]), *a[5].Digit, units(a[3]), *a[5].Digit, cell(a[4]))
+	})
+	many("hint.x-cycle.follow", []ArgumentSpec{{Name: "true_cell", Kind: ArgumentCell}, {Name: "blocked", Kind: ArgumentCell}, {Name: "unit", Kind: ArgumentUnits}, {Name: "result", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Because %s is %d, %s cannot be %d. %s therefore forces %d into %s.", cell(a[0]), *a[4].Digit, cell(a[1]), *a[4].Digit, units(a[2]), *a[4].Digit, cell(a[3]))
+	})
+	many("hint.x-cycle.close", []ArgumentSpec{{Name: "true_cell", Kind: ArgumentCell}, {Name: "blocked", Kind: ArgumentCell}, {Name: "unit", Kind: ArgumentUnits}, {Name: "result", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Because %s is %d, %s cannot be %d. In %s, that leaves %s as the only place for %d.", cell(a[0]), *a[4].Digit, cell(a[1]), *a[4].Digit, units(a[2]), cell(a[3]), *a[4].Digit)
+	})
+	many("hint.x-cycle.place", []ArgumentSpec{{Name: "assumption", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("The starting assumption that %s was not %d leads back to %s being %d, so the assumption cannot be true. Place %d in %s. This pattern is called %s.", cell(a[0]), *a[1].Digit, cell(a[2]), *a[1].Digit, *a[1].Digit, cell(a[2]), strategy(a[3]))
+	})
 	many("hint.implication-chain.observe", []ArgumentSpec{{Name: "cell", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("Start at %s, which has only candidates %s.", cells(a[0]), digits(a[1]))
 	})

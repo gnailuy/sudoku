@@ -747,13 +747,17 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 				if len(plan.Steps) != 6 {
 					t.Fatalf("Simple Coloring should mirror the approved six-step progression: %+v", plan)
 				}
+			case "x-cycles":
+				if len(plan.Steps) != 5 {
+					t.Fatalf("X-Cycles should mirror the approved five-step progression: %+v", plan)
+				}
 			default:
 				if len(plan.Steps) != 3 {
 					t.Fatalf("unexpected family plan: %+v", plan)
 				}
 			}
 			preVocabularySteps := plan.Steps[:2]
-			if key == "simple-coloring" {
+			if key == "simple-coloring" || key == "x-cycles" {
 				preVocabularySteps = plan.Steps[:len(plan.Steps)-1]
 			}
 			for _, step := range preVocabularySteps {
@@ -778,8 +782,16 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 					}
 				}
 			case "x-cycles":
-				if plan.Steps[1].Message.ID != "hint.strategy.compare" || last.Message.ID != "hint.strategy.conclude" {
-					t.Fatalf("X-Cycles should remain on its unapproved generic descriptors: %+v", plan.Steps)
+				want := []string{"hint.x-cycle.opening", "hint.x-cycle.assume", "hint.x-cycle.follow", "hint.x-cycle.close", "hint.x-cycle.place"}
+				for index, id := range want {
+					if plan.Steps[index].Message.ID != id {
+						t.Fatalf("X-Cycles step %d descriptor = %q, want %q", index+1, plan.Steps[index].Message.ID, id)
+					}
+				}
+				for index, linkCount := range []int{1, 3, 5, 7, 7} {
+					if len(plan.Steps[index].Links) != linkCount {
+						t.Fatalf("X-Cycles step %d links = %d, want %d", index+1, len(plan.Steps[index].Links), linkCount)
+					}
 				}
 			}
 			if len(plan.Steps[1].Links) <= len(plan.Steps[0].Links) {
