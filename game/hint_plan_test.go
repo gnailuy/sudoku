@@ -738,14 +738,25 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 			if plan == nil || plan.Strategy.ID != key {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
-			if key == "xy-chain" {
+			switch key {
+			case "xy-chain":
 				if plan.Reason == nil || plan.Reason.ImplicationChain == nil || len(plan.Steps) != len(plan.Reason.ImplicationChain.Links)+2 {
 					t.Fatalf("unexpected logic-sized XY-chain plan: %+v", plan)
 				}
-			} else if len(plan.Steps) != 3 {
-				t.Fatalf("unexpected family plan: %+v", plan)
+			case "simple-coloring":
+				if len(plan.Steps) != 6 {
+					t.Fatalf("Simple Coloring should mirror the approved six-step progression: %+v", plan)
+				}
+			default:
+				if len(plan.Steps) != 3 {
+					t.Fatalf("unexpected family plan: %+v", plan)
+				}
 			}
-			for _, step := range plan.Steps[:2] {
+			preVocabularySteps := plan.Steps[:2]
+			if key == "simple-coloring" {
+				preVocabularySteps = plan.Steps[:len(plan.Steps)-1]
+			}
+			for _, step := range preVocabularySteps {
 				if strings.Contains(step.Message.Text, plan.Strategy.Name.Text) {
 					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
@@ -754,22 +765,21 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 				}
 			}
 			last := plan.Steps[len(plan.Steps)-1]
-			if key == "xy-chain" {
+			switch key {
+			case "xy-chain":
 				if plan.Reason == nil || plan.Reason.Kind != HintReasonImplicationChain || last.Message.ID != "hint.implication-chain.apply" {
 					t.Fatalf("xy-chain pilot contract = reason %+v, conclusion %+v", plan.Reason, last.Message)
 				}
-			} else {
-				expectedObserve := map[string]string{"simple-coloring": "hint.coloring.observe", "x-cycles": "hint.x-cycle.observe"}[key]
-				expectedExplain := map[string]string{"simple-coloring": "hint.coloring.explain", "x-cycles": "hint.x-cycle.explain"}[key]
-				if plan.Steps[0].Message.ID != expectedObserve || plan.Steps[1].Message.ID != expectedExplain {
-					t.Fatalf("coloring/cycle descriptors remain generic: %+v", plan.Steps)
+			case "simple-coloring":
+				want := []string{"hint.coloring.pair", "hint.coloring.chain", "hint.coloring.alternatives", "hint.coloring.elimination", "hint.coloring.elimination", "hint.coloring.apply"}
+				for index, id := range want {
+					if plan.Steps[index].Message.ID != id {
+						t.Fatalf("Simple Coloring step %d descriptor = %q, want %q", index+1, plan.Steps[index].Message.ID, id)
+					}
 				}
-				expectedApply := "hint.linked-candidates.apply"
-				if plan.Conclusion.Placement != nil {
-					expectedApply = "hint.linked-candidates.place"
-				}
-				if last.Message.ID != expectedApply {
-					t.Fatalf("conclusion descriptor = %+v", last.Message)
+			case "x-cycles":
+				if plan.Steps[1].Message.ID != "hint.strategy.compare" || last.Message.ID != "hint.strategy.conclude" {
+					t.Fatalf("X-Cycles should remain on its unapproved generic descriptors: %+v", plan.Steps)
 				}
 			}
 			if len(plan.Steps[1].Links) <= len(plan.Steps[0].Links) {

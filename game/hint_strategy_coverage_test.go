@@ -122,7 +122,7 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 					if first.Steps[1].Message.ID == "hint.strategy.compare" || first.Steps[len(first.Steps)-1].Message.ID == "hint.strategy.conclude" {
 						t.Fatalf("%s did not use complete uniqueness descriptors: %+v", key, first)
 					}
-				case "simple-coloring", "x-cycles":
+				case "simple-coloring":
 					if first.Steps[1].Message.ID == "hint.strategy.compare" || first.Steps[len(first.Steps)-1].Message.ID == "hint.strategy.conclude" {
 						t.Fatalf("%s did not use complete linked-candidate descriptors: %+v", key, first)
 					}
