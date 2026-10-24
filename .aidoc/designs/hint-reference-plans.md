@@ -70,7 +70,7 @@ X-Wing, Swordfish, and Jellyfish plans identify one candidate, two to four base 
 
 ## Relational Wing Family
 
-XY-Wing and XYZ-Wing plans identify one pivot and two wings with their exact candidate sets before explaining the shared-candidate implication. W-Wing plans identify two equal bi-value outer cells and both ends of the strong link before explaining why one outer cell must take the elimination candidate. `solver.XYWingSolver`, `solver.XYZWingSolver`, and `solver.WWingSolver` preserve the role order in typed premises, allowing the shared composer to name plain row-and-column locations without parsing solver reasons.
+XY-Wing and XYZ-Wing plans identify one pivot and two wings with their exact candidate sets before explaining the shared-candidate implication. W-Wing plans use four logic-sized stages: identify the two equal bivalue cells; show that the bridge digit has exactly two positions in one unit; explain how either bridge position forces the other digit into its corresponding bivalue cell; then remove that digit from cells that see both. Formal wing and strong-link vocabulary follows the plain causal chain rather than replacing it. `solver.XYWingSolver`, `solver.XYZWingSolver`, and `solver.WWingSolver` preserve the role order in typed premises, allowing the shared composer to name plain row-and-column locations without parsing solver reasons.
 
 ## Uniqueness Family
 

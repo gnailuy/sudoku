@@ -581,10 +581,14 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != 3 {
+			expectedSteps := 3
+			if key == "w-wing" {
+				expectedSteps = 4
+			}
+			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != expectedSteps {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
-			for _, step := range plan.Steps[:2] {
+			for _, step := range plan.Steps[:len(plan.Steps)-1] {
 				if strings.Contains(step.Message.Text, plan.Strategy.Name.Text) {
 					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
@@ -602,15 +606,21 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatalf("fish reason is incomplete: %+v", reason)
 				}
 			} else {
-				if plan.Steps[1].Message.ID == "hint.strategy.compare" || plan.Steps[2].Message.ID == "hint.strategy.conclude" {
+				if plan.Steps[1].Message.ID == "hint.strategy.compare" || plan.Steps[len(plan.Steps)-1].Message.ID == "hint.strategy.conclude" {
 					t.Fatalf("relational-wing descriptors remain generic: %+v", plan.Steps)
 				}
 				expectedApply := "hint.relational-wing.apply"
 				if plan.Conclusion.Placement != nil {
 					expectedApply = "hint.relational-wing.place"
 				}
-				if plan.Steps[2].Message.ID != expectedApply {
-					t.Fatalf("relational-wing action descriptor = %q, want %q", plan.Steps[2].Message.ID, expectedApply)
+				if key == "w-wing" {
+					expectedApply = "hint.strong-link-wing.apply"
+					if plan.Conclusion.Placement != nil {
+						expectedApply = "hint.strong-link-wing.place"
+					}
+				}
+				if plan.Steps[len(plan.Steps)-1].Message.ID != expectedApply {
+					t.Fatalf("relational-wing action descriptor = %q, want %q", plan.Steps[len(plan.Steps)-1].Message.ID, expectedApply)
 				}
 			}
 			switch key {
@@ -624,9 +634,18 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 					}
 				}
 			case "w-wing":
-				for _, step := range plan.Steps {
-					if len(step.Nodes) == 0 || len(step.Links) != 1 || step.Links[0].Kind != solver.LinkStrong {
-						t.Fatalf("W-Wing step lacks its persistent strong-link scene: %+v", step)
+				if len(plan.Steps[0].Links) != 0 {
+					t.Fatalf("W-Wing introduces the bridge before the paired cells: %+v", plan.Steps[0])
+				}
+				if plan.Steps[1].Message.ID != "hint.strong-link-wing.bridge" || plan.Steps[2].Message.ID != "hint.strong-link-wing.force" {
+					t.Fatalf("W-Wing causal descriptors are incomplete: %+v", plan.Steps)
+				}
+				if len(plan.Steps[1].Links) != 1 || plan.Steps[1].Links[0].Kind != solver.LinkStrong {
+					t.Fatalf("W-Wing bridge step is incomplete: %+v", plan.Steps[1])
+				}
+				for _, step := range plan.Steps[2:] {
+					if len(step.Nodes) == 0 || len(step.Links) != 3 || step.Links[0].Kind != solver.LinkStrong || step.Links[1].Kind != solver.LinkImplication || step.Links[2].Kind != solver.LinkImplication {
+						t.Fatalf("W-Wing case implications are incomplete: %+v", step)
 					}
 				}
 			}
