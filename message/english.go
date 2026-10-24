@@ -276,6 +276,24 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.unique-rectangle.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s after applying the uniqueness relationship. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
+	many("hint.coloring.pair", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, candidate %d can appear only in %s, so exactly one of those cells contains %d. Mark them as opposite possibilities A and B.", units(a[0]), *a[1].Digit, cells(a[2]), *a[1].Digit)
+	})
+	many("hint.coloring.chain", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "group_a", Kind: ArgumentCells}, {Name: "group_b", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("Follow each solid link. It joins the only two positions for %d in a row, column, or box, so the labels alternate through the chain: A at %s and B at %s.", *a[0].Digit, cells(a[1]), cells(a[2]))
+	})
+	one("hint.coloring.alternatives", "digit", ArgumentDigit, func(a Argument) string {
+		return fmt.Sprintf("Either every A candidate contains %d and every B candidate does not, or every B candidate contains %d and every A candidate does not. We do not need to know which possibility is true.", *a.Digit, *a.Digit)
+	})
+	many("hint.coloring.elimination", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "group_a_cell", Kind: ArgumentCell}, {Name: "group_b_cell", Kind: ArgumentCell}}, func(a []Argument) string {
+		return fmt.Sprintf("%s sees the A candidate at %s and the B candidate at %s. Whichever group contains %d, this cell sees a %d, so it cannot contain %d.", cell(a[1]), cell(a[2]), cell(a[3]), *a[0].Digit, *a[0].Digit, *a[0].Digit)
+	})
+	many("hint.coloring.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "colored_digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove %s. Alternating two possibilities through forced pairs and removing a candidate that sees both possibilities is called %s.", candidates(a[0]), strategy(a[2]))
+	})
+	many("hint.coloring.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "colored_digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Place %d in %s. Alternating two possibilities through forced pairs and resolving the result is called %s.", *a[0].Digit, cell(a[1]), strategy(a[3]))
+	})
 	many("hint.implication-chain.observe", []ArgumentSpec{{Name: "cell", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("Start at %s, which has only candidates %s.", cells(a[0]), digits(a[1]))
 	})

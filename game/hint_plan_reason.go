@@ -573,22 +573,61 @@ func removeValues(values, removed []int) []int {
 
 func coloringSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
-	if evidence == nil {
-		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	conclusion := HintConclusion{Placement: placement(move)}
+	if evidence != nil {
+		conclusion.Eliminations = evidence.Eliminations
 	}
-	if len(evidence.Partitions) != 2 || len(evidence.Premises) == 0 {
-		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
+	if evidence == nil || len(evidence.Partitions) != 2 || len(evidence.Premises) == 0 || len(evidence.Premises[0].Values) != 1 || len(evidence.Links) == 0 {
+		return evidenceSteps(move, conclusion)
+	}
+	digit := evidence.Premises[0].Values[0]
+	groupCells := func(partition solver.CandidatePartition) []core.Position {
+		cells := make([]core.Position, len(partition.Candidates))
+		for index, candidate := range partition.Candidates {
+			if candidate.Value != digit {
+				return nil
+			}
+			cells[index] = candidate.Position
+		}
+		return cells
+	}
+	groupA := groupCells(evidence.Partitions[0])
+	groupB := groupCells(evidence.Partitions[1])
+	if len(groupA) == 0 || len(groupB) == 0 {
+		return evidenceSteps(move, conclusion)
 	}
 	marks := premiseCandidateMarks(evidence)
 	nodes := visualNodes(evidence, false)
 	links := visualLinks(evidence)
 	firstNodes, firstLinks := visualPrefix(nodes, links)
-	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	return []HintStep{
-		{ID: "find-simple-coloring", Kind: HintStepObserve, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
-		{ID: "compare-simple-coloring", Kind: HintStepExplain, Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-simple-coloring", Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+	if len(firstNodes) != 2 {
+		return evidenceSteps(move, conclusion)
 	}
+	unit, ok := sharedHintUnit(*firstNodes[0].Target.Position, *firstNodes[1].Target.Position)
+	if !ok {
+		return evidenceSteps(move, conclusion)
+	}
+	pair := hintDescriptor("hint.coloring.pair", unitsArgument("unit", []solver.UnitRef{unit}), digitArgument("digit", digit), cellsArgument("cells", []core.Position{*firstNodes[0].Target.Position, *firstNodes[1].Target.Position}))
+	chain := hintDescriptor("hint.coloring.chain", digitArgument("digit", digit), cellsArgument("group_a", groupA), cellsArgument("group_b", groupB))
+	alternatives := hintDescriptor("hint.coloring.alternatives", digitArgument("digit", digit))
+	steps := []HintStep{
+		{ID: "find-simple-coloring-pair", Kind: HintStepObserve, Message: pair, Narration: []HintNarrationChunk{narrationMessage(pair)}, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: firstLinks},
+		{ID: "extend-simple-coloring-chain", Kind: HintStepExplain, Message: chain, Narration: []HintNarrationChunk{narrationMessage(chain)}, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "compare-simple-coloring-groups", Kind: HintStepExplain, Message: alternatives, Narration: []HintNarrationChunk{narrationMessage(alternatives)}, Marks: marks, Nodes: nodes, Links: links},
+	}
+	for index, eliminated := range conclusion.Eliminations {
+		groupACell, groupBCell, found := coloringWitnesses(eliminated.Position, groupA, groupB)
+		if !found {
+			return evidenceSteps(move, conclusion)
+		}
+		explain := hintDescriptor("hint.coloring.elimination", digitArgument("digit", digit), cellArgument("cell", eliminated.Position), cellArgument("group_a_cell", groupACell), cellArgument("group_b_cell", groupBCell))
+		stepMarks := append([]HintMark(nil), marks...)
+		stepMarks = append(stepMarks, HintMark{Target: candidateTarget(eliminated), Role: HintRoleFocus})
+		steps = append(steps, HintStep{ID: fmt.Sprintf("explain-simple-coloring-elimination-%d", index+1), Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: stepMarks, Nodes: nodes, Links: links})
+	}
+	apply := coloringActionDescriptor(move, conclusion, digit)
+	steps = append(steps, HintStep{ID: "apply-simple-coloring", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)})
+	return steps
 }
 
 func xCycleSteps(move *solver.Move, _ string) []HintStep {
@@ -609,6 +648,31 @@ func xCycleSteps(move *solver.Move, _ string) []HintStep {
 		{ID: "compare-x-cycle", Kind: HintStepExplain, Marks: marks, Nodes: nodes, Links: links},
 		{ID: "apply-x-cycle", Kind: conclusionKind(conclusion), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
+}
+
+func coloringActionDescriptor(move *solver.Move, conclusion HintConclusion, digit int) message.Descriptor {
+	if conclusion.Placement != nil {
+		return hintDescriptor("hint.coloring.place", digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), digitArgument("colored_digit", digit), strategyArgument("strategy", move.Technique))
+	}
+	return hintDescriptor("hint.coloring.apply", candidatesArgument("candidates", conclusion.Eliminations), digitArgument("colored_digit", digit), strategyArgument("strategy", move.Technique))
+}
+
+func coloringWitnesses(target core.Position, groupA, groupB []core.Position) (core.Position, core.Position, bool) {
+	var a, b core.Position
+	foundA, foundB := false, false
+	for _, position := range groupA {
+		if _, ok := sharedHintUnit(target, position); ok {
+			a, foundA = position, true
+			break
+		}
+	}
+	for _, position := range groupB {
+		if _, ok := sharedHintUnit(target, position); ok {
+			b, foundB = position, true
+			break
+		}
+	}
+	return a, b, foundA && foundB
 }
 
 func conclusionNarration(conclusion HintConclusion) []HintNarrationChunk {
