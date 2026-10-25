@@ -582,6 +582,9 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 				}
 			}
 			expectedSteps := 3
+			if key == "xy-wing" {
+				expectedSteps = 5
+			}
 			if key == "w-wing" {
 				expectedSteps = 4
 			}
@@ -613,6 +616,12 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 				if plan.Conclusion.Placement != nil {
 					expectedApply = "hint.relational-wing.place"
 				}
+				if key == "xy-wing" {
+					expectedApply = "hint.xy-wing.apply"
+					if plan.Conclusion.Placement != nil {
+						expectedApply = "hint.xy-wing.place"
+					}
+				}
 				if key == "w-wing" {
 					expectedApply = "hint.strong-link-wing.apply"
 					if plan.Conclusion.Placement != nil {
@@ -625,13 +634,22 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 			}
 			switch key {
 			case "xy-wing":
-				if len(plan.Steps[0].Links) != 1 || len(plan.Steps[1].Links) != 2 || len(plan.Steps[2].Links) != 2 {
-					t.Fatalf("XY-Wing implication scene is not progressive and persistent: %+v", plan.Steps)
-				}
-				for _, step := range plan.Steps {
-					if len(step.Nodes) == 0 || step.Links[0].Kind != solver.LinkImplication {
-						t.Fatalf("XY-Wing step lacks implication nodes and arrows: %+v", step)
+				wantMessages := []string{"hint.xy-wing.pivot", "hint.xy-wing.case", "hint.xy-wing.case", "hint.xy-wing.guarantee", "hint.xy-wing.place"}
+				wantLinks := []int{0, 1, 2, 2, 4}
+				for index, step := range plan.Steps {
+					if step.Message.ID != wantMessages[index] || len(step.Nodes) == 0 || len(step.Links) != wantLinks[index] {
+						t.Fatalf("XY-Wing step %d is incomplete: %+v", index, step)
 					}
+				}
+				for _, step := range plan.Steps[1:4] {
+					for _, link := range step.Links {
+						if link.Kind != solver.LinkImplication {
+							t.Fatalf("XY-Wing case step has non-implication link: %+v", step)
+						}
+					}
+				}
+				if plan.Steps[4].Links[2].Kind != solver.LinkWeak || plan.Steps[4].Links[3].Kind != solver.LinkWeak {
+					t.Fatalf("XY-Wing result lacks both target witnesses: %+v", plan.Steps[4])
 				}
 			case "w-wing":
 				if len(plan.Steps[0].Links) != 0 {

@@ -225,6 +225,22 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.pivot-wing.explain", []ArgumentSpec{{Name: "shared_digit", Kind: ArgumentDigit}, {Name: "pivot", Kind: ArgumentCell}, {Name: "wing_cells", Kind: ArgumentCells}}, func(a []Argument) string {
 		return fmt.Sprintf("Each wing at %s shares one candidate with the pivot at %s, and both wings contain %d. Whichever pivot candidate is true, one wing must contain %d.", cells(a[2]), cell(a[1]), *a[0].Digit, *a[0].Digit)
 	})
+	many("hint.xy-wing.pivot", []ArgumentSpec{{Name: "pivot", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("%s has only candidates %s. It must be one of them.", cell(a[0]), digits(a[1]))
+	})
+	many("hint.xy-wing.case", []ArgumentSpec{{Name: "pivot", Kind: ArgumentCell}, {Name: "pivot_digit", Kind: ArgumentDigit}, {Name: "wing", Kind: ArgumentCell}, {Name: "shared_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("If %s is %d, then %s cannot be %d. Its only other candidate is %d, so %s must be %d.", cell(a[0]), *a[1].Digit, cell(a[2]), *a[1].Digit, *a[3].Digit, cell(a[2]), *a[3].Digit)
+	})
+	many("hint.xy-wing.guarantee", []ArgumentSpec{{Name: "pivot", Kind: ArgumentCell}, {Name: "wing_cells", Kind: ArgumentCells}, {Name: "shared_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Whichever candidate is true at %s, at least one wing—%s—must be %d. We do not need to know which wing contains it.", cell(a[0]), cells(a[1]), *a[2].Digit)
+	})
+	many("hint.xy-wing.apply", []ArgumentSpec{{Name: "cells", Kind: ArgumentCells}, {Name: "wing_cells", Kind: ArgumentCells}, {Name: "shared_digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("%s see both wings at %s. Because at least one wing is %d, remove candidate %d from those cells. This pattern is called %s.", cells(a[0]), cells(a[1]), *a[2].Digit, *a[2].Digit, strategy(a[3]))
+	})
+	many("hint.xy-wing.place", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "wing_cells", Kind: ArgumentCells}, {Name: "shared_digit", Kind: ArgumentDigit}, {Name: "digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("%s sees both wings at %s. Because at least one wing is %d, %s cannot be %d. Its only other candidate is %d, so place %d there. This pattern is called %s.", cell(a[0]), cells(a[1]), *a[2].Digit, cell(a[0]), *a[2].Digit, *a[3].Digit, *a[3].Digit, strategy(a[4]))
+	})
+
 	many("hint.strong-link-wing.observe", []ArgumentSpec{{Name: "wing_cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("The cells at %s can each contain only %s.", cells(a[0]), digits(a[1]))
 	})

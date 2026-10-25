@@ -86,6 +86,29 @@ func marksForNodes(nodes []HintNode) []HintMark {
 	return marks
 }
 
+func nodesForCandidateRefs(nodes []HintNode, refs ...solver.CandidateRef) []HintNode {
+	wanted := make(map[string]struct{}, len(refs))
+	for _, ref := range refs {
+		wanted[candidateNodeID(ref)] = struct{}{}
+	}
+	selected := make([]HintNode, 0, len(wanted))
+	for _, node := range nodes {
+		if _, ok := wanted[node.ID]; ok {
+			selected = append(selected, node)
+		}
+	}
+	return selected
+}
+
+func containsValue(values []int, wanted int) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
 func sharedValues(groups ...solver.CandidateGroup) []int {
 	if len(groups) == 0 {
 		return nil
