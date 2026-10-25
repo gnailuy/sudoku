@@ -85,11 +85,6 @@ func digitArgument(name string, digit int) message.Argument {
 	return message.Argument{Name: name, Kind: message.ArgumentDigit, Digit: &digit}
 }
 
-func candidateArgument(name string, ref solver.CandidateRef) message.Argument {
-	candidate := message.Candidate{Cell: message.Cell{Row: ref.Position.Row + 1, Column: ref.Position.Column + 1}, Digit: ref.Value}
-	return message.Argument{Name: name, Kind: message.ArgumentCandidate, Candidate: &candidate}
-}
-
 func digitsArgument(name string, values []int) message.Argument {
 	return message.Argument{Name: name, Kind: message.ArgumentDigits, Digits: append([]int(nil), values...)}
 }
