@@ -33,6 +33,9 @@ func TestNakedSingleSolver_FindsSingle(t *testing.T) {
 	if move.Technique != "naked-single" {
 		t.Errorf("expected technique 'naked-single', got '%s'", move.Technique)
 	}
+	if len(move.Evidence.Witnesses) != 8 {
+		t.Fatalf("witnesses = %+v, want one placed peer for every excluded digit", move.Evidence.Witnesses)
+	}
 }
 
 func TestNakedSingleSolver_NoProgress(t *testing.T) {

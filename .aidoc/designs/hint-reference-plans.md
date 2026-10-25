@@ -27,12 +27,13 @@ Reference plans prevent strategy composers and renderers from interpreting seman
 
 ## Naked Single Placement
 
-The Naked Single reference uses cell `r4c2`, whose candidate set is exactly `{7}`, and concludes with placement `r4c2=7`:
+The maintained Naked Single reference uses cell `r2c1`, whose candidate set is exactly `{8}`, and concludes with placement `r2c1=8`:
 
 | Step | Kind | Complete scene | Effect | Canonical English fallback |
 |------|------|----------------|--------|------------------|
-| `inspect-r4c2` | `observe` | focus cell `r4c2`; premise candidate `r4c2:7` | none | “Look at row 4, column 2. It has only one candidate: 7.” |
-| `place-r4c2-7` | `apply` | focus cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Because no other digit can go in row 4, column 2, place 7 there. This is called a Naked Single.” |
+| `inspect-r2c1-constraints` | `observe` | focus `r2c1`, row 2, column 1, and box 1; mark one placed peer for each excluded digit 1–7 and 9 | none | “Start with row 2, column 1. Its row, column, and box already contain 1, 2, 3, 4, 5, 6, 7, and 9.” |
+| `identify-r2c1-candidate` | `explain` | preserve the constraint witnesses; mark candidate `r2c1:8` as the sole premise | none | “Therefore, 8 is the only digit that can go in row 2, column 1.” |
+| `place-r2c1-8` | `apply` | preserve the witnesses; change candidate `r2c1:8` from premise to conclusion | place `8` at `r2c1` | “Place 8 in row 2, column 1. A cell with only one candidate is a Naked Single.” |
 
 ## Hidden Single Placement
 

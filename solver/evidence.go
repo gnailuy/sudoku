@@ -58,12 +58,17 @@ type Evidence struct {
 	// Unit is retained for common single-unit techniques. Units contains every
 	// typed unit involved in the deduction and is the renderer-neutral form
 	// consumed by generic teaching plans.
-	Unit         *UnitRef
-	Units        []UnitRef
-	Premises     []CandidateGroup
-	Chain        []CandidateGroup
-	Links        []CandidateLink
-	Partitions   []CandidatePartition
+	Unit       *UnitRef
+	Units      []UnitRef
+	Premises   []CandidateGroup
+	Chain      []CandidateGroup
+	Links      []CandidateLink
+	Partitions []CandidatePartition
+	// Witnesses records placed values that directly establish a deduction.
+	// It is currently used by Naked Single to retain one deterministic peer
+	// for every excluded digit without pretending that filled cells still have
+	// candidates.
+	Witnesses    []core.Cell
 	RuledOut     []CandidateRef
 	Eliminations []CandidateRef
 }

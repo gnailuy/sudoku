@@ -31,6 +31,7 @@ func (s *NakedSingleSolver) Apply(board *core.Board) *Move {
 		candidates := board.Candidates(pos)
 		if candidates.Count() == 1 {
 			value := candidates.Values()[0]
+			witnesses := nakedSingleWitnesses(board, pos, value)
 			return &Move{
 				Cell:      core.NewCell(pos, value),
 				Technique: s.Key,
@@ -38,12 +39,50 @@ func (s *NakedSingleSolver) Apply(board *core.Board) *Move {
 				Evidence: &Evidence{Premises: []CandidateGroup{{
 					Position: pos,
 					Values:   []int{value},
-				}}},
+				}}, Witnesses: witnesses},
 			}
 		}
 	}
 
 	return nil
+}
+
+func nakedSingleWitnesses(board *core.Board, target core.Position, remaining int) []core.Cell {
+	find := func(value int, positions []core.Position) (core.Cell, bool) {
+		for _, position := range positions {
+			if board.Get(position) == value {
+				return core.NewCell(position, value), true
+			}
+		}
+		return core.Cell{}, false
+	}
+	row := make([]core.Position, 0, 9)
+	box := make([]core.Position, 0, 9)
+	column := make([]core.Position, 0, 9)
+	for index := 0; index < 9; index++ {
+		row = append(row, core.NewPosition(target.Row, index))
+		column = append(column, core.NewPosition(index, target.Column))
+	}
+	startRow, startColumn := target.Row/3*3, target.Column/3*3
+	for rowIndex := startRow; rowIndex < startRow+3; rowIndex++ {
+		for columnIndex := startColumn; columnIndex < startColumn+3; columnIndex++ {
+			box = append(box, core.NewPosition(rowIndex, columnIndex))
+		}
+	}
+
+	witnesses := make([]core.Cell, 0, 8)
+	for value := 1; value <= 9; value++ {
+		if value == remaining {
+			continue
+		}
+		for _, positions := range [][]core.Position{row, box, column} {
+			if witness, ok := find(value, positions); ok {
+				witnesses = append(witnesses, witness)
+				break
+			}
+		}
+	}
+	return witnesses
 }
 
 // digitName returns a human-friendly name for a digit.
