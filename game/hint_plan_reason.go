@@ -410,6 +410,100 @@ func relationalSteps(move *solver.Move, _ string) []HintStep {
 				{ID: "apply-xy-wing", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(baseMarks, conclusionMarks(conclusion)...), Nodes: finalNodes, Links: finalLinks, Effect: conclusionEffect(conclusion)},
 			}
 		}
+		if move.Technique == "xyz-wing" {
+			if len(pivot.Values) != 3 || len(wings[0].Values) != 2 || len(wings[1].Values) != 2 || conclusion.Placement != nil {
+				return evidenceSteps(move, conclusion)
+			}
+			nonShared := make([]int, 0, 2)
+			for _, value := range pivot.Values {
+				if value != actionDigit {
+					nonShared = append(nonShared, value)
+				}
+			}
+			if len(nonShared) != 2 {
+				return evidenceSteps(move, conclusion)
+			}
+			wingForPivot := func(value int) (solver.CandidateGroup, bool) {
+				for _, wing := range wings {
+					if containsValue(wing.Values, value) && containsValue(wing.Values, actionDigit) {
+						return wing, true
+					}
+				}
+				return solver.CandidateGroup{}, false
+			}
+			firstWing, firstOK := wingForPivot(nonShared[0])
+			secondWing, secondOK := wingForPivot(nonShared[1])
+			if !firstOK || !secondOK || firstWing.Position == secondWing.Position {
+				return evidenceSteps(move, conclusion)
+			}
+			firstUnit, firstUnitOK := sharedHintUnit(pivot.Position, firstWing.Position)
+			secondUnit, secondUnitOK := sharedHintUnit(pivot.Position, secondWing.Position)
+			if !firstUnitOK || !secondUnitOK {
+				return evidenceSteps(move, conclusion)
+			}
+			pivotNodes := nodesForCandidateRefs(nodes,
+				solver.CandidateRef{Position: pivot.Position, Value: pivot.Values[0]},
+				solver.CandidateRef{Position: pivot.Position, Value: pivot.Values[1]},
+				solver.CandidateRef{Position: pivot.Position, Value: pivot.Values[2]},
+			)
+			firstCaseNodes := nodesForCandidateRefs(nodes,
+				solver.CandidateRef{Position: pivot.Position, Value: pivot.Values[0]},
+				solver.CandidateRef{Position: pivot.Position, Value: pivot.Values[1]},
+				solver.CandidateRef{Position: pivot.Position, Value: pivot.Values[2]},
+				solver.CandidateRef{Position: firstWing.Position, Value: nonShared[0]},
+				solver.CandidateRef{Position: firstWing.Position, Value: actionDigit},
+			)
+			firstCaseLink := HintLink{From: candidateNodeID(solver.CandidateRef{Position: pivot.Position, Value: nonShared[0]}), To: candidateNodeID(solver.CandidateRef{Position: firstWing.Position, Value: actionDigit}), Kind: solver.LinkImplication}
+			secondCaseLink := HintLink{From: candidateNodeID(solver.CandidateRef{Position: pivot.Position, Value: nonShared[1]}), To: candidateNodeID(solver.CandidateRef{Position: secondWing.Position, Value: actionDigit}), Kind: solver.LinkImplication}
+			caseLinks := []HintLink{firstCaseLink, secondCaseLink}
+			pivotMessage := hintDescriptor("hint.xyz-wing.pivot", cellArgument("pivot", pivot.Position), digitsArgument("digits", pivot.Values))
+			firstCaseMessage := hintDescriptor("hint.xyz-wing.case", cellArgument("pivot", pivot.Position), digitArgument("pivot_digit", nonShared[0]), cellArgument("wing", firstWing.Position), unitsArgument("unit", []solver.UnitRef{firstUnit}), digitArgument("shared_digit", actionDigit))
+			secondCaseMessage := hintDescriptor("hint.xyz-wing.case", cellArgument("pivot", pivot.Position), digitArgument("pivot_digit", nonShared[1]), cellArgument("wing", secondWing.Position), unitsArgument("unit", []solver.UnitRef{secondUnit}), digitArgument("shared_digit", actionDigit))
+			pivotCaseMessage := hintDescriptor("hint.xyz-wing.pivot-case", cellArgument("pivot", pivot.Position), digitArgument("shared_digit", actionDigit))
+			patternCells := []core.Position{pivot.Position, firstWing.Position, secondWing.Position}
+			guarantee := hintDescriptor("hint.xyz-wing.guarantee", cellArgument("pivot", pivot.Position), cellsArgument("pattern_cells", patternCells), digitArgument("shared_digit", actionDigit))
+			target := evidence.Eliminations[0].Position
+			targetRef := solver.CandidateRef{Position: target, Value: actionDigit}
+			finalNodes := append([]HintNode(nil), nodes...)
+			finalNodes = append(finalNodes, HintNode{ID: candidateNodeID(targetRef), Target: candidateTarget(targetRef)})
+			finalLinks := append([]HintLink(nil), caseLinks...)
+			witnessUnits := make([]solver.UnitRef, 0, len(patternCells))
+			for _, patternCell := range patternCells {
+				unit, ok := sharedHintUnit(target, patternCell)
+				if !ok {
+					return evidenceSteps(move, conclusion)
+				}
+				witnessUnits = append(witnessUnits, unit)
+				finalLinks = append(finalLinks, HintLink{From: candidateNodeID(solver.CandidateRef{Position: patternCell, Value: actionDigit}), To: candidateNodeID(targetRef), Kind: solver.LinkWeak})
+			}
+			messagePatternCells := make([]core.Position, 0, len(patternCells))
+			messageWitnessUnits := make([]solver.UnitRef, 0, len(witnessUnits))
+			for _, preferredKind := range []solver.UnitKind{solver.UnitRow, solver.UnitColumn, solver.UnitBox} {
+				for index, unit := range witnessUnits {
+					if unit.Kind == preferredKind {
+						messagePatternCells = append(messagePatternCells, patternCells[index])
+						messageWitnessUnits = append(messageWitnessUnits, unit)
+					}
+				}
+			}
+			if len(messagePatternCells) != 3 {
+				return evidenceSteps(move, conclusion)
+			}
+			apply := hintDescriptor("hint.xyz-wing.apply",
+				cellArgument("target", target),
+				cellArgument("first_pattern_cell", messagePatternCells[0]), unitsArgument("first_unit", []solver.UnitRef{messageWitnessUnits[0]}),
+				cellArgument("second_pattern_cell", messagePatternCells[1]), unitsArgument("second_unit", []solver.UnitRef{messageWitnessUnits[1]}),
+				cellArgument("third_pattern_cell", messagePatternCells[2]), unitsArgument("third_unit", []solver.UnitRef{messageWitnessUnits[2]}),
+				digitArgument("shared_digit", actionDigit), strategyArgument("strategy", move.Technique))
+			return []HintStep{
+				{ID: "find-xyz-wing-pivot", Kind: HintStepObserve, Message: pivotMessage, Narration: []HintNarrationChunk{narrationMessage(pivotMessage)}, Marks: marksForNodes(pivotNodes), Nodes: pivotNodes, Links: []HintLink{}},
+				{ID: "follow-xyz-wing-first-case", Kind: HintStepExplain, Message: firstCaseMessage, Narration: []HintNarrationChunk{narrationMessage(firstCaseMessage)}, Marks: marksForNodes(firstCaseNodes), Nodes: firstCaseNodes, Links: []HintLink{firstCaseLink}},
+				{ID: "follow-xyz-wing-second-case", Kind: HintStepExplain, Message: secondCaseMessage, Narration: []HintNarrationChunk{narrationMessage(secondCaseMessage)}, Marks: marksForNodes(nodes), Nodes: nodes, Links: caseLinks},
+				{ID: "cover-xyz-wing-shared-case", Kind: HintStepExplain, Message: pivotCaseMessage, Narration: []HintNarrationChunk{narrationMessage(pivotCaseMessage)}, Marks: marksForNodes(nodes), Nodes: nodes, Links: caseLinks},
+				{ID: "combine-xyz-wing-cases", Kind: HintStepExplain, Message: guarantee, Narration: []HintNarrationChunk{narrationMessage(guarantee)}, Marks: baseMarks, Nodes: nodes, Links: caseLinks},
+				{ID: "apply-xyz-wing", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(baseMarks, conclusionMarks(conclusion)...), Nodes: finalNodes, Links: finalLinks, Effect: conclusionEffect(conclusion)},
+			}
+		}
 		observe = hintDescriptor("hint.pivot-wing.observe", cellArgument("pivot", pivot.Position), digitsArgument("pivot_digits", pivot.Values), cellsArgument("wing_cells", wingCells))
 		explain = hintDescriptor("hint.pivot-wing.explain", digitArgument("shared_digit", actionDigit), cellArgument("pivot", pivot.Position), cellsArgument("wing_cells", wingCells))
 		links = visualLinks(evidence)
