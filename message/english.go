@@ -174,6 +174,16 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	one("hint.strategy.conclude", "strategy", ArgumentStrategy, func(argument Argument) string {
 		return fmt.Sprintf("Apply the highlighted deduction. This pattern is called %s.", strategy(argument))
 	})
+	many("hint.naked-single.constraints", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "excluded_digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("Start with %s. Its row, column, and box already contain %s.", cell(a[0]), digits(a[1]))
+	})
+	many("hint.naked-single.only", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Therefore, %d is the only digit that can go in %s.", *a[1].Digit, cell(a[0]))
+	})
+	many("hint.naked-single.apply", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Place %d in %s. A cell with only one candidate is a %s.", *a[1].Digit, cell(a[0]), strategy(a[2]))
+	})
+
 	many("hint.subset-reservation.observe", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, the cells at %s contain only %s.", units(a[0]), cells(a[1]), digits(a[2]))
 	})

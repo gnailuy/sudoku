@@ -147,10 +147,24 @@ func nakedSingleSteps(move *solver.Move) []HintStep {
 		{Target: HintTarget{Kind: HintTargetColumn, Index: move.Cell.Position.Column}, Role: HintRoleFocus},
 		{Target: HintTarget{Kind: HintTargetBox, Index: (move.Cell.Position.Row/3)*3 + move.Cell.Position.Column/3}, Role: HintRoleFocus},
 	}
-	observeMarks := append(units, HintMark{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, HintMark{Target: candidateTarget(ref), Role: HintRolePremise})
+	constraintMarks := append([]HintMark(nil), units...)
+	constraintMarks = append(constraintMarks, HintMark{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus})
+	excludedDigits := make([]int, 0, len(move.Evidence.Witnesses))
+	for _, witness := range move.Evidence.Witnesses {
+		excludedDigits = append(excludedDigits, witness.Value)
+		constraintMarks = append(constraintMarks, HintMark{Target: cellTarget(witness.Position), Role: HintRolePremise})
+	}
+	onlyMarks := append([]HintMark(nil), constraintMarks...)
+	onlyMarks = append(onlyMarks, HintMark{Target: candidateTarget(ref), Role: HintRolePremise})
+	applyMarks := append([]HintMark(nil), constraintMarks...)
+	applyMarks = append(applyMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleConclusion})
+	constraints := hintDescriptor("hint.naked-single.constraints", cellArgument("cell", move.Cell.Position), digitsArgument("excluded_digits", excludedDigits))
+	only := hintDescriptor("hint.naked-single.only", cellArgument("cell", move.Cell.Position), digitArgument("digit", move.Cell.Value))
+	apply := hintDescriptor("hint.naked-single.apply", cellArgument("cell", move.Cell.Position), digitArgument("digit", move.Cell.Value), strategyArgument("strategy", move.Technique))
 	return []HintStep{
-		{ID: "inspect-" + compactCellName(move.Cell.Position), Kind: HintStepObserve, Narration: []HintNarrationChunk{narrationID("hint.narration.look-at"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.only-candidate"), narrationDigit(move.Cell.Value), narrationID("hint.narration.period")}, Marks: observeMarks},
-		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepApply, Narration: []HintNarrationChunk{narrationID("hint.narration.no-other-digit"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.place"), narrationDigit(move.Cell.Value), narrationID("hint.narration.naked-single-tail")}, Marks: []HintMark{{Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
+		{ID: "inspect-" + compactCellName(move.Cell.Position) + "-constraints", Kind: HintStepObserve, Message: constraints, Narration: []HintNarrationChunk{narrationMessage(constraints)}, Marks: constraintMarks},
+		{ID: "identify-" + compactCellName(move.Cell.Position) + "-candidate", Kind: HintStepExplain, Message: only, Narration: []HintNarrationChunk{narrationMessage(only)}, Marks: onlyMarks},
+		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: &HintEffect{Placement: &move.Cell}},
 	}
 }
 

@@ -274,7 +274,7 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 	if first == nil || second == nil || first.PlanID != second.PlanID {
 		t.Fatalf("repeated hint plans differ: %+v / %+v", first, second)
 	}
-	if first.Strategy.ID != "naked-single" || len(first.Steps) != 2 || first.Conclusion.Placement == nil {
+	if first.Strategy.ID != "naked-single" || len(first.Steps) != 3 || first.Conclusion.Placement == nil {
 		t.Fatalf("unexpected naked-single plan: %+v", first)
 	}
 	for _, step := range first.Steps {
@@ -282,8 +282,14 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 			t.Fatalf("naked-single step lacks structured narration: %+v", step)
 		}
 	}
-	if first.Steps[0].Message.ID != "hint.strategy.observe" || first.Steps[1].Message.ID != "hint.strategy.conclude" || first.Summary.ID != "hint.strategy.summary" {
+	if first.Steps[0].Message.ID != "hint.naked-single.constraints" || first.Steps[1].Message.ID != "hint.naked-single.only" || first.Steps[2].Message.ID != "hint.naked-single.apply" || first.Summary.ID != "hint.strategy.summary" {
 		t.Fatalf("naked-single descriptors are incomplete: %+v", first)
+	}
+	if first.Steps[0].Kind != HintStepObserve || first.Steps[1].Kind != HintStepExplain || first.Steps[2].Kind != HintStepApply {
+		t.Fatalf("unexpected naked-single step order: %+v", first.Steps)
+	}
+	if got := len(first.Steps[0].Marks); got != 12 {
+		t.Fatalf("naked-single constraints have %d marks, want target + three units + eight witnesses", got)
 	}
 	if _, err := game.Apply(ApplyHint{PlanID: "wrong"}); !errors.Is(err, &EngineError{Code: ErrorStaleHint}) {
 		t.Fatalf("wrong plan id error = %v", err)
