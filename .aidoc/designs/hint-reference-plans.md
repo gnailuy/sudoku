@@ -37,13 +37,14 @@ The maintained Naked Single reference uses cell `r2c1`, whose candidate set is e
 
 ## Hidden Single Placement
 
-The Hidden Single reference examines digit `7` in row 4, records that row constraints exclude every location except `r4c2`, and concludes with the same placement:
+The maintained Hidden Single reference examines digit `9` in row 4, records the placed value that excludes every other empty location, and concludes with placement `r4c4=9`:
 
 | Step | Kind | Complete scene | Effect | Canonical English fallback |
 |------|------|----------------|--------|------------------|
-| `scan-row4-for-7` | `observe` | focus row 4; premise candidate `r4c2:7` | none | “In row 4, consider where 7 can appear.” |
-| `explain-row4-7` | `explain` | focus row 4; eliminated candidate targets for every ruled-out empty cell; premise candidate `r4c2:7` | none | “Every other empty cell in row 4 cannot contain 7, leaving only row 4, column 2.” |
-| `place-r4c2-7` | `apply` | focus row 4 and cell `r4c2`; conclusion candidate `r4c2:7` | place `7` at `r4c2` | “Because row 4 still needs 7 and row 4, column 2 is the only possible cell, place 7 there. This is called a Hidden Single.” |
+| `scan-row4-for-9` | `observe` | focus row 4 and premise candidate `r4c4:9` | none | “In row 4, check where 9 can go.” |
+| `rule-out-row4-9` | `explain` | preserve row 4 and `r4c4:9`; show placed blockers `r7c1`, `r6c2`, `r1c3`, `r9c6`, `r2c7`, and `r5c8`; cross candidate 9 at `r4c1`, `r4c2`, `r4c3`, `r4c6`, `r4c7`, and `r4c9` | none | “The placed 9s at row 7, column 1; row 6, column 2; row 1, column 3; row 9, column 6; row 2, column 7; and row 5, column 8 rule out 9 from every other empty cell in row 4.” |
+| `identify-r4c4-9` | `explain` | preserve all blockers and crossed slots; retain premise candidate `r4c4:9` as the sole location | none | “Only row 4, column 4 can still contain 9.” |
+| `place-r4c4-9` | `apply` | preserve the complete proof; change candidate `r4c4:9` from premise to conclusion | place `9` at `r4c4` | “Place 9 in row 4, column 4. When a digit has only one possible cell in a row, column, or box, it is a Hidden Single.” |
 
 ## Naked Pair Elimination
 

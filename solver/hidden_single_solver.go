@@ -94,9 +94,13 @@ func (s *HiddenSingleSolver) findHiddenSingle(board *core.Board, positions []cor
 		if count == 1 {
 			unitName := fmt.Sprintf("%s %d", unit.Kind, unit.Index+1)
 			ruledOut := make([]CandidateRef, 0, 8)
+			witnesses := make([]core.Cell, 0, 8)
 			for _, pos := range positions {
 				if pos != found && board.Get(pos) == 0 {
 					ruledOut = append(ruledOut, CandidateRef{Position: pos, Value: digit})
+					if witness, ok := hiddenSingleWitness(board, pos, digit, unit); ok {
+						witnesses = append(witnesses, witness)
+					}
 				}
 			}
 			return &Move{
@@ -104,13 +108,55 @@ func (s *HiddenSingleSolver) findHiddenSingle(board *core.Board, positions []cor
 				Technique: s.Key,
 				Reason:    fmt.Sprintf("%d can only go in %s within %s", digit, found.ToString(), unitName),
 				Evidence: &Evidence{
-					Unit:     &unit,
-					Premises: []CandidateGroup{{Position: found, Values: []int{digit}}},
-					RuledOut: ruledOut,
+					Unit:      &unit,
+					Premises:  []CandidateGroup{{Position: found, Values: []int{digit}}},
+					Witnesses: witnesses,
+					RuledOut:  ruledOut,
 				},
 			}
 		}
 	}
 
 	return nil
+}
+
+func hiddenSingleWitness(board *core.Board, target core.Position, digit int, source UnitRef) (core.Cell, bool) {
+	row := make([]core.Position, 0, 9)
+	column := make([]core.Position, 0, 9)
+	box := make([]core.Position, 0, 9)
+	for index := 0; index < 9; index++ {
+		row = append(row, core.NewPosition(target.Row, index))
+		column = append(column, core.NewPosition(index, target.Column))
+	}
+	startRow, startColumn := target.Row/3*3, target.Column/3*3
+	for rowIndex := startRow; rowIndex < startRow+3; rowIndex++ {
+		for columnIndex := startColumn; columnIndex < startColumn+3; columnIndex++ {
+			box = append(box, core.NewPosition(rowIndex, columnIndex))
+		}
+	}
+
+	search := func(positions []core.Position) (core.Cell, bool) {
+		for _, position := range positions {
+			if board.Get(position) == digit {
+				return core.NewCell(position, digit), true
+			}
+		}
+		return core.Cell{}, false
+	}
+
+	var peers [][]core.Position
+	switch source.Kind {
+	case UnitRow:
+		peers = [][]core.Position{column, box}
+	case UnitColumn:
+		peers = [][]core.Position{row, box}
+	default:
+		peers = [][]core.Position{row, column}
+	}
+	for _, positions := range peers {
+		if witness, ok := search(positions); ok {
+			return witness, true
+		}
+	}
+	return core.Cell{}, false
 }
