@@ -309,6 +309,21 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.x-cycle.place", []ArgumentSpec{{Name: "assumption", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("The starting assumption that %s was not %d leads back to %s being %d, so the assumption cannot be true. Place %d in %s. This pattern is called %s.", cell(a[0]), *a[1].Digit, cell(a[2]), *a[1].Digit, *a[1].Digit, cell(a[2]), strategy(a[3]))
 	})
+	many("hint.xy-chain.start", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "first_digit", Kind: ArgumentDigit}, {Name: "second_digit", Kind: ArgumentDigit}, {Name: "endpoint_digit", Kind: ArgumentDigit}, {Name: "other_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("%s has only candidates %d and %d. Either it is %d, or—if it is not %d—it must be %d.", cell(a[0]), *a[1].Digit, *a[2].Digit, *a[3].Digit, *a[3].Digit, *a[4].Digit)
+	})
+	many("hint.xy-chain.assume", []ArgumentSpec{{Name: "start", Kind: ArgumentCell}, {Name: "endpoint_digit", Kind: ArgumentDigit}, {Name: "start_value", Kind: ArgumentDigit}, {Name: "middle", Kind: ArgumentCell}, {Name: "middle_value", Kind: ArgumentDigit}, {Name: "result", Kind: ArgumentCell}, {Name: "result_value", Kind: ArgumentDigit}, {Name: "first_unit", Kind: ArgumentUnits}, {Name: "second_unit", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("Suppose %s is not %d. It must then be %d. Because %s and %s share %s, %s cannot be %d and must be %d. That makes %s unable to be %d in %s, so it must be %d.", cell(a[0]), *a[1].Digit, *a[2].Digit, cell(a[0]), cell(a[3]), units(a[7]), cell(a[3]), *a[2].Digit, *a[4].Digit, cell(a[5]), *a[4].Digit, units(a[8]), *a[6].Digit)
+	})
+	many("hint.xy-chain.follow", []ArgumentSpec{{Name: "start", Kind: ArgumentCell}, {Name: "start_value", Kind: ArgumentDigit}, {Name: "middle", Kind: ArgumentCell}, {Name: "middle_value", Kind: ArgumentDigit}, {Name: "result", Kind: ArgumentCell}, {Name: "result_value", Kind: ArgumentDigit}, {Name: "first_unit", Kind: ArgumentUnits}, {Name: "second_unit", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("Because %s is %d, %s in %s cannot be %d and must be %d. Because %s and %s share %s, %s cannot be %d and must be %d.", cell(a[0]), *a[1].Digit, cell(a[2]), units(a[6]), *a[1].Digit, *a[3].Digit, cell(a[2]), cell(a[4]), units(a[7]), cell(a[4]), *a[3].Digit, *a[5].Digit)
+	})
+	many("hint.xy-chain.reach", []ArgumentSpec{{Name: "start", Kind: ArgumentCell}, {Name: "start_value", Kind: ArgumentDigit}, {Name: "endpoint", Kind: ArgumentCell}, {Name: "shared_digit", Kind: ArgumentDigit}, {Name: "endpoint_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Because %s is %d, %s cannot be %d. Its only other candidate is %d, so it must be %d.", cell(a[0]), *a[1].Digit, cell(a[2]), *a[3].Digit, *a[4].Digit, *a[4].Digit)
+	})
+	many("hint.xy-chain.place", []ArgumentSpec{{Name: "first_endpoint", Kind: ArgumentCell}, {Name: "second_endpoint", Kind: ArgumentCell}, {Name: "endpoint_digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("If %s is %d, the first endpoint contains %d. If it is not %d, the chain forces %d into the other endpoint, %s. Therefore at least one endpoint is %d. %s sees both endpoints, so it cannot be %d. Place %d in %s. This pattern is called %s.", cell(a[0]), *a[2].Digit, *a[2].Digit, *a[2].Digit, *a[2].Digit, cell(a[1]), *a[2].Digit, cell(a[3]), *a[2].Digit, *a[4].Digit, cell(a[3]), strategy(a[5]))
+	})
 	many("hint.implication-chain.observe", []ArgumentSpec{{Name: "cell", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("Start at %s, which has only candidates %s.", cells(a[0]), digits(a[1]))
 	})
