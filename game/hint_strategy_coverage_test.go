@@ -127,8 +127,8 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 						t.Fatalf("%s did not use complete linked-candidate descriptors: %+v", key, first)
 					}
 				case "xy-chain":
-					if first.Reason == nil || first.Reason.Kind != HintReasonImplicationChain || first.Reason.ImplicationChain == nil || len(first.Steps) != len(first.Reason.ImplicationChain.Links)+2 {
-						t.Fatalf("xy-chain did not use one explanation step per link: %+v", first)
+					if first.Reason == nil || first.Reason.Kind != HintReasonImplicationChain || first.Reason.ImplicationChain == nil || len(first.Steps) != 6 {
+						t.Fatalf("xy-chain did not use its approved six-step progression: %+v", first)
 					}
 				}
 				if !planHasRole(*first, HintRolePremise) {

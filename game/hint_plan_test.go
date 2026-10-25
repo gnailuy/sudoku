@@ -740,7 +740,7 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 			}
 			switch key {
 			case "xy-chain":
-				if plan.Reason == nil || plan.Reason.ImplicationChain == nil || len(plan.Steps) != len(plan.Reason.ImplicationChain.Links)+2 {
+				if plan.Reason == nil || plan.Reason.ImplicationChain == nil || len(plan.Steps) != 6 {
 					t.Fatalf("unexpected logic-sized XY-chain plan: %+v", plan)
 				}
 			case "simple-coloring":
@@ -757,7 +757,7 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 				}
 			}
 			preVocabularySteps := plan.Steps[:2]
-			if key == "simple-coloring" || key == "x-cycles" {
+			if key == "simple-coloring" || key == "x-cycles" || key == "xy-chain" {
 				preVocabularySteps = plan.Steps[:len(plan.Steps)-1]
 			}
 			for _, step := range preVocabularySteps {
@@ -771,8 +771,19 @@ func TestColoringAndChainFamiliesTeachBeforeNaming(t *testing.T) {
 			last := plan.Steps[len(plan.Steps)-1]
 			switch key {
 			case "xy-chain":
-				if plan.Reason == nil || plan.Reason.Kind != HintReasonImplicationChain || last.Message.ID != "hint.implication-chain.apply" {
+				if plan.Reason == nil || plan.Reason.Kind != HintReasonImplicationChain || last.Message.ID != "hint.xy-chain.place" {
 					t.Fatalf("xy-chain pilot contract = reason %+v, conclusion %+v", plan.Reason, last.Message)
+				}
+				want := []string{"hint.xy-chain.start", "hint.xy-chain.assume", "hint.xy-chain.follow", "hint.xy-chain.follow", "hint.xy-chain.reach", "hint.xy-chain.place"}
+				for index, id := range want {
+					if plan.Steps[index].Message.ID != id {
+						t.Fatalf("XY-Chain step %d descriptor = %q, want %q", index+1, plan.Steps[index].Message.ID, id)
+					}
+				}
+				for index, linkCount := range []int{0, 2, 4, 6, 7, 7} {
+					if len(plan.Steps[index].Links) != linkCount {
+						t.Fatalf("XY-Chain step %d links = %d, want %d", index+1, len(plan.Steps[index].Links), linkCount)
+					}
 				}
 			case "simple-coloring":
 				want := []string{"hint.coloring.pair", "hint.coloring.chain", "hint.coloring.alternatives", "hint.coloring.elimination", "hint.coloring.elimination", "hint.coloring.apply"}

@@ -745,50 +745,94 @@ func conclusionNarration(conclusion HintConclusion) []HintNarrationChunk {
 
 func xyChainSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
-	if evidence == nil {
-		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	conclusion := HintConclusion{Placement: placement(move)}
+	if evidence != nil {
+		conclusion.Eliminations = evidence.Eliminations
 	}
-	if len(evidence.Chain) < 4 || len(evidence.Links) == 0 || len(evidence.Eliminations) == 0 {
-		return evidenceSteps(move, HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations})
+	if evidence == nil || conclusion.Placement == nil || len(evidence.Chain) != 8 || len(evidence.Links) != 7 {
+		return evidenceSteps(move, conclusion)
 	}
+	endpointValues := sharedValues(evidence.Chain[0], evidence.Chain[len(evidence.Chain)-1])
+	if len(endpointValues) != 1 {
+		return evidenceSteps(move, conclusion)
+	}
+	endpoint := endpointValues[0]
+	positions := make([]core.Position, len(evidence.Chain))
+	forced := make([]int, len(evidence.Chain))
+	for index, group := range evidence.Chain {
+		if len(group.Values) != 2 {
+			return evidenceSteps(move, conclusion)
+		}
+		positions[index] = group.Position
+	}
+	forced[0] = otherHintDigit(evidence.Chain[0].Values, endpoint)
+	if forced[0] == 0 {
+		return evidenceSteps(move, conclusion)
+	}
+	for index, relation := range evidence.Links {
+		if relation.Kind != solver.LinkImplication || relation.From.Position != positions[index] || relation.To.Position != positions[index+1] || relation.From.Value != relation.To.Value {
+			return evidenceSteps(move, conclusion)
+		}
+		forced[index+1] = otherHintDigit(evidence.Chain[index+1].Values, relation.To.Value)
+		if forced[index+1] == 0 {
+			return evidenceSteps(move, conclusion)
+		}
+	}
+	if forced[len(forced)-1] != endpoint {
+		return evidenceSteps(move, conclusion)
+	}
+	units := make([]solver.UnitRef, len(evidence.Links))
+	for index, relation := range evidence.Links {
+		unit, ok := sharedHintUnit(relation.From.Position, relation.To.Position)
+		if !ok {
+			return evidenceSteps(move, conclusion)
+		}
+		units[index] = unit
+	}
+
 	nodes := visualNodes(evidence, true)
 	links := visualLinks(evidence)
-	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	first := evidence.Chain[0]
-	observe := hintDescriptor("hint.implication-chain.observe", cellsArgument("cell", []core.Position{first.Position}), digitsArgument("digits", first.Values))
-	firstNodeIDs := map[string]struct{}{}
-	for _, value := range first.Values {
-		firstNodeIDs[candidateNodeID(solver.CandidateRef{Position: first.Position, Value: value})] = struct{}{}
-	}
-	var firstNodes []HintNode
-	for _, node := range nodes {
-		if _, ok := firstNodeIDs[node.ID]; ok {
-			firstNodes = append(firstNodes, node)
+	scene := func(cellCount, linkCount int) ([]HintNode, []HintLink) {
+		visiblePositions := make(map[core.Position]struct{}, cellCount)
+		for _, position := range positions[:cellCount] {
+			visiblePositions[position] = struct{}{}
 		}
-	}
-	steps := []HintStep{{ID: "find-xy-chain", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: marksForNodes(firstNodes), Nodes: firstNodes, Links: []HintLink{}}}
-	for index, relation := range evidence.Links {
-		descriptor := hintDescriptor("hint.implication-chain.explain", candidateArgument("from", relation.From), candidateArgument("to", relation.To))
-		visibleLinks := append([]HintLink(nil), links[:index+1]...)
-		ids := make(map[string]struct{})
-		for _, link := range visibleLinks {
-			ids[link.From] = struct{}{}
-			ids[link.To] = struct{}{}
-		}
-		var visibleNodes []HintNode
+		visibleNodes := make([]HintNode, 0, cellCount*2)
 		for _, node := range nodes {
-			if _, ok := ids[node.ID]; ok {
-				visibleNodes = append(visibleNodes, node)
+			if node.Target.Position != nil {
+				if _, ok := visiblePositions[*node.Target.Position]; ok {
+					visibleNodes = append(visibleNodes, node)
+				}
 			}
 		}
-		steps = append(steps, HintStep{ID: fmt.Sprintf("explain-xy-chain-%d", index+1), Kind: HintStepExplain, Message: descriptor, Narration: []HintNarrationChunk{narrationMessage(descriptor), narrationTarget(candidateTarget(relation.From)), narrationTarget(candidateTarget(relation.To))}, Marks: marksForNodes(visibleNodes), Nodes: visibleNodes, Links: visibleLinks})
+		return visibleNodes, append([]HintLink(nil), links[:linkCount]...)
 	}
-	endpoint := sharedValues(evidence.Chain[0], evidence.Chain[len(evidence.Chain)-1])[0]
-	positions := make([]core.Position, len(evidence.Eliminations))
-	for i, ref := range evidence.Eliminations {
-		positions[i] = ref.Position
+	step1Nodes, step1Links := scene(1, 0)
+	step2Nodes, step2Links := scene(3, 2)
+	step3Nodes, step3Links := scene(5, 4)
+	step4Nodes, step4Links := scene(7, 6)
+
+	start := hintDescriptor("hint.xy-chain.start", cellArgument("cell", positions[0]), digitArgument("first_digit", evidence.Chain[0].Values[0]), digitArgument("second_digit", evidence.Chain[0].Values[1]), digitArgument("endpoint_digit", endpoint), digitArgument("other_digit", forced[0]))
+	assume := hintDescriptor("hint.xy-chain.assume", cellArgument("start", positions[0]), digitArgument("endpoint_digit", endpoint), digitArgument("start_value", forced[0]), cellArgument("middle", positions[1]), digitArgument("middle_value", forced[1]), cellArgument("result", positions[2]), digitArgument("result_value", forced[2]), unitsArgument("first_unit", units[:1]), unitsArgument("second_unit", units[1:2]))
+	follow1 := hintDescriptor("hint.xy-chain.follow", cellArgument("start", positions[2]), digitArgument("start_value", forced[2]), cellArgument("middle", positions[3]), digitArgument("middle_value", forced[3]), cellArgument("result", positions[4]), digitArgument("result_value", forced[4]), unitsArgument("first_unit", units[2:3]), unitsArgument("second_unit", units[3:4]))
+	follow2 := hintDescriptor("hint.xy-chain.follow", cellArgument("start", positions[4]), digitArgument("start_value", forced[4]), cellArgument("middle", positions[5]), digitArgument("middle_value", forced[5]), cellArgument("result", positions[6]), digitArgument("result_value", forced[6]), unitsArgument("first_unit", units[4:5]), unitsArgument("second_unit", units[5:6]))
+	reach := hintDescriptor("hint.xy-chain.reach", cellArgument("start", positions[6]), digitArgument("start_value", forced[6]), cellArgument("endpoint", positions[7]), digitArgument("shared_digit", evidence.Links[6].To.Value), digitArgument("endpoint_digit", endpoint))
+	apply := hintDescriptor("hint.xy-chain.place", cellArgument("first_endpoint", positions[0]), cellArgument("second_endpoint", positions[7]), digitArgument("endpoint_digit", endpoint), cellArgument("cell", conclusion.Placement.Position), digitArgument("digit", conclusion.Placement.Value), strategyArgument("strategy", move.Technique))
+	return []HintStep{
+		{ID: "start-xy-chain", Kind: HintStepObserve, Message: start, Narration: []HintNarrationChunk{narrationMessage(start)}, Marks: marksForNodes(step1Nodes), Nodes: step1Nodes, Links: step1Links},
+		{ID: "carry-xy-chain-across-row-one", Kind: HintStepExplain, Message: assume, Narration: []HintNarrationChunk{narrationMessage(assume)}, Marks: marksForNodes(step2Nodes), Nodes: step2Nodes, Links: step2Links},
+		{ID: "continue-xy-chain-into-row-two", Kind: HintStepExplain, Message: follow1, Narration: []HintNarrationChunk{narrationMessage(follow1)}, Marks: marksForNodes(step3Nodes), Nodes: step3Nodes, Links: step3Links},
+		{ID: "follow-xy-chain-across-row-two", Kind: HintStepExplain, Message: follow2, Narration: []HintNarrationChunk{narrationMessage(follow2)}, Marks: marksForNodes(step4Nodes), Nodes: step4Nodes, Links: step4Links},
+		{ID: "reach-xy-chain-endpoint", Kind: HintStepExplain, Message: reach, Narration: []HintNarrationChunk{narrationMessage(reach)}, Marks: marksForNodes(nodes), Nodes: nodes, Links: links},
+		{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marksForNodes(nodes), conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
-	apply := hintDescriptor("hint.implication-chain.apply", digitArgument("digit", endpoint), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
-	steps = append(steps, HintStep{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marksForNodes(nodes), conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)})
-	return steps
+}
+
+func otherHintDigit(values []int, excluded int) int {
+	for _, value := range values {
+		if value != excluded {
+			return value
+		}
+	}
+	return 0
 }
