@@ -120,12 +120,17 @@ func TestGuestHTTPRoutesPreviewAndApplyEveryRegisteredHintStrategy(t *testing.T)
 						}
 						switch testCase.Strategy {
 						case "xy-wing":
-							wantLinks := 2
-							if index == 0 {
-								wantLinks = 1
+							wantLinks := []int{0, 1, 2, 2, 4}[index]
+							if len(step.Links) != wantLinks {
+								t.Fatalf("XY-Wing HTTP links at step %d = %+v, want %d", index+1, step.Links, wantLinks)
 							}
-							if len(step.Links) != wantLinks || step.Links[0].Kind != Implication {
-								t.Fatalf("XY-Wing HTTP links at step %d = %+v, want %d implications", index+1, step.Links, wantLinks)
+							for _, link := range step.Links[:min(2, len(step.Links))] {
+								if link.Kind != Implication {
+									t.Fatalf("XY-Wing HTTP case link at step %d = %+v, want implication", index+1, link)
+								}
+							}
+							if index == 4 && (step.Links[2].Kind != Weak || step.Links[3].Kind != Weak) {
+								t.Fatalf("XY-Wing HTTP target witnesses = %+v, want weak links", step.Links)
 							}
 						case "w-wing":
 							wantLinks := []int{0, 1, 3, 3}[index]
