@@ -585,6 +585,9 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 			if key == "xy-wing" {
 				expectedSteps = 5
 			}
+			if key == "xyz-wing" {
+				expectedSteps = 6
+			}
 			if key == "w-wing" {
 				expectedSteps = 4
 			}
@@ -622,6 +625,9 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 						expectedApply = "hint.xy-wing.place"
 					}
 				}
+				if key == "xyz-wing" {
+					expectedApply = "hint.xyz-wing.apply"
+				}
 				if key == "w-wing" {
 					expectedApply = "hint.strong-link-wing.apply"
 					if plan.Conclusion.Placement != nil {
@@ -650,6 +656,26 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 				}
 				if plan.Steps[4].Links[2].Kind != solver.LinkWeak || plan.Steps[4].Links[3].Kind != solver.LinkWeak {
 					t.Fatalf("XY-Wing result lacks both target witnesses: %+v", plan.Steps[4])
+				}
+			case "xyz-wing":
+				wantMessages := []string{"hint.xyz-wing.pivot", "hint.xyz-wing.case", "hint.xyz-wing.case", "hint.xyz-wing.pivot-case", "hint.xyz-wing.guarantee", "hint.xyz-wing.apply"}
+				wantLinks := []int{0, 1, 2, 2, 2, 5}
+				for index, step := range plan.Steps {
+					if step.Message.ID != wantMessages[index] || len(step.Nodes) == 0 || len(step.Links) != wantLinks[index] {
+						t.Fatalf("XYZ-Wing step %d is incomplete: %+v", index, step)
+					}
+				}
+				for _, step := range plan.Steps[1:5] {
+					for _, link := range step.Links {
+						if link.Kind != solver.LinkImplication {
+							t.Fatalf("XYZ-Wing case step has non-implication link: %+v", step)
+						}
+					}
+				}
+				for _, link := range plan.Steps[5].Links[2:] {
+					if link.Kind != solver.LinkWeak {
+						t.Fatalf("XYZ-Wing result lacks all three target witnesses: %+v", plan.Steps[5])
+					}
 				}
 			case "w-wing":
 				if len(plan.Steps[0].Links) != 0 {
