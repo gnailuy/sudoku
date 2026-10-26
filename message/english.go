@@ -247,6 +247,18 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.hidden-subset-confinement.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s after removing the other candidates. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
+	many("hint.hidden-pair.first", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, candidate %d appears only in %s.", units(a[0]), *a[1].Digit, cells(a[2]))
+	})
+	many("hint.hidden-pair.second", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("Candidate %d is also limited to the same two cells. Together, %s must occupy %s in some order.", *a[0].Digit, digits(a[2]), cells(a[1]))
+	})
+	many("hint.hidden-pair.consequence", []ArgumentSpec{{Name: "digits", Kind: ArgumentDigits}, {Name: "candidates", Kind: ArgumentCandidates}}, func(a []Argument) string {
+		return fmt.Sprintf("Those two cells are reserved for %s, so their other candidates cannot stay: %s.", digits(a[0]), candidates(a[1]))
+	})
+	many("hint.hidden-pair.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove %s. This pattern is called %s.", candidates(a[0]), strategy(a[1]))
+	})
 	many("hint.pointing-pair.first", []ArgumentSpec{{Name: "source_unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, start with candidate %d at %s. Check where else %d can go in this box.", units(a[0]), *a[1].Digit, cell(a[2]), *a[1].Digit)
 	})

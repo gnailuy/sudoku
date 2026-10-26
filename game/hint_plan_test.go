@@ -526,7 +526,7 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				}
 			}
 			expectedSteps := 3
-			if key == "naked-pair" || key == "pointing-pair" {
+			if key == "naked-pair" || key == "hidden-pair" || key == "pointing-pair" {
 				expectedSteps = 4
 			} else if key == "naked-triple" {
 				expectedSteps = 5
@@ -575,14 +575,34 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				}
 			} else if key == "hidden-pair" || key == "hidden-triple" || key == "hidden-quad" {
 				if plan.Reason == nil || plan.Reason.Kind != HintReasonHiddenSubsetConfinement || plan.Reason.HiddenSubsetConfinement == nil {
-					t.Fatalf("hidden-subset contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+					t.Fatalf("hidden-subset contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[len(plan.Steps)-1].Message)
 				}
-				expectedMessage := "hint.hidden-subset-confinement.apply"
-				if plan.Conclusion.Placement != nil {
-					expectedMessage = "hint.hidden-subset-confinement.place"
-				}
-				if plan.Steps[0].Message.ID != "hint.hidden-subset-confinement.observe" || plan.Steps[1].Message.ID != "hint.hidden-subset-confinement.explain" || plan.Steps[2].Message.ID != expectedMessage {
-					t.Fatalf("hidden-subset descriptors are incomplete: %+v", plan.Steps)
+				if key == "hidden-pair" {
+					wantMessages := []string{"hint.hidden-pair.first", "hint.hidden-pair.second", "hint.hidden-pair.consequence", "hint.hidden-pair.apply"}
+					for index, want := range wantMessages {
+						if plan.Steps[index].Message.ID != want {
+							t.Fatalf("hidden-pair step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+						}
+					}
+					if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks)}; !reflect.DeepEqual(got, []int{2, 5, 8, 8}) {
+						t.Fatalf("hidden-pair mark progression = %v, want [2 5 8 8]", got)
+					}
+					wantEliminations := []solver.CandidateRef{
+						{Position: core.NewPosition(4, 6), Value: 6},
+						{Position: core.NewPosition(4, 7), Value: 1},
+						{Position: core.NewPosition(4, 7), Value: 4},
+					}
+					if !reflect.DeepEqual(plan.Conclusion.Eliminations, wantEliminations) {
+						t.Fatalf("hidden-pair eliminations = %+v, want %+v", plan.Conclusion.Eliminations, wantEliminations)
+					}
+				} else {
+					expectedMessage := "hint.hidden-subset-confinement.apply"
+					if plan.Conclusion.Placement != nil {
+						expectedMessage = "hint.hidden-subset-confinement.place"
+					}
+					if plan.Steps[0].Message.ID != "hint.hidden-subset-confinement.observe" || plan.Steps[1].Message.ID != "hint.hidden-subset-confinement.explain" || plan.Steps[2].Message.ID != expectedMessage {
+						t.Fatalf("hidden-subset descriptors are incomplete: %+v", plan.Steps)
+					}
 				}
 				reason := plan.Reason.HiddenSubsetConfinement
 				if len(reason.PremiseCells) != len(reason.ConfinedDigits) || len(reason.PremiseCells) < 2 || len(reason.ActionTargets) == 0 {
