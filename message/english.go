@@ -195,6 +195,18 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.hidden-single.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s. When a digit has only one possible cell in a row, column, or box, it is a %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
+	many("hint.naked-pair.inspect", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "cell", Kind: ArgumentCell}, {Name: "first_digit", Kind: ArgumentDigit}, {Name: "second_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Start in %s: %s can contain only %d or %d.", units(a[0]), cell(a[1]), *a[2].Digit, *a[3].Digit)
+	})
+	many("hint.naked-pair.match", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "first_digit", Kind: ArgumentDigit}, {Name: "second_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("The matching cell, %s, has the same two candidates: %d and %d.", cell(a[0]), *a[1].Digit, *a[2].Digit)
+	})
+	many("hint.naked-pair.reserve", []ArgumentSpec{{Name: "digits", Kind: ArgumentDigits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "unit", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("These two cells must take %s in some order, so candidate %d cannot stay in any other cell in %s.", digits(a[0]), *a[1].Digit, units(a[2]))
+	})
+	many("hint.naked-pair.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove %s; this step does not place a value. This pattern is a %s.", candidates(a[0]), strategy(a[1]))
+	})
 
 	many("hint.subset-reservation.observe", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, the cells at %s contain only %s.", units(a[0]), cells(a[1]), digits(a[2]))

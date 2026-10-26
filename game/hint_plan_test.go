@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -351,14 +352,23 @@ func TestNakedPairHintAppliesAtomicNoteEliminationAndUndo(t *testing.T) {
 	}
 	game := gameWithStrategies(t, board, "naked-pair")
 	plan := game.Hint()
-	if plan == nil || plan.Strategy.ID != "naked-pair" || len(plan.Steps) != 3 || len(plan.Conclusion.Eliminations) == 0 || plan.Conclusion.Placement != nil {
+	if plan == nil || plan.Strategy.ID != "naked-pair" || len(plan.Steps) != 4 || len(plan.Conclusion.Eliminations) == 0 || plan.Conclusion.Placement != nil {
 		t.Fatalf("unexpected naked-pair plan: %+v", plan)
 	}
 	if plan.Reason == nil || plan.Reason.Kind != HintReasonSubsetReservation || plan.Reason.SubsetReservation == nil {
 		t.Fatalf("naked-pair reason is incomplete: %+v", plan.Reason)
 	}
-	if plan.Steps[0].Message.ID != "hint.subset-reservation.observe" || plan.Steps[1].Message.ID != "hint.subset-reservation.explain" || plan.Steps[2].Message.ID != "hint.subset-reservation.apply" {
-		t.Fatalf("naked-pair descriptors are incomplete: %+v", plan.Steps)
+	wantMessages := []string{"hint.naked-pair.inspect", "hint.naked-pair.match", "hint.naked-pair.reserve", "hint.naked-pair.apply"}
+	for index, want := range wantMessages {
+		if plan.Steps[index].Message.ID != want {
+			t.Fatalf("naked-pair step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+		}
+	}
+	if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks)}; !reflect.DeepEqual(got, []int{3, 5, 6, 6}) {
+		t.Fatalf("naked-pair mark progression = %v, want [3 5 6 6]", got)
+	}
+	if plan.Steps[0].Kind != HintStepObserve || plan.Steps[1].Kind != HintStepExplain || plan.Steps[2].Kind != HintStepExplain || plan.Steps[3].Kind != HintStepApply {
+		t.Fatalf("unexpected naked-pair step order: %+v", plan.Steps)
 	}
 	before := game.Snapshot()
 	result, err := game.Apply(ApplyHint{PlanID: plan.PlanID})
@@ -515,24 +525,31 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != 3 {
+			expectedSteps := 3
+			if key == "naked-pair" {
+				expectedSteps = 4
+			}
+			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != expectedSteps {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
-			for _, step := range plan.Steps[:2] {
+			for _, step := range plan.Steps[:len(plan.Steps)-1] {
 				if strings.Contains(step.Message.Text, plan.Strategy.Name.Text) {
 					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
 			}
 			if key == "naked-pair" || key == "naked-triple" || key == "naked-quad" {
+				actionIndex := len(plan.Steps) - 1
 				if plan.Reason == nil || plan.Reason.Kind != HintReasonSubsetReservation {
-					t.Fatalf("naked-subset contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+					t.Fatalf("naked-subset contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[actionIndex].Message)
 				}
 				expectedMessage := "hint.subset-reservation.apply"
-				if plan.Conclusion.Placement != nil {
+				if key == "naked-pair" {
+					expectedMessage = "hint.naked-pair.apply"
+				} else if plan.Conclusion.Placement != nil {
 					expectedMessage = "hint.subset-reservation.place"
 				}
-				if plan.Steps[2].Message.ID != expectedMessage {
-					t.Fatalf("naked-subset action descriptor = %q, want %q", plan.Steps[2].Message.ID, expectedMessage)
+				if plan.Steps[actionIndex].Message.ID != expectedMessage {
+					t.Fatalf("naked-subset action descriptor = %q, want %q", plan.Steps[actionIndex].Message.ID, expectedMessage)
 				}
 				reason := plan.Reason.SubsetReservation
 				if reason == nil || len(reason.PremiseCells) != len(reason.ReservedDigits) || len(reason.PremiseCells) < 2 || len(reason.ActionTargets) == 0 {

@@ -48,19 +48,20 @@ The maintained Hidden Single reference examines digit `9` in row 4, records the 
 
 ## Naked Pair Elimination
 
-The Naked Pair reference examines row 4, where `r4c2` and `r4c7` each contain exactly `{2,7}`, carries a `subset-reservation` reason for those cells and digits, and concludes only that candidate `2` must be removed from `r4c9`:
+The maintained Naked Pair reference examines column 2, where `r4c2` and `r7c2` each contain exactly `{1,3}`, carries a `subset-reservation` reason for those cells and digits, and concludes only that candidate `1` must be removed from `r3c2`:
 
 | Step | Kind | Complete scene | Effect | Canonical English fallback |
 |------|------|----------------|--------|------------------|
-| `find-r4c2-r4c7` | `observe` | focus row 4; premise candidates `r4c2:{2,7}` and `r4c7:{2,7}` | none | “In row 4, the cells at row 4, column 2 and row 4, column 7 each have exactly the same two candidates: 2 and 7.” |
-| `reserve-r4c2-r4c7` | `explain` | focus row 4; premise pair cells; focus candidate `r4c9:2` | none | “Those two cells must contain 2 and 7 in some order, so no other cell in row 4 can contain either digit.” |
-| `remove-pair-candidates` | `apply` | premise pair cells; conclusion candidate `r4c9:2` | eliminate candidate `2` from `r4c9` | “Because those two cells reserve 2 and 7, remove candidate 2 from row 4, column 9; this deduction does not place a value. This pattern is called a Naked Pair.” |
+| `inspect-r4c2` | `observe` | focus column 2 and premise candidates `r4c2:{1,3}` | none | “Start in column 2: row 4, column 2 can contain only 1 or 3.” |
+| `match-r7c2` | `explain` | preserve `r4c2:{1,3}` and add premise candidates `r7c2:{1,3}` | none | “The matching cell, row 7, column 2, has the same two candidates: 1 and 3.” |
+| `reserve-r4c2-r7c2` | `explain` | preserve both pair cells and column 2; identify candidate `r3c2:1` as the exact consequence | none | “These two cells must take 1 and 3 in some order, so candidate 1 cannot stay in any other cell in column 2.” |
+| `apply-naked-pair` | `apply` | preserve the pair premise and column scope; mark candidate `r3c2:1` as the conclusion | eliminate candidate `1` from `r3c2` | “Remove candidate 1 from row 3, column 2; this step does not place a value. This pattern is a Naked Pair.” |
 
-Every renderer applies the same conclusion from typed effects without parsing descriptor fallback prose or reconstructing logic from the technique name. The Naked Pair reference explicitly proves that a valid hint may change notes without placing a value.
+Every renderer applies the same conclusion from typed effects without parsing descriptor fallback prose or reconstructing logic from the technique name. The Naked Pair reference explicitly proves that a valid hint may change candidates without placing a value.
 
 ## Subset Family
 
-Naked Pair–Quad plans first identify the exact cells and their combined candidate set, then explain that the cells reserve the same number of digits before applying the placement or elimination. Their `subset-reservation` reason records the complete digit union, premise cells, unit, and exact action targets; it does not keep only digits shared by every premise cell. Hidden Pair–Quad plans invert the relationship: the selected digits appear only in the highlighted cells, so other candidates in those cells can be removed. Their `hidden-subset-confinement` reason records the complete confined-digit set, exact cells, unit, and action targets. The observation introduces the confinement, the explanation states why no other candidates can remain in those cells, and the final descriptor groups the exact removal or resulting placement. `solver.Evidence.Premises` and `solver.Evidence.Unit` carry these facts without prose parsing.
+Naked Pair uses the four-stage maintained progression above. Naked Triple and Naked Quad first identify the exact cells and their combined candidate set, then explain that the cells reserve the same number of digits before applying the placement or elimination. Every Naked Pair–Quad `subset-reservation` reason records the complete digit union, premise cells, unit, and exact action targets; it does not keep only digits shared by every premise cell. Hidden Pair–Quad plans invert the relationship: the selected digits appear only in the highlighted cells, so other candidates in those cells can be removed. Their `hidden-subset-confinement` reason records the complete confined-digit set, exact cells, unit, and action targets. The observation introduces the confinement, the explanation states why no other candidates can remain in those cells, and the final descriptor groups the exact removal or resulting placement. `solver.Evidence.Premises` and `solver.Evidence.Unit` carry these facts without prose parsing.
 
 ## Box/Line Intersections
 
