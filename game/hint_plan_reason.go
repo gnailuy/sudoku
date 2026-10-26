@@ -315,6 +315,34 @@ func hiddenSubsetSteps(move *solver.Move, _ string) []HintStep {
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
 	digits := combinedValues(evidence.Premises...)
 	units := []solver.UnitRef{*evidence.Unit}
+	if move.Technique == "hidden-pair" && len(evidence.Premises) == 2 && len(digits) == 2 && len(evidence.Eliminations) > 0 {
+		firstDigit, secondDigit := digits[0], digits[1]
+		firstMarks := make([]HintMark, 0, 2)
+		secondMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+		for _, premise := range evidence.Premises {
+			firstMarks = append(firstMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: firstDigit}), Role: HintRolePremise})
+			secondMarks = append(secondMarks,
+				HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: firstDigit}), Role: HintRolePremise},
+				HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: secondDigit}), Role: HintRolePremise},
+			)
+		}
+		consequenceMarks := append([]HintMark(nil), secondMarks...)
+		applyMarks := append([]HintMark(nil), secondMarks...)
+		for _, ref := range evidence.Eliminations {
+			consequenceMarks = append(consequenceMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleEliminated})
+			applyMarks = append(applyMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleConclusion})
+		}
+		first := hintDescriptor("hint.hidden-pair.first", unitsArgument("unit", units), digitArgument("digit", firstDigit), cellsArgument("cells", cells))
+		second := hintDescriptor("hint.hidden-pair.second", digitArgument("digit", secondDigit), cellsArgument("cells", cells), digitsArgument("digits", digits))
+		consequence := hintDescriptor("hint.hidden-pair.consequence", digitsArgument("digits", digits), candidatesArgument("candidates", evidence.Eliminations))
+		apply := hintDescriptor("hint.hidden-pair.apply", candidatesArgument("candidates", evidence.Eliminations), strategyArgument("strategy", move.Technique))
+		return []HintStep{
+			{ID: "find-first-hidden-pair-digit", Kind: HintStepObserve, Message: first, Narration: []HintNarrationChunk{narrationMessage(first)}, Marks: firstMarks},
+			{ID: "complete-hidden-pair", Kind: HintStepExplain, Message: second, Narration: []HintNarrationChunk{narrationMessage(second)}, Marks: secondMarks},
+			{ID: "identify-hidden-pair-removals", Kind: HintStepExplain, Message: consequence, Narration: []HintNarrationChunk{narrationMessage(consequence)}, Marks: consequenceMarks},
+			{ID: "apply-hidden-pair", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: conclusionEffect(conclusion)},
+		}
+	}
 	observe := hintDescriptor("hint.hidden-subset-confinement.observe", unitsArgument("unit", units), digitsArgument("digits", digits), cellsArgument("cells", cells))
 	explain := hintDescriptor("hint.hidden-subset-confinement.explain", digitsArgument("digits", digits), unitsArgument("unit", units), cellsArgument("cells", cells))
 	var apply message.Descriptor
