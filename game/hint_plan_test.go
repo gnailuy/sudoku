@@ -526,7 +526,7 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				}
 			}
 			expectedSteps := 3
-			if key == "naked-pair" {
+			if key == "naked-pair" || key == "pointing-pair" {
 				expectedSteps = 4
 			} else if key == "naked-triple" {
 				expectedSteps = 5
@@ -592,12 +592,21 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				if plan.Reason == nil || plan.Reason.Kind != HintReasonIntersectionConfinement || plan.Reason.IntersectionConfinement == nil {
 					t.Fatalf("intersection contract = reason %+v", plan.Reason)
 				}
-				expectedMessage := "hint.intersection-confinement.apply"
-				if plan.Conclusion.Placement != nil {
-					expectedMessage = "hint.intersection-confinement.place"
+				wantMessages := []string{"hint.pointing-pair.first", "hint.pointing-pair.second", "hint.pointing-pair.consequence", "hint.pointing-pair.apply"}
+				for index, want := range wantMessages {
+					if plan.Steps[index].Message.ID != want {
+						t.Fatalf("pointing-pair step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+					}
 				}
-				if plan.Steps[0].Message.ID != "hint.intersection-confinement.observe" || plan.Steps[1].Message.ID != "hint.intersection-confinement.explain" || plan.Steps[2].Message.ID != expectedMessage {
-					t.Fatalf("intersection descriptors are incomplete: %+v", plan.Steps)
+				if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks)}; !reflect.DeepEqual(got, []int{2, 4, 5, 6}) {
+					t.Fatalf("pointing-pair mark progression = %v, want [2 4 5 6]", got)
+				}
+				if plan.Conclusion.Placement == nil || plan.Conclusion.Placement.Position != core.NewPosition(6, 7) || plan.Conclusion.Placement.Value != 6 {
+					t.Fatalf("pointing-pair conclusion = %+v, want r7c8=6", plan.Conclusion)
+				}
+				removed := plan.Steps[2].Marks[4]
+				if removed.Target.Kind != HintTargetCandidate || removed.Target.Position == nil || *removed.Target.Position != core.NewPosition(6, 7) || removed.Target.Value != 9 || removed.Role != HintRoleEliminated {
+					t.Fatalf("pointing-pair exact elimination is not preserved: %+v", plan.Steps[2].Marks)
 				}
 				reason := plan.Reason.IntersectionConfinement
 				if len(reason.PremiseCandidates) < 2 || len(reason.ActionTargets) == 0 || reason.SourceUnit == reason.IntersectingUnit {

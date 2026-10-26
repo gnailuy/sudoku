@@ -247,6 +247,18 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.hidden-subset-confinement.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s after removing the other candidates. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
+	many("hint.pointing-pair.first", []ArgumentSpec{{Name: "source_unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, start with candidate %d at %s. Check where else %d can go in this box.", units(a[0]), *a[1].Digit, cell(a[2]), *a[1].Digit)
+	})
+	many("hint.pointing-pair.second", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "source_unit", Kind: ArgumentUnits}, {Name: "cell", Kind: ArgumentCell}, {Name: "intersection_unit", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("The only other place for %d in %s is %s. Both possibilities are in %s.", *a[0].Digit, units(a[1]), cell(a[2]), units(a[3]))
+	})
+	many("hint.pointing-pair.consequence", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "source_unit", Kind: ArgumentUnits}, {Name: "intersection_unit", Kind: ArgumentUnits}, {Name: "candidate", Kind: ArgumentCandidate}}, func(a []Argument) string {
+		return fmt.Sprintf("Whichever of those two cells contains %d, %s gets its %d inside %s. Remove %s.", *a[0].Digit, units(a[2]), *a[0].Digit, units(a[1]), candidates(Argument{Candidates: []Candidate{*a[3].Candidate}}))
+	})
+	many("hint.pointing-pair.apply", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("At %s, only candidate %d remains. Place %d there. This pattern is called %s.", cell(a[0]), *a[1].Digit, *a[1].Digit, strategy(a[2]))
+	})
 	many("hint.intersection-confinement.observe", []ArgumentSpec{{Name: "source_unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "intersection_unit", Kind: ArgumentUnits}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, candidate %d is confined to %s at %s.", units(a[0]), *a[1].Digit, units(a[2]), cells(a[3]))
 	})

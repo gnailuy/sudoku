@@ -65,7 +65,7 @@ Naked Pair uses the four-stage maintained progression above. The maintained Nake
 
 ## Box/Line Intersections
 
-Pointing Pair and Box-Line Reduction plans identify one candidate, its exact premise cells, and both intersecting units. A box-first source names Pointing Pair because the candidate is confined to one row or column inside the box; a row- or column-first source names Box-Line Reduction because the candidate is confined to one box. `solver.Evidence.Unit` identifies the source direction, while `solver.Evidence.Units` preserves both units.
+Pointing Pair and Box-Line Reduction plans identify one candidate, its exact premise cells, and both intersecting units. The maintained box-first Pointing Pair plan introduces r2c8:9, adds r3c8:9 and column 8, marks the exact r7c8:9 removal, then places r7c8=6; its four complete scenes contain 2, 4, 5, and 6 typed marks. A box-first source names Pointing Pair because the candidate is confined to one row or column inside the box; a row- or column-first source names Box-Line Reduction because the candidate is confined to one box. `solver.Evidence.Unit` identifies the source direction, while `solver.Evidence.Units` preserves both units.
 
 ## Fish Family
 
