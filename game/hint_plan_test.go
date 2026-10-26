@@ -663,6 +663,9 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 				}
 			}
 			expectedSteps := 3
+			if key == "x-wing" {
+				expectedSteps = 4
+			}
 			if key == "xy-wing" {
 				expectedSteps = 5
 			}
@@ -684,13 +687,37 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 				}
 			}
 			if key == "x-wing" || key == "swordfish" || key == "jellyfish" {
-				if plan.Reason == nil || plan.Reason.Kind != HintReasonFishConfinement || plan.Steps[2].Message.ID != "hint.fish-confinement.apply" {
-					t.Fatalf("fish contract = reason %+v, conclusion %+v", plan.Reason, plan.Steps[2].Message)
+				if plan.Reason == nil || plan.Reason.Kind != HintReasonFishConfinement {
+					t.Fatalf("fish contract = reason %+v", plan.Reason)
 				}
 				expectedSize := map[string]int{"x-wing": 2, "swordfish": 3, "jellyfish": 4}[key]
 				reason := plan.Reason.FishConfinement
 				if reason == nil || len(reason.BaseUnits) != expectedSize || len(reason.CoverUnits) != expectedSize || len(reason.PatternCandidates) < expectedSize || len(reason.ActionTargets) == 0 {
 					t.Fatalf("fish reason is incomplete: %+v", reason)
+				}
+				if key == "x-wing" {
+					wantMessages := []string{"hint.x-wing.first", "hint.x-wing.second", "hint.x-wing.consequence", "hint.x-wing.apply"}
+					for index, want := range wantMessages {
+						if plan.Steps[index].Message.ID != want {
+							t.Fatalf("x-wing step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+						}
+					}
+					if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks)}; !reflect.DeepEqual(got, []int{2, 6, 8, 11}) {
+						t.Fatalf("x-wing mark progression = %v, want [2 6 8 11]", got)
+					}
+					if got := plan.Steps[0].Message.Text; got != "In row 4, candidate 3 appears only in column 2 and column 3." {
+						t.Fatalf("x-wing first-step copy = %q", got)
+					}
+					wantEliminations := []solver.CandidateRef{
+						{Position: core.NewPosition(0, 1), Value: 3},
+						{Position: core.NewPosition(0, 2), Value: 3},
+						{Position: core.NewPosition(2, 1), Value: 3},
+					}
+					if !reflect.DeepEqual(plan.Conclusion.Eliminations, wantEliminations) {
+						t.Fatalf("x-wing eliminations = %+v, want %+v", plan.Conclusion.Eliminations, wantEliminations)
+					}
+				} else if plan.Steps[2].Message.ID != "hint.fish-confinement.apply" {
+					t.Fatalf("fish conclusion = %+v", plan.Steps[2].Message)
 				}
 			} else {
 				if plan.Steps[1].Message.ID == "hint.strategy.compare" || plan.Steps[len(plan.Steps)-1].Message.ID == "hint.strategy.conclude" {
