@@ -292,6 +292,18 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.fish-confinement.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Remove candidate %d from %s. This pattern is called %s.", *a[0].Digit, cells(a[1]), strategy(a[2]))
 	})
+	many("hint.x-wing.first", []ArgumentSpec{{Name: "base_unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cover_units", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, candidate %d appears only in %s.", units(a[0]), *a[1].Digit, units(a[2]))
+	})
+	many("hint.x-wing.second", []ArgumentSpec{{Name: "base_unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cover_units", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("The same is true in %s: candidate %d appears only in %s. Both rows use the same two columns.", units(a[0]), *a[1].Digit, units(a[2]))
+	})
+	many("hint.x-wing.consequence", []ArgumentSpec{{Name: "base_units", Kind: ArgumentUnits}, {Name: "cover_units", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("%s must each contain one %d, so %s must each receive a %d from one of those rows. Other %ds in those columns cannot stay.", units(a[0]), *a[2].Digit, units(a[1]), *a[2].Digit, *a[2].Digit)
+	})
+	many("hint.x-wing.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove candidate %d from %s. This pattern is called %s.", *a[0].Digit, cells(a[1]), strategy(a[2]))
+	})
 	many("hint.pivot-wing.observe", []ArgumentSpec{{Name: "pivot", Kind: ArgumentCell}, {Name: "pivot_digits", Kind: ArgumentDigits}, {Name: "wing_cells", Kind: ArgumentCells}}, func(a []Argument) string {
 		return fmt.Sprintf("At %s, candidates %s connect the wing cells at %s.", cell(a[0]), digits(a[1]), cells(a[2]))
 	})
