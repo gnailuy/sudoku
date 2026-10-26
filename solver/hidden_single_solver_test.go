@@ -1,6 +1,7 @@
 package solver
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/gnailuy/sudoku/core"
@@ -107,6 +108,30 @@ func TestHiddenSingleSolver_TrueHiddenSingle(t *testing.T) {
 	}
 	if move.Technique != "hidden-single" {
 		t.Errorf("expected technique 'hidden-single', got '%s'", move.Technique)
+	}
+}
+
+func TestHiddenSingleSolver_MaintainedRowWitnesses(t *testing.T) {
+	var board core.Board
+	board.FromString("439658..1871234965256..7.......2..5.....8.49.593746.1.9.....5..3.....68.7..4691..")
+
+	move := NewHiddenSingleSolver().Apply(&board)
+	if move == nil || move.Cell.Position != core.NewPosition(3, 3) || move.Cell.Value != 9 {
+		t.Fatalf("move = %+v, want r4c4=9", move)
+	}
+	want := []core.Cell{
+		core.NewCell(core.NewPosition(6, 0), 9),
+		core.NewCell(core.NewPosition(5, 1), 9),
+		core.NewCell(core.NewPosition(0, 2), 9),
+		core.NewCell(core.NewPosition(8, 5), 9),
+		core.NewCell(core.NewPosition(1, 6), 9),
+		core.NewCell(core.NewPosition(4, 7), 9),
+	}
+	if !reflect.DeepEqual(move.Evidence.Witnesses, want) {
+		t.Fatalf("witnesses = %+v, want %+v", move.Evidence.Witnesses, want)
+	}
+	if len(move.Evidence.RuledOut) != 6 {
+		t.Fatalf("ruled-out candidates = %+v, want six row cells", move.Evidence.RuledOut)
 	}
 }
 

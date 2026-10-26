@@ -171,16 +171,28 @@ func nakedSingleSteps(move *solver.Move) []HintStep {
 func hiddenSingleSteps(move *solver.Move) []HintStep {
 	ref := solver.CandidateRef{Position: move.Cell.Position, Value: move.Cell.Value}
 	unit, _ := unitTarget(move.Evidence.Unit)
-	marks := []HintMark{{Target: unit, Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRolePremise}}
-	compare := append([]HintMark(nil), marks...)
-	for _, ruledOut := range move.Evidence.RuledOut {
-		compare = append(compare, HintMark{Target: candidateTarget(ruledOut), Role: HintRoleEliminated})
+	baseMarks := []HintMark{{Target: unit, Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRolePremise}}
+	blockerMarks := append([]HintMark(nil), baseMarks...)
+	blockerCells := make([]core.Position, 0, len(move.Evidence.Witnesses))
+	for _, witness := range move.Evidence.Witnesses {
+		blockerCells = append(blockerCells, witness.Position)
+		blockerMarks = append(blockerMarks, HintMark{Target: cellTarget(witness.Position), Role: HintRolePremise})
 	}
+	for _, ruledOut := range move.Evidence.RuledOut {
+		blockerMarks = append(blockerMarks, HintMark{Target: candidateTarget(ruledOut), Role: HintRoleEliminated})
+	}
+	applyMarks := append([]HintMark(nil), blockerMarks...)
+	applyMarks[1] = HintMark{Target: candidateTarget(ref), Role: HintRoleConclusion}
 	unitName := fmt.Sprintf("%s %d", move.Evidence.Unit.Kind, move.Evidence.Unit.Index+1)
+	inspect := hintDescriptor("hint.hidden-single.inspect", unitsArgument("unit", []solver.UnitRef{*move.Evidence.Unit}), digitArgument("digit", move.Cell.Value))
+	blockers := hintDescriptor("hint.hidden-single.blockers", cellsArgument("blockers", blockerCells), digitArgument("digit", move.Cell.Value), unitsArgument("unit", []solver.UnitRef{*move.Evidence.Unit}))
+	only := hintDescriptor("hint.hidden-single.only", cellArgument("cell", move.Cell.Position), digitArgument("digit", move.Cell.Value))
+	apply := hintDescriptor("hint.hidden-single.apply", digitArgument("digit", move.Cell.Value), cellArgument("cell", move.Cell.Position), strategyArgument("strategy", move.Technique))
 	return []HintStep{
-		{ID: fmt.Sprintf("scan-%s-for-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepObserve, Narration: []HintNarrationChunk{narrationID("hint.narration.in-unit"), narrationTarget(unit), narrationID("hint.narration.consider-digit"), narrationDigit(move.Cell.Value), narrationID("hint.narration.can-appear")}, Marks: marks},
-		{ID: fmt.Sprintf("compare-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepExplain, Narration: []HintNarrationChunk{narrationID("hint.narration.other-cells"), narrationTarget(unit), narrationID("hint.narration.cannot-contain"), narrationDigit(move.Cell.Value), narrationID("hint.narration.leaving-only"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.period")}, Marks: compare},
-		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepApply, Narration: []HintNarrationChunk{narrationID("hint.narration.because-unit"), narrationTarget(unit), narrationID("hint.narration.still-needs"), narrationDigit(move.Cell.Value), narrationID("hint.narration.only-cell"), narrationTarget(cellTarget(move.Cell.Position)), narrationID("hint.narration.hidden-single-tail"), narrationDigit(move.Cell.Value), narrationID("hint.narration.hidden-single-name")}, Marks: []HintMark{{Target: unit, Role: HintRoleFocus}, {Target: cellTarget(move.Cell.Position), Role: HintRoleFocus}, {Target: candidateTarget(ref), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
+		{ID: fmt.Sprintf("scan-%s-for-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepObserve, Message: inspect, Narration: []HintNarrationChunk{narrationMessage(inspect)}, Marks: baseMarks},
+		{ID: fmt.Sprintf("rule-out-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepExplain, Message: blockers, Narration: []HintNarrationChunk{narrationMessage(blockers)}, Marks: blockerMarks},
+		{ID: fmt.Sprintf("identify-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepExplain, Message: only, Narration: []HintNarrationChunk{narrationMessage(only)}, Marks: blockerMarks},
+		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: &HintEffect{Placement: &move.Cell}},
 	}
 }
 

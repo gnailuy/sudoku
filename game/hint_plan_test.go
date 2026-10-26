@@ -301,9 +301,11 @@ func TestNakedSingleHintPlanIsDeterministicAndApplicable(t *testing.T) {
 }
 
 func TestHiddenSingleHintPlanHasUnitEvidence(t *testing.T) {
-	game := gameWithStrategies(t, testProblem(), "hidden-single")
+	var board core.Board
+	board.FromString("439658..1871234965256..7.......2..5.....8.49.593746.1.9.....5..3.....68.7..4691..")
+	game := gameWithStrategies(t, board, "hidden-single")
 	plan := game.Hint()
-	if plan == nil || plan.Strategy.ID != "hidden-single" || len(plan.Steps) != 3 {
+	if plan == nil || plan.Strategy.ID != "hidden-single" || len(plan.Steps) != 4 {
 		t.Fatalf("unexpected hidden-single plan: %+v", plan)
 	}
 	for _, step := range plan.Steps {
@@ -311,11 +313,20 @@ func TestHiddenSingleHintPlanHasUnitEvidence(t *testing.T) {
 			t.Fatalf("hidden-single step lacks structured narration: %+v", step)
 		}
 	}
-	if plan.Steps[0].Kind != HintStepObserve || plan.Steps[1].Kind != HintStepExplain || plan.Steps[2].Kind != HintStepApply {
+	if plan.Steps[0].Kind != HintStepObserve || plan.Steps[1].Kind != HintStepExplain || plan.Steps[2].Kind != HintStepExplain || plan.Steps[3].Kind != HintStepApply {
 		t.Fatalf("unexpected step order: %+v", plan.Steps)
 	}
-	if plan.Steps[0].Message.ID != "hint.strategy.observe" || plan.Steps[1].Message.ID != "hint.strategy.compare" || plan.Steps[2].Message.ID != "hint.strategy.conclude" {
-		t.Fatalf("hidden-single descriptors are incomplete: %+v", plan.Steps)
+	wantMessages := []string{"hint.hidden-single.inspect", "hint.hidden-single.blockers", "hint.hidden-single.only", "hint.hidden-single.apply"}
+	for index, want := range wantMessages {
+		if plan.Steps[index].Message.ID != want {
+			t.Fatalf("hidden-single step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+		}
+	}
+	if plan.Conclusion.Placement == nil || plan.Conclusion.Placement.Position != core.NewPosition(3, 3) || plan.Conclusion.Placement.Value != 9 {
+		t.Fatalf("hidden-single conclusion = %+v, want r4c4=9", plan.Conclusion)
+	}
+	if got := len(plan.Steps[1].Marks); got != 14 {
+		t.Fatalf("hidden-single blocker scene has %d marks, want unit + target + six blockers + six crossed slots", got)
 	}
 }
 

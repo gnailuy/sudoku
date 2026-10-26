@@ -65,9 +65,8 @@ type Evidence struct {
 	Links      []CandidateLink
 	Partitions []CandidatePartition
 	// Witnesses records placed values that directly establish a deduction.
-	// It is currently used by Naked Single to retain one deterministic peer
-	// for every excluded digit without pretending that filled cells still have
-	// candidates.
+	// Singles retain deterministic peers without pretending that filled cells
+	// still have candidates.
 	Witnesses    []core.Cell
 	RuledOut     []CandidateRef
 	Eliminations []CandidateRef
