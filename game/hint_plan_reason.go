@@ -210,7 +210,33 @@ func nakedSubsetSteps(move *solver.Move, _ string) []HintStep {
 		}
 	}
 	conclusion := HintConclusion{Placement: placement(move), Eliminations: evidence.Eliminations}
-	if move.Technique == "naked-pair" || move.Technique == "naked-triple" || move.Technique == "naked-quad" {
+	if move.Technique == "naked-pair" && len(evidence.Premises) == 2 && len(evidence.Eliminations) > 0 {
+		digits := combinedValues(evidence.Premises...)
+		units := []solver.UnitRef{*evidence.Unit}
+		first := evidence.Premises[0]
+		second := evidence.Premises[1]
+		firstMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+		for _, value := range first.Values {
+			firstMarks = append(firstMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: first.Position, Value: value}), Role: HintRolePremise})
+		}
+		pairMarks := append([]HintMark(nil), firstMarks...)
+		for _, value := range second.Values {
+			pairMarks = append(pairMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: second.Position, Value: value}), Role: HintRolePremise})
+		}
+		consequenceMarks := append([]HintMark(nil), pairMarks...)
+		consequenceMarks = append(consequenceMarks, conclusionMarks(conclusion)...)
+		inspect := hintDescriptor("hint.naked-pair.inspect", unitsArgument("unit", units), cellArgument("cell", first.Position), digitArgument("first_digit", digits[0]), digitArgument("second_digit", digits[1]))
+		match := hintDescriptor("hint.naked-pair.match", cellArgument("cell", second.Position), digitArgument("first_digit", digits[0]), digitArgument("second_digit", digits[1]))
+		reserve := hintDescriptor("hint.naked-pair.reserve", digitsArgument("digits", digits), digitArgument("digit", evidence.Eliminations[0].Value), unitsArgument("unit", units))
+		apply := hintDescriptor("hint.naked-pair.apply", candidatesArgument("candidates", evidence.Eliminations), strategyArgument("strategy", move.Technique))
+		return []HintStep{
+			{ID: "inspect-" + compactCellName(first.Position), Kind: HintStepObserve, Message: inspect, Narration: []HintNarrationChunk{narrationMessage(inspect)}, Marks: firstMarks},
+			{ID: "match-" + compactCellName(second.Position), Kind: HintStepExplain, Message: match, Narration: []HintNarrationChunk{narrationMessage(match)}, Marks: pairMarks},
+			{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepExplain, Message: reserve, Narration: []HintNarrationChunk{narrationMessage(reserve)}, Marks: consequenceMarks},
+			{ID: "apply-naked-pair", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: consequenceMarks, Effect: conclusionEffect(conclusion)},
+		}
+	}
+	if move.Technique == "naked-triple" || move.Technique == "naked-quad" {
 		digits := combinedValues(evidence.Premises...)
 		units := []solver.UnitRef{*evidence.Unit}
 		observe := hintDescriptor("hint.subset-reservation.observe", unitsArgument("unit", units), cellsArgument("cells", cells), digitsArgument("digits", digits))
