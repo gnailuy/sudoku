@@ -528,6 +528,8 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 			expectedSteps := 3
 			if key == "naked-pair" {
 				expectedSteps = 4
+			} else if key == "naked-triple" {
+				expectedSteps = 5
 			}
 			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != expectedSteps {
 				t.Fatalf("unexpected family plan: %+v", plan)
@@ -545,6 +547,8 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				expectedMessage := "hint.subset-reservation.apply"
 				if key == "naked-pair" {
 					expectedMessage = "hint.naked-pair.apply"
+				} else if key == "naked-triple" {
+					expectedMessage = "hint.naked-triple.apply"
 				} else if plan.Conclusion.Placement != nil {
 					expectedMessage = "hint.subset-reservation.place"
 				}
@@ -554,6 +558,20 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				reason := plan.Reason.SubsetReservation
 				if reason == nil || len(reason.PremiseCells) != len(reason.ReservedDigits) || len(reason.PremiseCells) < 2 || len(reason.ActionTargets) == 0 {
 					t.Fatalf("naked-subset reason does not preserve its complete cardinality and action: %+v", reason)
+				}
+				if key == "naked-triple" {
+					wantMessages := []string{"hint.naked-triple.first", "hint.naked-triple.second", "hint.naked-triple.third", "hint.naked-triple.consequence", "hint.naked-triple.apply"}
+					for index, want := range wantMessages {
+						if plan.Steps[index].Message.ID != want {
+							t.Fatalf("naked-triple step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+						}
+					}
+					if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks), len(plan.Steps[4].Marks)}; !reflect.DeepEqual(got, []int{3, 5, 7, 10, 10}) {
+						t.Fatalf("naked-triple mark progression = %v, want [3 5 7 10 10]", got)
+					}
+					if plan.Conclusion.Placement == nil || plan.Conclusion.Placement.Position != core.NewPosition(3, 1) || plan.Conclusion.Placement.Value != 7 {
+						t.Fatalf("naked-triple conclusion = %+v, want r4c2=7", plan.Conclusion)
+					}
 				}
 			} else if key == "hidden-pair" || key == "hidden-triple" || key == "hidden-quad" {
 				if plan.Reason == nil || plan.Reason.Kind != HintReasonHiddenSubsetConfinement || plan.Reason.HiddenSubsetConfinement == nil {

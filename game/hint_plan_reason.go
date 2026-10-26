@@ -236,6 +236,46 @@ func nakedSubsetSteps(move *solver.Move, _ string) []HintStep {
 			{ID: "apply-naked-pair", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: consequenceMarks, Effect: conclusionEffect(conclusion)},
 		}
 	}
+	if move.Technique == "naked-triple" && len(evidence.Premises) == 3 && conclusion.Placement != nil {
+		digits := combinedValues(evidence.Premises...)
+		units := []solver.UnitRef{*evidence.Unit}
+		first := evidence.Premises[0]
+		second := evidence.Premises[1]
+		third := evidence.Premises[2]
+		marksFor := func(groups ...solver.CandidateGroup) []HintMark {
+			marks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+			for _, group := range groups {
+				for _, value := range group.Values {
+					marks = append(marks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: group.Position, Value: value}), Role: HintRolePremise})
+				}
+			}
+			return marks
+		}
+		firstMarks := marksFor(first)
+		secondMarks := marksFor(first, second)
+		tripleMarks := marksFor(first, second, third)
+		consequenceMarks := append([]HintMark(nil), tripleMarks...)
+		removedDigits := make([]int, 0, len(evidence.RuledOut))
+		for _, ref := range evidence.RuledOut {
+			if ref.Position == conclusion.Placement.Position {
+				removedDigits = append(removedDigits, ref.Value)
+				consequenceMarks = append(consequenceMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleEliminated})
+			}
+		}
+		consequenceMarks = append(consequenceMarks, conclusionMarks(conclusion)...)
+		firstDescriptor := hintDescriptor("hint.naked-triple.first", unitsArgument("unit", units), cellArgument("cell", first.Position), digitArgument("first_digit", first.Values[0]), digitArgument("second_digit", first.Values[1]))
+		secondDescriptor := hintDescriptor("hint.naked-triple.second", cellArgument("cell", second.Position), digitArgument("first_digit", second.Values[0]), digitArgument("second_digit", second.Values[1]))
+		thirdDescriptor := hintDescriptor("hint.naked-triple.third", cellArgument("cell", third.Position), digitArgument("first_digit", third.Values[0]), digitArgument("second_digit", third.Values[1]), digitsArgument("reserved_digits", digits))
+		consequenceDescriptor := hintDescriptor("hint.naked-triple.consequence", digitsArgument("reserved_digits", digits), digitsArgument("removed_digits", removedDigits), cellArgument("cell", conclusion.Placement.Position), digitArgument("remaining_digit", conclusion.Placement.Value))
+		applyDescriptor := hintDescriptor("hint.naked-triple.apply", digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+		return []HintStep{
+			{ID: "inspect-" + compactCellName(first.Position), Kind: HintStepObserve, Message: firstDescriptor, Narration: []HintNarrationChunk{narrationMessage(firstDescriptor)}, Marks: firstMarks},
+			{ID: "add-" + compactCellName(second.Position), Kind: HintStepExplain, Message: secondDescriptor, Narration: []HintNarrationChunk{narrationMessage(secondDescriptor)}, Marks: secondMarks},
+			{ID: "complete-" + strings.Join(cellIDs, "-"), Kind: HintStepExplain, Message: thirdDescriptor, Narration: []HintNarrationChunk{narrationMessage(thirdDescriptor)}, Marks: tripleMarks},
+			{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepExplain, Message: consequenceDescriptor, Narration: []HintNarrationChunk{narrationMessage(consequenceDescriptor)}, Marks: consequenceMarks},
+			{ID: "apply-naked-triple", Kind: HintStepApply, Message: applyDescriptor, Narration: actionNarration(applyDescriptor), Marks: consequenceMarks, Effect: conclusionEffect(conclusion)},
+		}
+	}
 	if move.Technique == "naked-triple" || move.Technique == "naked-quad" {
 		digits := combinedValues(evidence.Premises...)
 		units := []solver.UnitRef{*evidence.Unit}

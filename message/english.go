@@ -207,6 +207,21 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.naked-pair.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Remove %s; this step does not place a value. This pattern is a %s.", candidates(a[0]), strategy(a[1]))
 	})
+	many("hint.naked-triple.first", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "cell", Kind: ArgumentCell}, {Name: "first_digit", Kind: ArgumentDigit}, {Name: "second_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Start in %s: %s can contain only %d or %d.", units(a[0]), cell(a[1]), *a[2].Digit, *a[3].Digit)
+	})
+	many("hint.naked-triple.second", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "first_digit", Kind: ArgumentDigit}, {Name: "second_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("Add %s; it can contain only %d or %d.", cell(a[0]), *a[1].Digit, *a[2].Digit)
+	})
+	many("hint.naked-triple.third", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "first_digit", Kind: ArgumentDigit}, {Name: "second_digit", Kind: ArgumentDigit}, {Name: "reserved_digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("Add %s; it can contain only %d or %d. The three cells now contain only %s.", cell(a[0]), *a[1].Digit, *a[2].Digit, digits(a[3]))
+	})
+	many("hint.naked-triple.consequence", []ArgumentSpec{{Name: "reserved_digits", Kind: ArgumentDigits}, {Name: "removed_digits", Kind: ArgumentDigits}, {Name: "cell", Kind: ArgumentCell}, {Name: "remaining_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("These three cells must take %s in some order. That removes %s from %s, leaving only %d.", digits(a[0]), digits(a[1]), cell(a[2]), *a[3].Digit)
+	})
+	many("hint.naked-triple.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Place %d in %s. Three cells whose candidates are limited to the same three digits form a %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
+	})
 
 	many("hint.subset-reservation.observe", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, the cells at %s contain only %s.", units(a[0]), cells(a[1]), digits(a[2]))
