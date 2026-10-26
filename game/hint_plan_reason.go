@@ -339,6 +339,39 @@ func intersectionSteps(move *solver.Move) []HintStep {
 	}
 	digit := evidence.Premises[0].Values[0]
 	source, intersection := evidence.Units[0], evidence.Units[1]
+	if move.Technique == "pointing-pair" && source.Kind == solver.UnitBox && len(evidence.Premises) == 2 && conclusion.Placement != nil {
+		first := solver.CandidateRef{Position: evidence.Premises[0].Position, Value: digit}
+		second := solver.CandidateRef{Position: evidence.Premises[1].Position, Value: digit}
+		removed := solver.CandidateRef{Position: conclusion.Placement.Position, Value: digit}
+		for _, ref := range append(append([]solver.CandidateRef(nil), evidence.RuledOut...), evidence.Eliminations...) {
+			if ref.Position == conclusion.Placement.Position && ref.Value == digit {
+				removed = ref
+				break
+			}
+		}
+		boxTarget, _ := unitTarget(&source)
+		columnTarget, _ := unitTarget(&intersection)
+		firstMarks := []HintMark{
+			{Target: boxTarget, Role: HintRoleFocus},
+			{Target: candidateTarget(first), Role: HintRolePremise},
+		}
+		pairMarks := append(append([]HintMark(nil), firstMarks...),
+			HintMark{Target: candidateTarget(second), Role: HintRolePremise},
+			HintMark{Target: columnTarget, Role: HintRoleFocus},
+		)
+		consequenceMarks := append(append([]HintMark(nil), pairMarks...), HintMark{Target: candidateTarget(removed), Role: HintRoleEliminated})
+		applyMarks := append(append([]HintMark(nil), consequenceMarks...), HintMark{Target: candidateTarget(solver.CandidateRef{Position: conclusion.Placement.Position, Value: conclusion.Placement.Value}), Role: HintRoleConclusion})
+		firstMessage := hintDescriptor("hint.pointing-pair.first", unitsArgument("source_unit", []solver.UnitRef{source}), digitArgument("digit", digit), cellArgument("cell", first.Position))
+		secondMessage := hintDescriptor("hint.pointing-pair.second", digitArgument("digit", digit), unitsArgument("source_unit", []solver.UnitRef{source}), cellArgument("cell", second.Position), unitsArgument("intersection_unit", []solver.UnitRef{intersection}))
+		consequenceMessage := hintDescriptor("hint.pointing-pair.consequence", digitArgument("digit", digit), unitsArgument("source_unit", []solver.UnitRef{source}), unitsArgument("intersection_unit", []solver.UnitRef{intersection}), message.Argument{Name: "candidate", Kind: message.ArgumentCandidate, Candidate: &message.Candidate{Cell: message.Cell{Row: removed.Position.Row + 1, Column: removed.Position.Column + 1}, Digit: removed.Value}})
+		applyMessage := hintDescriptor("hint.pointing-pair.apply", cellArgument("cell", conclusion.Placement.Position), digitArgument("digit", conclusion.Placement.Value), strategyArgument("strategy", move.Technique))
+		return []HintStep{
+			{ID: "inspect-" + compactCellName(first.Position) + "-candidate", Kind: HintStepObserve, Message: firstMessage, Narration: []HintNarrationChunk{narrationMessage(firstMessage)}, Marks: firstMarks},
+			{ID: "complete-pointing-pair", Kind: HintStepExplain, Message: secondMessage, Narration: []HintNarrationChunk{narrationMessage(secondMessage)}, Marks: pairMarks},
+			{ID: "remove-" + compactCellName(removed.Position) + fmt.Sprintf("-%d", removed.Value), Kind: HintStepExplain, Message: consequenceMessage, Narration: []HintNarrationChunk{narrationMessage(consequenceMessage)}, Marks: consequenceMarks},
+			{ID: "place-" + compactCellName(conclusion.Placement.Position) + fmt.Sprintf("-%d", conclusion.Placement.Value), Kind: HintStepApply, Message: applyMessage, Narration: actionNarration(applyMessage), Marks: applyMarks, Effect: conclusionEffect(conclusion)},
+		}
+	}
 	premiseRefs := make([]solver.CandidateRef, 0, len(evidence.Premises))
 	premiseCells := make([]core.Position, 0, len(evidence.Premises))
 	for _, premise := range evidence.Premises {
