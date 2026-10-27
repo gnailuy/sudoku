@@ -528,7 +528,7 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 			expectedSteps := 3
 			if key == "naked-pair" || key == "hidden-pair" || key == "pointing-pair" {
 				expectedSteps = 4
-			} else if key == "naked-triple" {
+			} else if key == "naked-triple" || key == "hidden-triple" {
 				expectedSteps = 5
 			}
 			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != expectedSteps {
@@ -594,6 +594,24 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 					}
 					if !reflect.DeepEqual(plan.Conclusion.Eliminations, wantEliminations) {
 						t.Fatalf("hidden-pair eliminations = %+v, want %+v", plan.Conclusion.Eliminations, wantEliminations)
+					}
+				} else if key == "hidden-triple" {
+					wantMessages := []string{"hint.hidden-triple.first", "hint.hidden-triple.second", "hint.hidden-triple.third", "hint.hidden-triple.consequence", "hint.hidden-triple.apply"}
+					for index, want := range wantMessages {
+						if plan.Steps[index].Message.ID != want {
+							t.Fatalf("hidden-triple step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+						}
+					}
+					if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks), len(plan.Steps[4].Marks)}; !reflect.DeepEqual(got, []int{3, 7, 10, 13, 13}) {
+						t.Fatalf("hidden-triple mark progression = %v, want [3 7 10 13 13]", got)
+					}
+					wantEliminations := []solver.CandidateRef{
+						{Position: core.NewPosition(0, 2), Value: 2},
+						{Position: core.NewPosition(0, 2), Value: 4},
+						{Position: core.NewPosition(4, 2), Value: 1},
+					}
+					if !reflect.DeepEqual(plan.Conclusion.Eliminations, wantEliminations) {
+						t.Fatalf("hidden-triple eliminations = %+v, want %+v", plan.Conclusion.Eliminations, wantEliminations)
 					}
 				} else {
 					expectedMessage := "hint.hidden-subset-confinement.apply"
