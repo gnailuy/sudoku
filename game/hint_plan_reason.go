@@ -343,6 +343,51 @@ func hiddenSubsetSteps(move *solver.Move, _ string) []HintStep {
 			{ID: "apply-hidden-pair", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: conclusionEffect(conclusion)},
 		}
 	}
+	completeHiddenTriple := len(evidence.Premises) == 3 && len(digits) == 3
+	for _, premise := range evidence.Premises {
+		for _, digit := range digits {
+			found := false
+			for _, value := range premise.Values {
+				if value == digit {
+					found = true
+					break
+				}
+			}
+			completeHiddenTriple = completeHiddenTriple && found
+		}
+	}
+	if move.Technique == "hidden-triple" && completeHiddenTriple && len(evidence.Eliminations) > 0 {
+		firstMarks := make([]HintMark, 0, 3)
+		secondMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+		thirdMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+		for _, premise := range evidence.Premises {
+			firstMarks = append(firstMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: digits[0]}), Role: HintRolePremise})
+			for _, digit := range digits[:2] {
+				secondMarks = append(secondMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: digit}), Role: HintRolePremise})
+			}
+			for _, digit := range digits {
+				thirdMarks = append(thirdMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: digit}), Role: HintRolePremise})
+			}
+		}
+		consequenceMarks := append([]HintMark(nil), thirdMarks...)
+		applyMarks := append([]HintMark(nil), thirdMarks...)
+		for _, ref := range evidence.Eliminations {
+			consequenceMarks = append(consequenceMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleEliminated})
+			applyMarks = append(applyMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleConclusion})
+		}
+		first := hintDescriptor("hint.hidden-triple.first", unitsArgument("unit", units), digitArgument("digit", digits[0]), cellsArgument("cells", cells))
+		second := hintDescriptor("hint.hidden-triple.second", unitsArgument("unit", units), digitsArgument("digits", digits[:2]), cellsArgument("cells", cells))
+		third := hintDescriptor("hint.hidden-triple.third", unitsArgument("unit", units), digitsArgument("digits", digits), cellsArgument("cells", cells))
+		consequence := hintDescriptor("hint.hidden-triple.consequence", digitsArgument("digits", digits), unitsArgument("unit", units))
+		apply := hintDescriptor("hint.hidden-triple.apply", candidatesArgument("candidates", evidence.Eliminations), strategyArgument("strategy", move.Technique))
+		return []HintStep{
+			{ID: "find-first-hidden-triple-digit", Kind: HintStepObserve, Message: first, Narration: []HintNarrationChunk{narrationMessage(first)}, Marks: firstMarks},
+			{ID: "add-second-hidden-triple-digit", Kind: HintStepExplain, Message: second, Narration: []HintNarrationChunk{narrationMessage(second)}, Marks: secondMarks},
+			{ID: "complete-hidden-triple", Kind: HintStepExplain, Message: third, Narration: []HintNarrationChunk{narrationMessage(third)}, Marks: thirdMarks},
+			{ID: "identify-hidden-triple-removals", Kind: HintStepExplain, Message: consequence, Narration: []HintNarrationChunk{narrationMessage(consequence)}, Marks: consequenceMarks},
+			{ID: "apply-hidden-triple", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: conclusionEffect(conclusion)},
+		}
+	}
 	observe := hintDescriptor("hint.hidden-subset-confinement.observe", unitsArgument("unit", units), digitsArgument("digits", digits), cellsArgument("cells", cells))
 	explain := hintDescriptor("hint.hidden-subset-confinement.explain", digitsArgument("digits", digits), unitsArgument("unit", units), cellsArgument("cells", cells))
 	var apply message.Descriptor
