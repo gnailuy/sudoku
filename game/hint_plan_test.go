@@ -528,7 +528,7 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 			expectedSteps := 3
 			if key == "naked-pair" || key == "hidden-pair" || key == "pointing-pair" {
 				expectedSteps = 4
-			} else if key == "naked-triple" || key == "hidden-triple" {
+			} else if key == "naked-triple" || key == "hidden-triple" || key == "swordfish" {
 				expectedSteps = 5
 			}
 			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != expectedSteps {
@@ -684,6 +684,9 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 			if key == "x-wing" {
 				expectedSteps = 4
 			}
+			if key == "swordfish" {
+				expectedSteps = 5
+			}
 			if key == "xy-wing" {
 				expectedSteps = 5
 			}
@@ -733,6 +736,26 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 					}
 					if !reflect.DeepEqual(plan.Conclusion.Eliminations, wantEliminations) {
 						t.Fatalf("x-wing eliminations = %+v, want %+v", plan.Conclusion.Eliminations, wantEliminations)
+					}
+				} else if key == "swordfish" {
+					wantMessages := []string{"hint.fish-confinement.observe", "hint.fish-confinement.observe", "hint.fish-confinement.observe", "hint.swordfish.consequence", "hint.fish-confinement.apply"}
+					for index, want := range wantMessages {
+						if plan.Steps[index].Message.ID != want {
+							t.Fatalf("swordfish step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+						}
+					}
+					if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks), len(plan.Steps[4].Marks)}; !reflect.DeepEqual(got, []int{2, 6, 9, 12, 14}) {
+						t.Fatalf("swordfish mark progression = %v, want [2 6 9 12 14]", got)
+					}
+					wantCopy := []string{
+						"In row 1, candidate 6 appears only in column 4 and column 6.",
+						"In row 6, candidate 6 appears only in column 4 and column 5.",
+						"In row 8, candidate 6 appears only in column 5 and column 6.",
+					}
+					for index, want := range wantCopy {
+						if plan.Steps[index].Message.Text != want {
+							t.Fatalf("swordfish step %d copy = %q, want %q", index, plan.Steps[index].Message.Text, want)
+						}
 					}
 				} else if plan.Steps[2].Message.ID != "hint.fish-confinement.apply" {
 					t.Fatalf("fish conclusion = %+v", plan.Steps[2].Message)

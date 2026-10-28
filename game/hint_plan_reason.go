@@ -525,6 +525,44 @@ func fishSteps(move *solver.Move, _ string) []HintStep {
 				{ID: "apply-x-wing", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(consequenceMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 			}
 		}
+		if move.Technique == "swordfish" && len(evidence.Premises) == 6 && baseUnits[0].Kind == solver.UnitRow && baseUnits[1].Kind == solver.UnitRow && baseUnits[2].Kind == solver.UnitRow && coverUnits[0].Kind == solver.UnitColumn && coverUnits[1].Kind == solver.UnitColumn && coverUnits[2].Kind == solver.UnitColumn {
+			premiseMarks := premiseCandidateMarks(evidence)
+			firstMarks := append([]HintMark(nil), premiseMarks[:2]...)
+			secondMarks := append([]HintMark(nil), premiseMarks[:4]...)
+			for _, ref := range baseUnits[:2] {
+				target, _ := unitTarget(&ref)
+				secondMarks = append(secondMarks, HintMark{Target: target, Role: HintRoleFocus})
+			}
+			thirdMarks := append([]HintMark(nil), premiseMarks...)
+			for _, ref := range baseUnits {
+				target, _ := unitTarget(&ref)
+				thirdMarks = append(thirdMarks, HintMark{Target: target, Role: HintRoleFocus})
+			}
+			consequenceMarks := append([]HintMark(nil), thirdMarks...)
+			for _, ref := range coverUnits {
+				target, _ := unitTarget(&ref)
+				consequenceMarks = append(consequenceMarks, HintMark{Target: target, Role: HintRoleFocus})
+			}
+			lineCoverUnits := func(premises []solver.CandidateGroup) []solver.UnitRef {
+				refs := make([]solver.UnitRef, len(premises))
+				for index, premise := range premises {
+					refs[index] = solver.UnitRef{Kind: solver.UnitColumn, Index: premise.Position.Column}
+				}
+				return refs
+			}
+			first := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[:1]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[:2])))
+			second := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[1:2]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[2:4])))
+			third := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[2:3]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[4:6])))
+			consequence := hintDescriptor("hint.swordfish.consequence", unitsArgument("base_units", baseUnits), unitsArgument("cover_units", coverUnits), digitArgument("digit", digit))
+			apply := hintDescriptor("hint.fish-confinement.apply", digitArgument("digit", digit), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
+			return []HintStep{
+				{ID: "find-first-swordfish-row", Kind: HintStepObserve, Message: first, Narration: []HintNarrationChunk{narrationMessage(first)}, Marks: firstMarks},
+				{ID: "add-second-swordfish-row", Kind: HintStepExplain, Message: second, Narration: []HintNarrationChunk{narrationMessage(second)}, Marks: secondMarks},
+				{ID: "complete-swordfish-rows", Kind: HintStepExplain, Message: third, Narration: []HintNarrationChunk{narrationMessage(third)}, Marks: thirdMarks},
+				{ID: "explain-swordfish-columns", Kind: HintStepExplain, Message: consequence, Narration: []HintNarrationChunk{narrationMessage(consequence)}, Marks: consequenceMarks},
+				{ID: "apply-swordfish", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(consequenceMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+			}
+		}
 		apply := hintDescriptor("hint.fish-confinement.apply", digitArgument("digit", digit), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
 		premiseMarks := premiseCandidateMarks(evidence)
 		baseMarks := append([]HintMark(nil), premiseMarks...)
