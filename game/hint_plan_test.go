@@ -747,6 +747,16 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 					if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks), len(plan.Steps[4].Marks)}; !reflect.DeepEqual(got, []int{2, 6, 9, 12, 14}) {
 						t.Fatalf("swordfish mark progression = %v, want [2 6 9 12 14]", got)
 					}
+					wantCopy := []string{
+						"In row 1, candidate 6 appears only in column 4 and column 6.",
+						"In row 6, candidate 6 appears only in column 4 and column 5.",
+						"In row 8, candidate 6 appears only in column 5 and column 6.",
+					}
+					for index, want := range wantCopy {
+						if plan.Steps[index].Message.Text != want {
+							t.Fatalf("swordfish step %d copy = %q, want %q", index, plan.Steps[index].Message.Text, want)
+						}
+					}
 				} else if plan.Steps[2].Message.ID != "hint.fish-confinement.apply" {
 					t.Fatalf("fish conclusion = %+v", plan.Steps[2].Message)
 				}

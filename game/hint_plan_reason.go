@@ -543,9 +543,16 @@ func fishSteps(move *solver.Move, _ string) []HintStep {
 				target, _ := unitTarget(&ref)
 				consequenceMarks = append(consequenceMarks, HintMark{Target: target, Role: HintRoleFocus})
 			}
-			first := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[:1]), digitArgument("digit", digit), unitsArgument("cover_units", coverUnits))
-			second := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[1:2]), digitArgument("digit", digit), unitsArgument("cover_units", coverUnits))
-			third := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[2:3]), digitArgument("digit", digit), unitsArgument("cover_units", coverUnits))
+			lineCoverUnits := func(premises []solver.CandidateGroup) []solver.UnitRef {
+				refs := make([]solver.UnitRef, len(premises))
+				for index, premise := range premises {
+					refs[index] = solver.UnitRef{Kind: solver.UnitColumn, Index: premise.Position.Column}
+				}
+				return refs
+			}
+			first := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[:1]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[:2])))
+			second := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[1:2]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[2:4])))
+			third := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[2:3]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[4:6])))
 			consequence := hintDescriptor("hint.swordfish.consequence", unitsArgument("base_units", baseUnits), unitsArgument("cover_units", coverUnits), digitArgument("digit", digit))
 			apply := hintDescriptor("hint.fish-confinement.apply", digitArgument("digit", digit), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
 			return []HintStep{
