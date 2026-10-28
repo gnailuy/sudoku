@@ -304,6 +304,9 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.fish-confinement.explain", []ArgumentSpec{{Name: "base_units", Kind: ArgumentUnits}, {Name: "cover_units", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
 		return fmt.Sprintf("Whichever highlighted position contains %d in each of %s, %s must each receive that digit in one of those base units.", *a[2].Digit, units(a[0]), units(a[1]))
 	})
+	many("hint.swordfish.consequence", []ArgumentSpec{{Name: "base_units", Kind: ArgumentUnits}, {Name: "cover_units", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("One %d from each of %s must go among %s. Together, those placements use each of the three columns once, so no other %d can remain in them.", *a[2].Digit, units(a[0]), units(a[1]), *a[2].Digit)
+	})
 	many("hint.fish-confinement.apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Remove candidate %d from %s. This pattern is called %s.", *a[0].Digit, cells(a[1]), strategy(a[2]))
 	})
