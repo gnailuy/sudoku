@@ -530,6 +530,8 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				expectedSteps = 4
 			} else if key == "naked-triple" || key == "hidden-triple" || key == "swordfish" {
 				expectedSteps = 5
+			} else if key == "naked-quad" {
+				expectedSteps = 6
 			}
 			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != expectedSteps {
 				t.Fatalf("unexpected family plan: %+v", plan)
@@ -571,6 +573,27 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 					}
 					if plan.Conclusion.Placement == nil || plan.Conclusion.Placement.Position != core.NewPosition(3, 1) || plan.Conclusion.Placement.Value != 7 {
 						t.Fatalf("naked-triple conclusion = %+v, want r4c2=7", plan.Conclusion)
+					}
+				}
+				if key == "naked-quad" {
+					wantMessages := []string{"hint.naked-quad.cell", "hint.naked-quad.cell", "hint.naked-quad.cell", "hint.naked-quad.cell", "hint.subset-reservation.explain", "hint.subset-reservation.place"}
+					for index, want := range wantMessages {
+						if plan.Steps[index].Message.ID != want {
+							t.Fatalf("naked-quad step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+						}
+					}
+					if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks), len(plan.Steps[4].Marks), len(plan.Steps[5].Marks)}; !reflect.DeepEqual(got, []int{2, 4, 7, 11, 12, 12}) {
+						t.Fatalf("naked-quad mark progression = %v, want [2 4 7 11 12 12]", got)
+					}
+					wantCells := []core.Position{core.NewPosition(1, 2), core.NewPosition(2, 0), core.NewPosition(1, 0), core.NewPosition(1, 1)}
+					for index, want := range wantCells {
+						arguments := plan.Steps[index].Message.Arguments
+						if len(arguments) < 2 || arguments[1].Cell == nil || arguments[1].Cell.Row != want.Row+1 || arguments[1].Cell.Column != want.Column+1 {
+							t.Fatalf("naked-quad step %d cell arguments = %+v, want %v", index, arguments, want)
+						}
+					}
+					if plan.Conclusion.Placement == nil || plan.Conclusion.Placement.Position != core.NewPosition(0, 0) || plan.Conclusion.Placement.Value != 4 {
+						t.Fatalf("naked-quad conclusion = %+v, want r1c1=4", plan.Conclusion)
 					}
 				}
 			} else if key == "hidden-pair" || key == "hidden-triple" || key == "hidden-quad" {

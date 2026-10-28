@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/gnailuy/sudoku/core"
@@ -275,6 +276,53 @@ func nakedSubsetSteps(move *solver.Move, _ string) []HintStep {
 			{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepExplain, Message: consequenceDescriptor, Narration: []HintNarrationChunk{narrationMessage(consequenceDescriptor)}, Marks: consequenceMarks},
 			{ID: "apply-naked-triple", Kind: HintStepApply, Message: applyDescriptor, Narration: actionNarration(applyDescriptor), Marks: consequenceMarks, Effect: conclusionEffect(conclusion)},
 		}
+	}
+	if move.Technique == "naked-quad" && len(evidence.Premises) == 4 && conclusion.Placement != nil {
+		digits := combinedValues(evidence.Premises...)
+		units := []solver.UnitRef{*evidence.Unit}
+		ordered := append([]solver.CandidateGroup(nil), evidence.Premises...)
+		sort.SliceStable(ordered, func(i, j int) bool {
+			if len(ordered[i].Values) != len(ordered[j].Values) {
+				return len(ordered[i].Values) < len(ordered[j].Values)
+			}
+			if ordered[i].Position.Row != ordered[j].Position.Row {
+				return ordered[i].Position.Row < ordered[j].Position.Row
+			}
+			return ordered[i].Position.Column < ordered[j].Position.Column
+		})
+		marksFor := func(groups ...solver.CandidateGroup) []HintMark {
+			var marks []HintMark
+			for _, group := range groups {
+				for _, value := range group.Values {
+					marks = append(marks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: group.Position, Value: value}), Role: HintRolePremise})
+				}
+			}
+			return marks
+		}
+		progressiveMarks := make([][]HintMark, len(ordered))
+		for index := range ordered {
+			progressiveMarks[index] = marksFor(ordered[:index+1]...)
+		}
+		steps := make([]HintStep, 0, 6)
+		for index, group := range ordered {
+			descriptor := hintDescriptor("hint.naked-quad.cell", unitsArgument("unit", units), cellArgument("cell", group.Position), digitsArgument("digits", group.Values))
+			kind := HintStepExplain
+			if index == 0 {
+				kind = HintStepObserve
+			}
+			steps = append(steps, HintStep{ID: fmt.Sprintf("naked-quad-cell-%d-%s", index+1, compactCellName(group.Position)), Kind: kind, Message: descriptor, Narration: []HintNarrationChunk{narrationMessage(descriptor)}, Marks: progressiveMarks[index]})
+		}
+		reserveMarks := append([]HintMark(nil), progressiveMarks[len(progressiveMarks)-1]...)
+		reserveMarks = append(reserveMarks, HintMark{Target: unit, Role: HintRoleFocus})
+		reserve := hintDescriptor("hint.subset-reservation.explain", unitsArgument("unit", units), cellsArgument("cells", cells), digitsArgument("digits", digits))
+		apply := hintDescriptor("hint.subset-reservation.place", digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+		applyMarks := append([]HintMark(nil), progressiveMarks[len(progressiveMarks)-1]...)
+		applyMarks = append(applyMarks, conclusionMarks(conclusion)...)
+		steps = append(steps,
+			HintStep{ID: "reserve-" + strings.Join(cellIDs, "-"), Kind: HintStepExplain, Message: reserve, Narration: []HintNarrationChunk{narrationMessage(reserve)}, Marks: reserveMarks},
+			HintStep{ID: "apply-naked-quad", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: conclusionEffect(conclusion)},
+		)
+		return steps
 	}
 	if move.Technique == "naked-triple" || move.Technique == "naked-quad" {
 		digits := combinedValues(evidence.Premises...)

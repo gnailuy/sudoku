@@ -223,6 +223,10 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 		return fmt.Sprintf("Place %d in %s. Three cells whose candidates are limited to the same three digits form a %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
 
+	many("hint.naked-quad.cell", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, %s contains only %s.", units(a[0]), cell(a[1]), digits(a[2]))
+	})
+
 	many("hint.subset-reservation.observe", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, the cells at %s contain only %s.", units(a[0]), cells(a[1]), digits(a[2]))
 	})
