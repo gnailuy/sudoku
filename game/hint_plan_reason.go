@@ -436,6 +436,57 @@ func hiddenSubsetSteps(move *solver.Move, _ string) []HintStep {
 			{ID: "apply-hidden-triple", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: conclusionEffect(conclusion)},
 		}
 	}
+	completeHiddenQuad := len(evidence.Premises) == 4 && len(digits) == 4
+	for _, premise := range evidence.Premises {
+		for _, digit := range digits {
+			found := false
+			for _, value := range premise.Values {
+				if value == digit {
+					found = true
+					break
+				}
+			}
+			completeHiddenQuad = completeHiddenQuad && found
+		}
+	}
+	if move.Technique == "hidden-quad" && completeHiddenQuad && len(evidence.Eliminations) > 0 {
+		firstMarks := make([]HintMark, 0, 4)
+		secondMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+		thirdMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+		fourthMarks := []HintMark{{Target: unit, Role: HintRoleFocus}}
+		for _, premise := range evidence.Premises {
+			firstMarks = append(firstMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: digits[0]}), Role: HintRolePremise})
+			for _, digit := range digits[:2] {
+				secondMarks = append(secondMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: digit}), Role: HintRolePremise})
+			}
+			for _, digit := range digits[:3] {
+				thirdMarks = append(thirdMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: digit}), Role: HintRolePremise})
+			}
+			for _, digit := range digits {
+				fourthMarks = append(fourthMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: digit}), Role: HintRolePremise})
+			}
+		}
+		consequenceMarks := append([]HintMark(nil), fourthMarks...)
+		applyMarks := append([]HintMark(nil), fourthMarks...)
+		for _, ref := range evidence.Eliminations {
+			consequenceMarks = append(consequenceMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleEliminated})
+			applyMarks = append(applyMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleConclusion})
+		}
+		first := hintDescriptor("hint.hidden-quad.first", unitsArgument("unit", units), digitArgument("digit", digits[0]), cellsArgument("cells", cells))
+		second := hintDescriptor("hint.hidden-quad.second", unitsArgument("unit", units), digitsArgument("digits", digits[:2]), cellsArgument("cells", cells))
+		third := hintDescriptor("hint.hidden-quad.third", unitsArgument("unit", units), digitsArgument("digits", digits[:3]), cellsArgument("cells", cells))
+		fourth := hintDescriptor("hint.hidden-quad.fourth", unitsArgument("unit", units), digitsArgument("digits", digits), cellsArgument("cells", cells))
+		consequence := hintDescriptor("hint.hidden-quad.consequence", digitsArgument("digits", digits), unitsArgument("unit", units))
+		apply := hintDescriptor("hint.hidden-quad.apply", candidatesArgument("candidates", evidence.Eliminations), strategyArgument("strategy", move.Technique))
+		return []HintStep{
+			{ID: "find-first-hidden-quad-digit", Kind: HintStepObserve, Message: first, Narration: []HintNarrationChunk{narrationMessage(first)}, Marks: firstMarks},
+			{ID: "add-second-hidden-quad-digit", Kind: HintStepExplain, Message: second, Narration: []HintNarrationChunk{narrationMessage(second)}, Marks: secondMarks},
+			{ID: "add-third-hidden-quad-digit", Kind: HintStepExplain, Message: third, Narration: []HintNarrationChunk{narrationMessage(third)}, Marks: thirdMarks},
+			{ID: "complete-hidden-quad", Kind: HintStepExplain, Message: fourth, Narration: []HintNarrationChunk{narrationMessage(fourth)}, Marks: fourthMarks},
+			{ID: "identify-hidden-quad-removals", Kind: HintStepExplain, Message: consequence, Narration: []HintNarrationChunk{narrationMessage(consequence)}, Marks: consequenceMarks},
+			{ID: "apply-hidden-quad", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: conclusionEffect(conclusion)},
+		}
+	}
 	observe := hintDescriptor("hint.hidden-subset-confinement.observe", unitsArgument("unit", units), digitsArgument("digits", digits), cellsArgument("cells", cells))
 	explain := hintDescriptor("hint.hidden-subset-confinement.explain", digitsArgument("digits", digits), unitsArgument("unit", units), cellsArgument("cells", cells))
 	var apply message.Descriptor

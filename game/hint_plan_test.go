@@ -530,7 +530,7 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				expectedSteps = 4
 			} else if key == "naked-triple" || key == "hidden-triple" || key == "swordfish" {
 				expectedSteps = 5
-			} else if key == "naked-quad" {
+			} else if key == "naked-quad" || key == "hidden-quad" {
 				expectedSteps = 6
 			}
 			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != expectedSteps {
@@ -637,12 +637,24 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 						t.Fatalf("hidden-triple eliminations = %+v, want %+v", plan.Conclusion.Eliminations, wantEliminations)
 					}
 				} else {
-					expectedMessage := "hint.hidden-subset-confinement.apply"
-					if plan.Conclusion.Placement != nil {
-						expectedMessage = "hint.hidden-subset-confinement.place"
+					wantMessages := []string{"hint.hidden-quad.first", "hint.hidden-quad.second", "hint.hidden-quad.third", "hint.hidden-quad.fourth", "hint.hidden-quad.consequence", "hint.hidden-quad.apply"}
+					for index, want := range wantMessages {
+						if plan.Steps[index].Message.ID != want {
+							t.Fatalf("hidden-quad step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+						}
 					}
-					if plan.Steps[0].Message.ID != "hint.hidden-subset-confinement.observe" || plan.Steps[1].Message.ID != "hint.hidden-subset-confinement.explain" || plan.Steps[2].Message.ID != expectedMessage {
-						t.Fatalf("hidden-subset descriptors are incomplete: %+v", plan.Steps)
+					if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks), len(plan.Steps[4].Marks), len(plan.Steps[5].Marks)}; !reflect.DeepEqual(got, []int{4, 9, 13, 17, 22, 22}) {
+						t.Fatalf("hidden-quad mark progression = %v, want [4 9 13 17 22 22]", got)
+					}
+					wantEliminations := []solver.CandidateRef{
+						{Position: core.NewPosition(3, 0), Value: 2},
+						{Position: core.NewPosition(3, 1), Value: 2},
+						{Position: core.NewPosition(4, 0), Value: 2},
+						{Position: core.NewPosition(4, 0), Value: 5},
+						{Position: core.NewPosition(4, 1), Value: 2},
+					}
+					if !reflect.DeepEqual(plan.Conclusion.Eliminations, wantEliminations) {
+						t.Fatalf("hidden-quad eliminations = %+v, want %+v", plan.Conclusion.Eliminations, wantEliminations)
 					}
 				}
 				reason := plan.Reason.HiddenSubsetConfinement
