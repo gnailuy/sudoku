@@ -50,12 +50,21 @@ func main() {
 				panic(fmt.Sprintf("%s exhausted hints", entry.Strategy))
 			}
 			if plan.Strategy.ID == entry.Strategy {
+				snapshot := current.Snapshot()
+				candidates := make([][][]int, 9)
+				for row := range candidates {
+					candidates[row] = make([][]int, 9)
+					for column := range candidates[row] {
+						candidates[row][column] = snapshot.Candidates[row][column].Values()
+					}
+				}
 				result.Cases = append(result.Cases, map[string]any{
 					"strategy":      entry.Strategy,
 					"display_name":  entry.DisplayName,
 					"grade":         entry.Grade,
 					"puzzle":        entry.Puzzle,
 					"reached_after": number,
+					"candidates":    candidates,
 					"hint":          wirePlan(plan),
 				})
 				break
