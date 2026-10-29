@@ -662,6 +662,49 @@ func fishSteps(move *solver.Move, _ string) []HintStep {
 				{ID: "apply-swordfish", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(consequenceMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 			}
 		}
+		if move.Technique == "jellyfish" && len(evidence.Premises) == 8 && baseUnits[0].Kind == solver.UnitRow && baseUnits[1].Kind == solver.UnitRow && baseUnits[2].Kind == solver.UnitRow && baseUnits[3].Kind == solver.UnitRow && coverUnits[0].Kind == solver.UnitColumn && coverUnits[1].Kind == solver.UnitColumn && coverUnits[2].Kind == solver.UnitColumn && coverUnits[3].Kind == solver.UnitColumn {
+			premiseMarks := premiseCandidateMarks(evidence)
+			lineCoverUnits := func(premises []solver.CandidateGroup) []solver.UnitRef {
+				refs := make([]solver.UnitRef, len(premises))
+				for index, premise := range premises {
+					refs[index] = solver.UnitRef{Kind: solver.UnitColumn, Index: premise.Position.Column}
+				}
+				return refs
+			}
+			lineMarks := func(lineCount int) []HintMark {
+				marks := append([]HintMark(nil), premiseMarks[:lineCount*2]...)
+				if lineCount > 1 {
+					for _, ref := range baseUnits[:lineCount] {
+						target, _ := unitTarget(&ref)
+						marks = append(marks, HintMark{Target: target, Role: HintRoleFocus})
+					}
+				}
+				return marks
+			}
+			firstMarks := lineMarks(1)
+			secondMarks := lineMarks(2)
+			thirdMarks := lineMarks(3)
+			fourthMarks := lineMarks(4)
+			consequenceMarks := append([]HintMark(nil), fourthMarks...)
+			for _, ref := range coverUnits {
+				target, _ := unitTarget(&ref)
+				consequenceMarks = append(consequenceMarks, HintMark{Target: target, Role: HintRoleFocus})
+			}
+			first := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[:1]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[:2])))
+			second := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[1:2]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[2:4])))
+			third := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[2:3]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[4:6])))
+			fourth := hintDescriptor("hint.fish-confinement.observe", unitsArgument("base_units", baseUnits[3:4]), digitArgument("digit", digit), unitsArgument("cover_units", lineCoverUnits(evidence.Premises[6:8])))
+			consequence := hintDescriptor("hint.jellyfish.consequence", unitsArgument("base_units", baseUnits), unitsArgument("cover_units", coverUnits), digitArgument("digit", digit))
+			apply := hintDescriptor("hint.fish-confinement.apply", digitArgument("digit", digit), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
+			return []HintStep{
+				{ID: "find-first-jellyfish-row", Kind: HintStepObserve, Message: first, Narration: []HintNarrationChunk{narrationMessage(first)}, Marks: firstMarks},
+				{ID: "add-second-jellyfish-row", Kind: HintStepExplain, Message: second, Narration: []HintNarrationChunk{narrationMessage(second)}, Marks: secondMarks},
+				{ID: "add-third-jellyfish-row", Kind: HintStepExplain, Message: third, Narration: []HintNarrationChunk{narrationMessage(third)}, Marks: thirdMarks},
+				{ID: "complete-jellyfish-rows", Kind: HintStepExplain, Message: fourth, Narration: []HintNarrationChunk{narrationMessage(fourth)}, Marks: fourthMarks},
+				{ID: "explain-jellyfish-columns", Kind: HintStepExplain, Message: consequence, Narration: []HintNarrationChunk{narrationMessage(consequence)}, Marks: consequenceMarks},
+				{ID: "apply-jellyfish", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(consequenceMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+			}
+		}
 		apply := hintDescriptor("hint.fish-confinement.apply", digitArgument("digit", digit), cellsArgument("cells", positions), strategyArgument("strategy", move.Technique))
 		premiseMarks := premiseCandidateMarks(evidence)
 		baseMarks := append([]HintMark(nil), premiseMarks...)
