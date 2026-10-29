@@ -722,6 +722,9 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 			if key == "swordfish" {
 				expectedSteps = 5
 			}
+			if key == "jellyfish" {
+				expectedSteps = 6
+			}
 			if key == "xy-wing" {
 				expectedSteps = 5
 			}
@@ -791,6 +794,37 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 						if plan.Steps[index].Message.Text != want {
 							t.Fatalf("swordfish step %d copy = %q, want %q", index, plan.Steps[index].Message.Text, want)
 						}
+					}
+				} else if key == "jellyfish" {
+					wantMessages := []string{"hint.fish-confinement.observe", "hint.fish-confinement.observe", "hint.fish-confinement.observe", "hint.fish-confinement.observe", "hint.jellyfish.consequence", "hint.fish-confinement.apply"}
+					for index, want := range wantMessages {
+						if plan.Steps[index].Message.ID != want {
+							t.Fatalf("jellyfish step %d message = %q, want %q", index, plan.Steps[index].Message.ID, want)
+						}
+					}
+					if got := []int{len(plan.Steps[0].Marks), len(plan.Steps[1].Marks), len(plan.Steps[2].Marks), len(plan.Steps[3].Marks), len(plan.Steps[4].Marks), len(plan.Steps[5].Marks)}; !reflect.DeepEqual(got, []int{2, 6, 9, 12, 16, 21}) {
+						t.Fatalf("jellyfish mark progression = %v, want [2 6 9 12 16 21]", got)
+					}
+					wantCopy := []string{
+						"In row 2, candidate 9 appears only in column 1 and column 4.",
+						"In row 3, candidate 9 appears only in column 1 and column 9.",
+						"In row 4, candidate 9 appears only in column 3 and column 4.",
+						"In row 7, candidate 9 appears only in column 3 and column 9.",
+					}
+					for index, want := range wantCopy {
+						if plan.Steps[index].Message.Text != want {
+							t.Fatalf("jellyfish step %d copy = %q, want %q", index, plan.Steps[index].Message.Text, want)
+						}
+					}
+					wantEliminations := []solver.CandidateRef{
+						{Position: core.NewPosition(0, 3), Value: 9},
+						{Position: core.NewPosition(4, 3), Value: 9},
+						{Position: core.NewPosition(7, 3), Value: 9},
+						{Position: core.NewPosition(8, 3), Value: 9},
+						{Position: core.NewPosition(8, 8), Value: 9},
+					}
+					if !reflect.DeepEqual(plan.Conclusion.Eliminations, wantEliminations) {
+						t.Fatalf("jellyfish eliminations = %+v, want %+v", plan.Conclusion.Eliminations, wantEliminations)
 					}
 				} else if plan.Steps[2].Message.ID != "hint.fish-confinement.apply" {
 					t.Fatalf("fish conclusion = %+v", plan.Steps[2].Message)
