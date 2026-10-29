@@ -12,6 +12,7 @@ dependencies:
   - .aidoc/designs/web-api.md
   - .aidoc/designs/localization-contract.md
   - .aidoc/designs/hint-reference-plans.md
+  - .aidoc/designs/e2e-test-scenarios.md
 ---
 
 # Hint Presentation Protocol
@@ -27,6 +28,7 @@ The hint presentation protocol is the portable teaching contract within the one 
 | `.aidoc/designs/web-api.md` | Revisioned transport and client-neutral contract |
 | `.aidoc/designs/localization-contract.md` | Semantic message descriptors and shared English fallback |
 | `.aidoc/designs/hint-reference-plans.md` | Concrete placement and elimination teaching plans |
+| `.aidoc/designs/e2e-test-scenarios.md` | Maintained black-box suite map and scenario ownership |
 | `solver/evidence.go` | Typed candidate, unit, elimination, and placement evidence |
 | `game/contract.go` | Engine hint preview and application boundary |
 | `game/hint_plan.go` | Hint-plan data model, deterministic identity, and family teaching composers |
@@ -89,6 +91,16 @@ Teaching-sequence length follows the deduction rather than a fixed three-step te
 | `apply` | What exactly should change? | Preserve necessary context and isolate the one atomic placement or grouped elimination. |
 
 Adjacent steps cannot repeat the same statement and scene without adding a fact or relation. Only the final `apply` step carries the plan effect; `observe` and `explain` remain read-only. Complete descriptors use typed scalar or bounded list arguments, so a locale can reorder and pluralize digits, cells, candidates, and units without parsing English or replaying backend token order. The localization contract owns the argument vocabulary and English fallback; this document owns why each descriptor appears in the reasoning sequence.
+
+## Strategic Hint Review Contract
+
+A strategic-hint design is grounded in one maintained real example at the exact reached board state. The report records the target revisions, reproduction route, complete board and authoritative candidate grid, typed premises, exact target, and one supported placement or grouped elimination. Synthetic candidate-only boards may supplement an explanation but cannot replace the maintained product example when that example is available.
+
+The actual product board is the primary storyboard surface. Its automatic candidate grid is visible from the first teaching step, and each scene is a complete snapshot. Every step adds one learner-visible fact or relation; later scenes retain earlier evidence whenever the causal chain still depends on it. Formal strategy vocabulary appears only with the applying conclusion. Marks and links carry typed logic rather than decoration, and coordinates, symbols, line styles, labels, narration, and accessible descriptions preserve meaning without relying on color.
+
+Review evidence covers every teaching step on the actual board plus the final English, Simplified Chinese, and Traditional Chinese presentation at desktop and phone sizes. Inspection checks candidate visibility, cumulative proof, clipping, overflow, collisions, obscured candidates, board geometry, focus, and non-color meaning. Visual fit does not establish linguistic quality; the localization contract owns authorship and editorial acceptance.
+
+The exact maintained build, strategy-matrix, complete-game, terminal, API, and browser commands remain owned by `AGENT.md`, `.aidoc/designs/e2e-test-scenarios.md`, its scenario catalogs, and the coordinated browser repository. A quality report points to those owners and records results instead of copying their command inventory or acceptance policy.
 
 ## Semantic Scene Vocabulary
 

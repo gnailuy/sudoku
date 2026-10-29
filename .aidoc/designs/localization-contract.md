@@ -112,6 +112,16 @@ The line CLI and TUI remain English-only for this phase. They share the canonica
 
 Terminal clients continue to own capability-aware layout, compact coordinates, step counters, control labels, and color-independent rendering. Sharing the English catalog does not require sharing browser catalogs, adopting browser locale preferences, or adding terminal locale negotiation.
 
+## Strategic Hint Authorship and Editorial Acceptance
+
+A strategic-hint sequence starts from one locale-neutral intent for each teaching step: what the learner notices, which new inference becomes possible, which prior evidence remains necessary, and which typed scene or effect facts carry the meaning. English, Simplified Chinese, and Traditional Chinese are authored independently from that intent. English sentence structure is not a translation template.
+
+Simplified and Traditional Chinese each receive a separate fresh-context naturalness review of the complete sequence. The reviewer may reject the copy and records concrete findings such as literal Sudoku metaphors, English-shaped clause order, mechanical one-to-one synonym replacement, stacked nominal phrases, redundant quantifiers, inconsistent coordinate vocabulary, or unnatural terms. Row, column, box, confinement, candidate consequences, and causal relations use direct native-language wording while preserving every typed condition, target, count, relation, and action.
+
+A failed editorial review reopens the complete affected sequence. The replacement is authored again from the locale-neutral intent rather than patched sentence by sentence or certified by its original author as an independent rewrite. Catalog and ICU validation prove structural parity; responsive screenshots prove fit; neither proves naturalness. Editorial evidence therefore remains separate from mechanical and visual results.
+
+Exact translated copy lives in the browser's production catalogs, while the backend retains its canonical English fallback. This document owns the durable authorship and acceptance boundary, not the wording of one temporary review package.
+
 ## Cross-Repository Contract
 
 The web client owns locale choice, translated catalogs, ICU formatting, document language metadata, and visible fallback behavior. It consumes IDs and arguments and ignores English `text` whenever it has a valid matching catalog entry. The backend never stores locale preferences and never varies revisions, plan IDs, sealed documents, or game state by locale.

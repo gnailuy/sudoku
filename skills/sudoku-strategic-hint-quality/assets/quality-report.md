@@ -7,6 +7,8 @@
 - Status: `pass | revise | block | awaiting-design-approval | awaiting-implementation-review | complete`
 - Current boundary:
 - Deferred work:
+- Canonical product owners:
+- Scenario and command owners:
 
 ## Authoritative example
 
@@ -59,13 +61,14 @@
 - Browser contract/files:
 - Production locale coverage:
 - Focused regression:
-- Mechanical checks:
-- Semantic review:
+- Mechanical checks and owning commands:
+- Semantic review and canonical sources:
+- Editorial review:
 - Visual review:
 - Fresh-context review:
-- 23-strategy matrices:
-- Nine-game terminal/browser journeys:
-- CI:
+- Maintained strategy-matrix evidence:
+- Maintained complete-game evidence:
+- CI and final revision:
 
 ## Blockers and next action
 
