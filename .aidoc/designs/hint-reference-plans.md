@@ -77,7 +77,7 @@ XY-Wing plans use five stages: identify the pivot; follow each pivot value to th
 
 ## Uniqueness Family
 
-BUG+1 plans identify the only unsolved cell with three candidates after establishing that every other unsolved cell is bivalue. The comparison identifies the extra candidate whose removal would leave interchangeable solutions, and the conclusion places that candidate before naming BUG+1.
+BUG+1 plans first establish every bivalue cell, then isolate the only three-candidate cell. Separate row and column counts reveal the extra candidate before the box and uniqueness consequence complete the proof; the conclusion places that candidate and names BUG+1.
 
 Unique Rectangle Types 1–4 first identify four corners spanning two rows, two columns, and two boxes plus the candidate pair common to every corner. The comparison then distinguishes the exact typed relationship: one expanded corner for Type 1, a shared extra candidate for Type 2, a unit-scoped subset for Type 3, or a conjugate pair for Type 4. `solver.Evidence.Premises`, `solver.Evidence.Unit`, and exact eliminations preserve those facts without parsing solver reasons.
 
