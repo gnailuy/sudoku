@@ -11,6 +11,10 @@ You are working on **Sudoku**, a Go platform with a shared game engine, line CLI
 
 Human users start with [`README.md`](README.md). Do not duplicate its onboarding prose here or copy `.aidoc` contracts into this instruction file.
 
+## Project Skills
+
+- For strategic hint design, audit, updates, or new strategies, read [`skills/sudoku-strategic-hint-quality/SKILL.md`](skills/sudoku-strategic-hint-quality/SKILL.md) after following the applicable `.aidoc/INDEX.md` route.
+
 ## Required Commands
 
 ```bash
