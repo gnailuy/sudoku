@@ -278,6 +278,24 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.hidden-triple.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Remove %s from the confined cells. This pattern is called %s.", candidates(a[0]), strategy(a[1]))
 	})
+	many("hint.hidden-quad.first", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, candidate %d appears only in %s.", units(a[0]), *a[1].Digit, cells(a[2]))
+	})
+	many("hint.hidden-quad.second", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "digits", Kind: ArgumentDigits}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, %s can appear only in %s.", units(a[0]), digits(a[1]), cells(a[2]))
+	})
+	many("hint.hidden-quad.third", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "digits", Kind: ArgumentDigits}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, %s can appear only in %s.", units(a[0]), digits(a[1]), cells(a[2]))
+	})
+	many("hint.hidden-quad.fourth", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "digits", Kind: ArgumentDigits}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, %s can appear only in %s.", units(a[0]), digits(a[1]), cells(a[2]))
+	})
+	many("hint.hidden-quad.consequence", []ArgumentSpec{{Name: "digits", Kind: ArgumentDigits}, {Name: "unit", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("Because %s are confined to those cells in %s, those cells cannot contain any other candidates.", digits(a[0]), units(a[1]))
+	})
+	many("hint.hidden-quad.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove %s from the confined cells. This pattern is called %s.", candidates(a[0]), strategy(a[1]))
+	})
 	many("hint.pointing-pair.first", []ArgumentSpec{{Name: "source_unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, start with candidate %d at %s. Check where else %d can go in this box.", units(a[0]), *a[1].Digit, cell(a[2]), *a[1].Digit)
 	})
