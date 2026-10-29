@@ -938,10 +938,14 @@ func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != 3 {
+			expectedSteps := 3
+			if key == "bug-plus-one" {
+				expectedSteps = 6
+			}
+			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != expectedSteps {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
-			for _, step := range plan.Steps[:2] {
+			for _, step := range plan.Steps[:len(plan.Steps)-1] {
 				if strings.Contains(step.Message.Text, plan.Strategy.Name.Text) {
 					t.Fatalf("strategy vocabulary appears before the reasoning: %q", step.Message.Text)
 				}
@@ -950,8 +954,17 @@ func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
 				}
 			}
 			if key == "bug-plus-one" {
-				if plan.Steps[0].Message.ID != "hint.bug-plus-one.observe" || plan.Steps[1].Message.ID != "hint.bug-plus-one.explain" || plan.Steps[2].Message.ID != "hint.bug-plus-one.place" {
-					t.Fatalf("BUG+1 descriptors remain generic: %+v", plan.Steps)
+				ids := []string{"hint.bug-plus-one.bivalue", "hint.bug-plus-one.trivalue", "hint.bug-plus-one.unit-count", "hint.bug-plus-one.unit-count", "hint.bug-plus-one.explain", "hint.bug-plus-one.place"}
+				for index, id := range ids {
+					if plan.Steps[index].Message.ID != id {
+						t.Fatalf("BUG+1 descriptor %d = %q, want %q", index, plan.Steps[index].Message.ID, id)
+					}
+				}
+				markCounts := []int{12, 16, 17, 18, 19, 20}
+				for index, count := range markCounts {
+					if len(plan.Steps[index].Marks) != count {
+						t.Fatalf("BUG+1 mark count %d = %d, want %d", index, len(plan.Steps[index].Marks), count)
+					}
 				}
 			} else {
 				explainID := map[string]string{

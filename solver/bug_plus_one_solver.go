@@ -41,6 +41,7 @@ func NewBUGPlusOneSolver() *BUGPlusOneSolver {
 func (s *BUGPlusOneSolver) Apply(board *core.Board) *Move {
 	var triCell *core.Position
 	var triCands core.CandidateSet
+	var bivalueCells []CandidateGroup
 
 	for r := 0; r < 9; r++ {
 		for c := 0; c < 9; c++ {
@@ -54,7 +55,7 @@ func (s *BUGPlusOneSolver) Apply(board *core.Board) *Move {
 
 			switch {
 			case count == 2:
-				// Expected in a BUG state — continue.
+				bivalueCells = append(bivalueCells, CandidateGroup{Position: pos, Values: cands.Values()})
 			case count == 3:
 				if triCell != nil {
 					// More than one trivalue cell — not BUG+1.
@@ -82,11 +83,15 @@ func (s *BUGPlusOneSolver) Apply(board *core.Board) *Move {
 		return nil
 	}
 
+	premises := make([]CandidateGroup, 0, len(bivalueCells)+1)
+	premises = append(premises, CandidateGroup{Position: *triCell, Values: triCands.Values()})
+	premises = append(premises, bivalueCells...)
+
 	return &Move{
 		Cell:      core.NewCell(*triCell, value),
 		Technique: "bug-plus-one",
 		Evidence: &Evidence{
-			Premises: []CandidateGroup{{Position: *triCell, Values: triCands.Values()}},
+			Premises: premises,
 			Units: []UnitRef{
 				{Kind: UnitRow, Index: triCell.Row},
 				{Kind: UnitColumn, Index: triCell.Column},

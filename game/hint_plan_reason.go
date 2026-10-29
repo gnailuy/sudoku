@@ -1023,22 +1023,74 @@ func sharedHintUnit(a, b core.Position) (solver.UnitRef, bool) {
 }
 
 func bugPlusOneSteps(move *solver.Move, _ string) []HintStep {
-	if move.Evidence == nil || len(move.Evidence.Premises) == 0 || !move.IsPlacement() {
+	if move.Evidence == nil || len(move.Evidence.Premises) < 2 || !move.IsPlacement() {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
 	}
-	premise := move.Evidence.Premises[0]
-	if len(premise.Values) != 3 || len(move.Evidence.Units) != 3 {
+	trivalue := move.Evidence.Premises[0]
+	bivalue := move.Evidence.Premises[1:]
+	if len(trivalue.Values) != 3 || len(move.Evidence.Units) != 3 {
 		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
 	}
-	marks := unitAndPremiseMarks(move.Evidence)
+	for _, group := range bivalue {
+		if len(group.Values) != 2 {
+			return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+		}
+	}
+
+	extraDigit := move.Cell.Value
+	otherDigits := make([]int, 0, 2)
+	for _, digit := range trivalue.Values {
+		if digit != extraDigit {
+			otherDigits = append(otherDigits, digit)
+		}
+	}
+	if len(otherDigits) != 2 {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
+
+	bivalueMarks := make([]HintMark, 0, len(bivalue))
+	for _, group := range bivalue {
+		bivalueMarks = append(bivalueMarks, HintMark{Target: cellTarget(group.Position), Role: HintRolePremise})
+	}
+	trivalueMarks := append([]HintMark(nil), bivalueMarks...)
+	trivalueMarks = append(trivalueMarks, HintMark{Target: cellTarget(trivalue.Position), Role: HintRoleFocus})
+	for _, digit := range trivalue.Values {
+		trivalueMarks = append(trivalueMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: trivalue.Position, Value: digit}), Role: HintRolePremise})
+	}
+
+	rowMarks := append([]HintMark(nil), trivalueMarks...)
+	rowTarget, ok := unitTarget(&move.Evidence.Units[0])
+	if !ok {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
+	rowMarks = append(rowMarks, HintMark{Target: rowTarget, Role: HintRoleFocus})
+	columnMarks := append([]HintMark(nil), rowMarks...)
+	columnTarget, ok := unitTarget(&move.Evidence.Units[1])
+	if !ok {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
+	columnMarks = append(columnMarks, HintMark{Target: columnTarget, Role: HintRoleFocus})
+	allUnitMarks := append([]HintMark(nil), columnMarks...)
+	boxTarget, ok := unitTarget(&move.Evidence.Units[2])
+	if !ok {
+		return evidenceSteps(move, HintConclusion{Placement: placement(move)})
+	}
+	allUnitMarks = append(allUnitMarks, HintMark{Target: boxTarget, Role: HintRoleFocus})
+
 	conclusion := HintConclusion{Placement: placement(move)}
-	observe := hintDescriptor("hint.bug-plus-one.observe", cellArgument("cell", premise.Position), digitsArgument("digits", premise.Values))
-	explain := hintDescriptor("hint.bug-plus-one.explain", digitArgument("digit", move.Cell.Value), cellArgument("cell", premise.Position), unitsArgument("units", move.Evidence.Units))
+	bivalueMessage := hintDescriptor("hint.bug-plus-one.bivalue", cellArgument("cell", trivalue.Position), countArgument("count", len(bivalue)))
+	trivalueMessage := hintDescriptor("hint.bug-plus-one.trivalue", cellArgument("cell", trivalue.Position), digitsArgument("digits", trivalue.Values))
+	rowMessage := hintDescriptor("hint.bug-plus-one.unit-count", digitArgument("digit", extraDigit), digitsArgument("other_digits", otherDigits), unitsArgument("unit", move.Evidence.Units[:1]))
+	columnMessage := hintDescriptor("hint.bug-plus-one.unit-count", digitArgument("digit", extraDigit), digitsArgument("other_digits", otherDigits), unitsArgument("unit", move.Evidence.Units[1:2]))
+	explain := hintDescriptor("hint.bug-plus-one.explain", digitArgument("digit", extraDigit), digitsArgument("other_digits", otherDigits), cellArgument("cell", trivalue.Position), unitsArgument("units", move.Evidence.Units))
 	apply := hintDescriptor("hint.bug-plus-one.place", digitArgument("digit", move.Cell.Value), cellArgument("cell", move.Cell.Position), strategyArgument("strategy", move.Technique))
 	return []HintStep{
-		{ID: "find-trivalue-cell", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: marks},
-		{ID: "explain-extra-candidate", Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: marks},
-		{ID: "apply-bug-plus-one", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		{ID: "find-bivalue-cells", Kind: HintStepObserve, Message: bivalueMessage, Narration: []HintNarrationChunk{narrationMessage(bivalueMessage)}, Marks: bivalueMarks},
+		{ID: "find-trivalue-cell", Kind: HintStepObserve, Message: trivalueMessage, Narration: []HintNarrationChunk{narrationMessage(trivalueMessage)}, Marks: trivalueMarks},
+		{ID: "count-extra-candidate-in-row", Kind: HintStepExplain, Message: rowMessage, Narration: []HintNarrationChunk{narrationMessage(rowMessage)}, Marks: rowMarks},
+		{ID: "count-extra-candidate-in-column", Kind: HintStepExplain, Message: columnMessage, Narration: []HintNarrationChunk{narrationMessage(columnMessage)}, Marks: columnMarks},
+		{ID: "explain-extra-candidate", Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: allUnitMarks},
+		{ID: "apply-bug-plus-one", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(allUnitMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
 }
 

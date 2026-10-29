@@ -406,11 +406,17 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.relational-wing.place", []ArgumentSpec{{Name: "removed_digit", Kind: ArgumentDigit}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Remove candidate %d from %s, so place %d there. This pattern is called %s.", *a[0].Digit, cell(a[2]), *a[1].Digit, strategy(a[3]))
 	})
-	many("hint.bug-plus-one.observe", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
-		return fmt.Sprintf("Every other unsolved cell has two candidates, while %s has %s.", cell(a[0]), digits(a[1]))
+	many("hint.bug-plus-one.bivalue", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "count", Kind: ArgumentCount}}, func(a []Argument) string {
+		return fmt.Sprintf("Except for %s, the other %d unsolved cells each have exactly two candidates.", cell(a[0]), *a[1].Count)
 	})
-	many("hint.bug-plus-one.explain", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "units", Kind: ArgumentUnits}}, func(a []Argument) string {
-		return fmt.Sprintf("Removing %d from %s would leave every unsolved cell bivalue and make the solution interchangeable across %s, so %d must be true.", *a[0].Digit, cell(a[1]), units(a[2]), *a[0].Digit)
+	many("hint.bug-plus-one.trivalue", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("%s has three candidates: %s. It is the only unsolved cell with one extra candidate.", cell(a[0]), digits(a[1]))
+	})
+	many("hint.bug-plus-one.unit-count", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "other_digits", Kind: ArgumentDigits}, {Name: "unit", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("In %s, candidate %d has three possible positions, while %s each have two.", units(a[2]), *a[0].Digit, digits(a[1]))
+	})
+	many("hint.bug-plus-one.explain", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "other_digits", Kind: ArgumentDigits}, {Name: "cell", Kind: ArgumentCell}, {Name: "units", Kind: ArgumentUnits}}, func(a []Argument) string {
+		return fmt.Sprintf("Across %s, candidate %d has one more possible position than %s. If %s were not %d, every unsolved cell would be bivalue and the puzzle would no longer have a unique solution. Therefore, %s must be %d.", units(a[3]), *a[0].Digit, digits(a[1]), cell(a[2]), *a[0].Digit, cell(a[2]), *a[0].Digit)
 	})
 	many("hint.bug-plus-one.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s. This uniqueness exception is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
