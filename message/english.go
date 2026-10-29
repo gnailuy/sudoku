@@ -424,6 +424,21 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.unique-rectangle.observe", []ArgumentSpec{{Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("The cells at %s form a rectangle and all contain the pair %s.", cells(a[0]), digits(a[1]))
 	})
+	one("hint.unique-rectangle.rectangle", "cells", ArgumentCells, func(a Argument) string {
+		return fmt.Sprintf("The four unsolved cells at %s sit at the corners of a rectangle.", cells(a))
+	})
+	many("hint.unique-rectangle.pair-corners", []ArgumentSpec{{Name: "cells", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("At %s, the only candidates are %s.", cells(a[0]), digits(a[1]))
+	})
+	many("hint.unique-rectangle.third-corner", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("%s is also exactly %s. Three corners now have the same pair.", cell(a[0]), digits(a[1]))
+	})
+	many("hint.unique-rectangle.expanded-corner", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}, {Name: "extra_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("%s contains %s. It is the only corner with the extra candidate %d.", cell(a[0]), digits(a[1]), *a[2].Digit)
+	})
+	many("hint.unique-rectangle.protect-uniqueness", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}, {Name: "extra_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("If %s kept either candidate from the pair %s, all four corners could swap those two digits without changing any row, column, or box. The puzzle would have two solutions, so remove %s and keep %d.", cell(a[0]), digits(a[1]), digits(a[1]), *a[2].Digit)
+	})
 	many("hint.unique-rectangle.type1", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("Three corners contain exactly %s. If %s also used either digit, the rectangle would allow two interchangeable solutions.", digits(a[1]), cell(a[0]))
 	})
@@ -441,6 +456,9 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	})
 	many("hint.unique-rectangle.place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Place %d in %s after applying the uniqueness relationship. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
+	})
+	many("hint.unique-rectangle.type1-place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Only %d remains in %s. Place it there. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
 	many("hint.coloring.pair", []ArgumentSpec{{Name: "unit", Kind: ArgumentUnits}, {Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}}, func(a []Argument) string {
 		return fmt.Sprintf("In %s, candidate %d can appear only in %s, so exactly one of those cells contains %d. Mark them as opposite possibilities A and B.", units(a[0]), *a[1].Digit, cells(a[2]), *a[1].Digit)
