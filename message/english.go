@@ -442,6 +442,18 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.unique-rectangle.type1", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("Three corners contain exactly %s. If %s also used either digit, the rectangle would allow two interchangeable solutions.", digits(a[1]), cell(a[0]))
 	})
+	many("hint.unique-rectangle.type2-first-expanded", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "pair", Kind: ArgumentDigits}, {Name: "extra_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("%s can be %s, or %d.", cell(a[0]), digits(a[1]), *a[2].Digit)
+	})
+	many("hint.unique-rectangle.type2-shared-extra", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "pair", Kind: ArgumentDigits}, {Name: "extra_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("%s also has candidates %s, plus %d. The two expanded corners share extra candidate %d.", cell(a[0]), digits(a[1]), *a[2].Digit, *a[2].Digit)
+	})
+	many("hint.unique-rectangle.type2-protect-uniqueness", []ArgumentSpec{{Name: "cells", Kind: ArgumentCells}, {Name: "extra_digit", Kind: ArgumentDigit}, {Name: "target", Kind: ArgumentCell}}, func(a []Argument) string {
+		return fmt.Sprintf("To prevent the four corners from swapping their shared pair, at least one expanded corner at %s must be %d. %s sees both corners, so it cannot be %d.", cells(a[0]), *a[1].Digit, cell(a[2]), *a[1].Digit)
+	})
+	many("hint.unique-rectangle.type2-place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Only %d remains in %s. Place it there. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
+	})
 	many("hint.unique-rectangle.type2", []ArgumentSpec{{Name: "cells", Kind: ArgumentCells}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
 		return fmt.Sprintf("The two expanded corners at %s share extra candidate %d, so any cell that sees both corners cannot contain %d.", cells(a[0]), *a[1].Digit, *a[1].Digit)
 	})
