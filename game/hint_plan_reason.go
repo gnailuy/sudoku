@@ -1608,7 +1608,7 @@ func xCycleSteps(move *solver.Move, _ string) []HintStep {
 		}
 	}
 
-	target := core.Position{}
+	var target core.Position
 	wantKind := solver.LinkWeak
 	if conclusion.Placement != nil {
 		target = conclusion.Placement.Position
