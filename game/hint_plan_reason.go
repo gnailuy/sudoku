@@ -1250,18 +1250,75 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 			{ID: "apply-unique-rectangle", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(uniquenessMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 		}
 	case "unique-rectangle-3":
-		if evidence.Unit == nil || len(expanded) != 2 {
+		exact := make([]solver.CandidateGroup, 0, 2)
+		for _, premise := range premises[:4] {
+			if len(premise.Values) == 2 {
+				exact = append(exact, premise)
+			}
+		}
+		if evidence.Unit == nil || len(exact) != 2 || len(expanded) != 2 || len(premises) != 5 || conclusion.Placement == nil || len(evidence.Eliminations) != 1 {
 			return evidenceSteps(move, conclusion)
 		}
 		extras := removeValues(combinedValues(expanded...), pair)
-		if len(extras) == 0 {
+		partner := premises[4]
+		removed := evidence.Eliminations[0]
+		if len(extras) != 2 || !equalValues(partner.Values, extras) || !containsValue(extras, removed.Value) || removed.Position != conclusion.Placement.Position {
 			return evidenceSteps(move, conclusion)
 		}
-		partnerCells := make([]core.Position, 0, len(premises)-4)
-		for _, premise := range premises[4:] {
-			partnerCells = append(partnerCells, premise.Position)
+		unitMarks := make([]HintMark, 0, 4)
+		seenRows, seenColumns := map[int]bool{}, map[int]bool{}
+		for _, corner := range corners {
+			if !seenRows[corner.Row] {
+				seenRows[corner.Row] = true
+				target, _ := unitTarget(&solver.UnitRef{Kind: solver.UnitRow, Index: corner.Row})
+				unitMarks = append(unitMarks, HintMark{Target: target, Role: HintRoleFocus})
+			}
+			if !seenColumns[corner.Column] {
+				seenColumns[corner.Column] = true
+				target, _ := unitTarget(&solver.UnitRef{Kind: solver.UnitColumn, Index: corner.Column})
+				unitMarks = append(unitMarks, HintMark{Target: target, Role: HintRoleFocus})
+			}
 		}
-		explain = hintDescriptor("hint.unique-rectangle.type3", digitsArgument("digits", extras), cellsArgument("cells", partnerCells), unitsArgument("unit", []solver.UnitRef{*evidence.Unit}))
+		rectangleMarks := append([]HintMark(nil), unitMarks...)
+		for _, corner := range corners {
+			rectangleMarks = append(rectangleMarks, HintMark{Target: cellTarget(corner), Role: HintRoleFocus})
+		}
+		withCandidates := func(groups ...solver.CandidateGroup) []HintMark {
+			result := append([]HintMark(nil), rectangleMarks...)
+			for _, group := range groups {
+				for _, value := range group.Values {
+					result = append(result, HintMark{Target: candidateTarget(solver.CandidateRef{Position: group.Position, Value: value}), Role: HintRolePremise})
+				}
+			}
+			return result
+		}
+		pairMarks := withCandidates(exact...)
+		firstExpandedMarks := withCandidates(exact[0], exact[1], expanded[0])
+		allCornerMarks := withCandidates(exact[0], exact[1], expanded[0], expanded[1])
+		subsetMarks := withCandidates(exact[0], exact[1], expanded[0], expanded[1], partner)
+		eliminationMarks := append([]HintMark(nil), subsetMarks...)
+		eliminationMarks = append(eliminationMarks, HintMark{Target: candidateTarget(removed), Role: HintRoleEliminated})
+		firstExtra := removeValues(expanded[0].Values, pair)
+		secondExtra := removeValues(expanded[1].Values, pair)
+		if len(firstExtra) != 1 || len(secondExtra) != 1 || firstExtra[0] == secondExtra[0] {
+			return evidenceSteps(move, conclusion)
+		}
+		findRectangle := hintDescriptor("hint.unique-rectangle.rectangle", cellsArgument("cells", corners))
+		findPair := hintDescriptor("hint.unique-rectangle.pair-corners", cellsArgument("cells", []core.Position{exact[0].Position, exact[1].Position}), digitsArgument("digits", pair))
+		findFirstExpanded := hintDescriptor("hint.unique-rectangle.type3-first-expanded", cellArgument("cell", expanded[0].Position), digitsArgument("pair", pair), digitArgument("extra_digit", firstExtra[0]))
+		findSecondExpanded := hintDescriptor("hint.unique-rectangle.type3-second-expanded", cellArgument("cell", expanded[1].Position), digitsArgument("pair", pair), digitArgument("extra_digit", secondExtra[0]))
+		findPartner := hintDescriptor("hint.unique-rectangle.type3-partner", cellArgument("cell", partner.Position), digitsArgument("digits", extras))
+		reserveExtras := hintDescriptor("hint.unique-rectangle.type3-reserve", cellsArgument("corners", []core.Position{expanded[0].Position, expanded[1].Position}), digitsArgument("digits", extras), cellArgument("partner", partner.Position), unitsArgument("unit", []solver.UnitRef{*evidence.Unit}), cellArgument("target", removed.Position), digitArgument("removed_digit", removed.Value))
+		apply := hintDescriptor("hint.unique-rectangle.type3-place", digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+		return []HintStep{
+			{ID: "find-unique-rectangle-corners", Kind: HintStepObserve, Message: findRectangle, Narration: []HintNarrationChunk{narrationMessage(findRectangle)}, Marks: rectangleMarks},
+			{ID: "find-unique-rectangle-pair", Kind: HintStepObserve, Message: findPair, Narration: []HintNarrationChunk{narrationMessage(findPair)}, Marks: pairMarks},
+			{ID: "find-unique-rectangle-first-expanded-corner", Kind: HintStepObserve, Message: findFirstExpanded, Narration: []HintNarrationChunk{narrationMessage(findFirstExpanded)}, Marks: firstExpandedMarks},
+			{ID: "find-unique-rectangle-second-expanded-corner", Kind: HintStepObserve, Message: findSecondExpanded, Narration: []HintNarrationChunk{narrationMessage(findSecondExpanded)}, Marks: allCornerMarks},
+			{ID: "find-unique-rectangle-subset-partner", Kind: HintStepObserve, Message: findPartner, Narration: []HintNarrationChunk{narrationMessage(findPartner)}, Marks: subsetMarks},
+			{ID: "reserve-unique-rectangle-extra-digits", Kind: HintStepExplain, Message: reserveExtras, Narration: []HintNarrationChunk{narrationMessage(reserveExtras)}, Marks: eliminationMarks},
+			{ID: "apply-unique-rectangle", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(eliminationMarks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
+		}
 	case "unique-rectangle-4":
 		if evidence.Unit == nil || len(expanded) != 2 {
 			return evidenceSteps(move, conclusion)
@@ -1291,6 +1348,18 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 		{ID: "explain-" + move.Technique, Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: marks},
 		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marks, conclusionMarks(conclusion)...), Effect: conclusionEffect(conclusion)},
 	}
+}
+
+func equalValues(left, right []int) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func removeValues(values, removed []int) []int {
