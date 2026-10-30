@@ -475,8 +475,17 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.unique-rectangle.type3-place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Only %d remains in %s. Place it there. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
 	})
+	many("hint.unique-rectangle.type4-first-expanded", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "pair", Kind: ArgumentDigits}, {Name: "extra_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("%s also has %s, plus the extra candidate %d.", cell(a[0]), digits(a[1]), *a[2].Digit)
+	})
+	many("hint.unique-rectangle.type4-second-expanded", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "pair", Kind: ArgumentDigits}, {Name: "extra_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("%s also has %s, plus the extra candidate %d. Both expanded corners now contain the rectangle pair.", cell(a[0]), digits(a[1]), *a[2].Digit)
+	})
 	many("hint.unique-rectangle.type4", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "unit", Kind: ArgumentUnits}, {Name: "removed_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
 		return fmt.Sprintf("Candidate %d appears in %s as a conjugate pair in %s, so candidate %d cannot occupy either expanded corner without creating interchangeable solutions.", *a[0].Digit, cells(a[1]), units(a[2]), *a[3].Digit)
+	})
+	many("hint.unique-rectangle.type4-apply", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Remove candidate %d from %s. This uniqueness relationship is called %s.", *a[0].Digit, cells(a[1]), strategy(a[2]))
 	})
 	many("hint.unique-rectangle.apply", []ArgumentSpec{{Name: "candidates", Kind: ArgumentCandidates}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
 		return fmt.Sprintf("Remove %s. This uniqueness relationship is called %s.", candidates(a[0]), strategy(a[1]))
