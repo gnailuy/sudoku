@@ -3,6 +3,7 @@ package game
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/gnailuy/sudoku/core"
@@ -155,6 +156,62 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 			}
 			t.Fatalf("real game did not reach strategy %s within 128 hints", key)
 		})
+	}
+}
+
+func TestStrategicHintRegressionCorpusHasNoGenericFallbackOrPanic(t *testing.T) {
+	puzzles := []string{
+		".....1..2..134..5.26.....3......6..7.1..2.89.5.9.1.....528..9..196.5.3..7831...2.",
+		"........1......23...2..456...1..6.....7..8...358142....8.9....31...8....5.3.71684",
+		"...........1..2.34.3.15.6.........1...5.2.37.712....86...9......5.8.7..396723....",
+		".....1..2..1.3..4..52...67....8..5....6.5..8.5.8.93....2.4.9...8.....2.976.3....4",
+		".....1..2..1.2..3.24.3.5.1.....1.2...674..15.4..5....6...7...2...4...8759..284...",
+		"........1.....123...2.4.5.6.....7......48...5.9..561..6.9.124..47..3.6.2528.6.7..",
+		"........1.....234..1536.......7.86.9.4.......8.6.5......32...98..28..5..97.4..1..",
+		".......12..1.234...5.4..3.6.......78..6.385...2.5..6.31....7..43....2..76..9.....",
+		".....1..2....2314....54..36..2.3...7.74..62..35.1...8..4...5.7..183....55.3.1.8..",
+	}
+	wantStrategies := map[string]bool{
+		"simple-coloring":    false,
+		"x-cycles":           false,
+		"xy-chain":           false,
+		"xyz-wing":           false,
+		"unique-rectangle":   false,
+		"unique-rectangle-2": false,
+		"unique-rectangle-3": false,
+		"unique-rectangle-4": false,
+	}
+	store := solver.NewStore()
+	options := NewDefaultOptions(store)
+	options.StrategySolverKeys = store.GetAllStrategySolverKeys()
+	for puzzleIndex, puzzle := range puzzles {
+		current := NewGame(boardFromPuzzle(t, puzzle), options)
+		for hintNumber := 0; hintNumber < 1024; hintNumber++ {
+			plan := current.Hint()
+			if plan == nil {
+				if current.Snapshot().Status != StatusSolved {
+					t.Fatalf("puzzle %d exhausted hints before solving", puzzleIndex)
+				}
+				break
+			}
+			wantStrategies[plan.Strategy.ID] = wantStrategies[plan.Strategy.ID] || plan.Strategy.ID != ""
+			for _, step := range plan.Steps {
+				if strings.HasPrefix(step.Message.ID, "hint.strategy.") {
+					t.Fatalf("puzzle %d hint %d strategy %s used generic descriptor %s", puzzleIndex, hintNumber+1, plan.Strategy.ID, step.Message.ID)
+				}
+			}
+			if _, err := current.Apply(ApplyHint{PlanID: plan.PlanID}); err != nil {
+				t.Fatalf("puzzle %d hint %d apply: %v", puzzleIndex, hintNumber+1, err)
+			}
+			if hintNumber == 1023 {
+				t.Fatalf("puzzle %d exceeded hint limit", puzzleIndex)
+			}
+		}
+	}
+	for strategy, seen := range wantStrategies {
+		if !seen {
+			t.Fatalf("regression corpus did not exercise %s", strategy)
+		}
 	}
 }
 

@@ -186,15 +186,20 @@ func hiddenSingleSteps(move *solver.Move) []HintStep {
 	applyMarks[1] = HintMark{Target: candidateTarget(ref), Role: HintRoleConclusion}
 	unitName := fmt.Sprintf("%s %d", move.Evidence.Unit.Kind, move.Evidence.Unit.Index+1)
 	inspect := hintDescriptor("hint.hidden-single.inspect", unitsArgument("unit", []solver.UnitRef{*move.Evidence.Unit}), digitArgument("digit", move.Cell.Value))
-	blockers := hintDescriptor("hint.hidden-single.blockers", cellsArgument("blockers", blockerCells), digitArgument("digit", move.Cell.Value), unitsArgument("unit", []solver.UnitRef{*move.Evidence.Unit}))
 	only := hintDescriptor("hint.hidden-single.only", cellArgument("cell", move.Cell.Position), digitArgument("digit", move.Cell.Value))
 	apply := hintDescriptor("hint.hidden-single.apply", digitArgument("digit", move.Cell.Value), cellArgument("cell", move.Cell.Position), strategyArgument("strategy", move.Technique))
-	return []HintStep{
+	steps := []HintStep{
 		{ID: fmt.Sprintf("scan-%s-for-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepObserve, Message: inspect, Narration: []HintNarrationChunk{narrationMessage(inspect)}, Marks: baseMarks},
-		{ID: fmt.Sprintf("rule-out-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepExplain, Message: blockers, Narration: []HintNarrationChunk{narrationMessage(blockers)}, Marks: blockerMarks},
-		{ID: fmt.Sprintf("identify-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepExplain, Message: only, Narration: []HintNarrationChunk{narrationMessage(only)}, Marks: blockerMarks},
-		{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: &HintEffect{Placement: &move.Cell}},
 	}
+	if len(blockerCells) > 0 {
+		blockers := hintDescriptor("hint.hidden-single.blockers", cellsArgument("blockers", blockerCells), digitArgument("digit", move.Cell.Value), unitsArgument("unit", []solver.UnitRef{*move.Evidence.Unit}))
+		steps = append(steps, HintStep{ID: fmt.Sprintf("rule-out-%s-%d", strings.ReplaceAll(unitName, " ", ""), move.Cell.Value), Kind: HintStepExplain, Message: blockers, Narration: []HintNarrationChunk{narrationMessage(blockers)}, Marks: blockerMarks})
+	}
+	steps = append(steps,
+		HintStep{ID: fmt.Sprintf("identify-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepExplain, Message: only, Narration: []HintNarrationChunk{narrationMessage(only)}, Marks: blockerMarks},
+		HintStep{ID: fmt.Sprintf("place-%s-%d", compactCellName(move.Cell.Position), move.Cell.Value), Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: applyMarks, Effect: &HintEffect{Placement: &move.Cell}},
+	)
+	return steps
 }
 
 func nakedSubsetSteps(move *solver.Move, _ string) []HintStep {
@@ -819,7 +824,7 @@ func relationalSteps(move *solver.Move, _ string) []HintStep {
 			}
 		}
 		if move.Technique == "xyz-wing" {
-			if len(pivot.Values) != 3 || len(wings[0].Values) != 2 || len(wings[1].Values) != 2 || conclusion.Placement != nil {
+			if len(pivot.Values) != 3 || len(wings[0].Values) != 2 || len(wings[1].Values) != 2 {
 				return evidenceSteps(move, conclusion)
 			}
 			nonShared := make([]int, 0, 2)
@@ -897,12 +902,17 @@ func relationalSteps(move *solver.Move, _ string) []HintStep {
 			if len(messagePatternCells) != 3 {
 				return evidenceSteps(move, conclusion)
 			}
-			apply := hintDescriptor("hint.xyz-wing.apply",
-				cellArgument("target", target),
-				cellArgument("first_pattern_cell", messagePatternCells[0]), unitsArgument("first_unit", []solver.UnitRef{messageWitnessUnits[0]}),
-				cellArgument("second_pattern_cell", messagePatternCells[1]), unitsArgument("second_unit", []solver.UnitRef{messageWitnessUnits[1]}),
-				cellArgument("third_pattern_cell", messagePatternCells[2]), unitsArgument("third_unit", []solver.UnitRef{messageWitnessUnits[2]}),
-				digitArgument("shared_digit", actionDigit), strategyArgument("strategy", move.Technique))
+			var apply message.Descriptor
+			if conclusion.Placement != nil {
+				apply = hintDescriptor("hint.relational-wing.place", digitArgument("removed_digit", actionDigit), digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+			} else {
+				apply = hintDescriptor("hint.xyz-wing.apply",
+					cellArgument("target", target),
+					cellArgument("first_pattern_cell", messagePatternCells[0]), unitsArgument("first_unit", []solver.UnitRef{messageWitnessUnits[0]}),
+					cellArgument("second_pattern_cell", messagePatternCells[1]), unitsArgument("second_unit", []solver.UnitRef{messageWitnessUnits[1]}),
+					cellArgument("third_pattern_cell", messagePatternCells[2]), unitsArgument("third_unit", []solver.UnitRef{messageWitnessUnits[2]}),
+					digitArgument("shared_digit", actionDigit), strategyArgument("strategy", move.Technique))
+			}
 			return []HintStep{
 				{ID: "find-xyz-wing-pivot", Kind: HintStepObserve, Message: pivotMessage, Narration: []HintNarrationChunk{narrationMessage(pivotMessage)}, Marks: marksForNodes(pivotNodes), Nodes: pivotNodes, Links: []HintLink{}},
 				{ID: "follow-xyz-wing-first-case", Kind: HintStepExplain, Message: firstCaseMessage, Narration: []HintNarrationChunk{narrationMessage(firstCaseMessage)}, Marks: marksForNodes(firstCaseNodes), Nodes: firstCaseNodes, Links: []HintLink{firstCaseLink}},
@@ -1094,6 +1104,94 @@ func bugPlusOneSteps(move *solver.Move, _ string) []HintStep {
 	}
 }
 
+func compactUniquenessSteps(move *solver.Move, conclusion HintConclusion) []HintStep {
+	evidence := move.Evidence
+	if evidence == nil || len(evidence.Premises) < 4 {
+		return evidenceSteps(move, conclusion)
+	}
+	premises := evidence.Premises
+	pair := sharedValues(premises[:4]...)
+	if len(pair) != 2 {
+		return evidenceSteps(move, conclusion)
+	}
+	corners := make([]core.Position, 4)
+	expanded := make([]solver.CandidateGroup, 0, 2)
+	for index, premise := range premises[:4] {
+		corners[index] = premise.Position
+		if len(premise.Values) > 2 {
+			expanded = append(expanded, premise)
+		}
+	}
+	marks := unitAndPremiseMarks(evidence)
+	observe := hintDescriptor("hint.unique-rectangle.observe", cellsArgument("cells", corners), digitsArgument("digits", pair))
+	var explain message.Descriptor
+	var nodes []HintNode
+	var links []HintLink
+	switch move.Technique {
+	case "unique-rectangle":
+		if len(expanded) != 1 {
+			return evidenceSteps(move, conclusion)
+		}
+		explain = hintDescriptor("hint.unique-rectangle.type1", cellArgument("cell", expanded[0].Position), digitsArgument("digits", pair))
+	case "unique-rectangle-2":
+		if len(expanded) != 2 {
+			return evidenceSteps(move, conclusion)
+		}
+		extra := removeValues(sharedValues(expanded...), pair)
+		if len(extra) != 1 {
+			return evidenceSteps(move, conclusion)
+		}
+		explain = hintDescriptor("hint.unique-rectangle.type2", cellsArgument("cells", []core.Position{expanded[0].Position, expanded[1].Position}), digitArgument("digit", extra[0]))
+	case "unique-rectangle-3":
+		if evidence.Unit == nil || len(expanded) != 2 || len(premises) < 5 {
+			return evidenceSteps(move, conclusion)
+		}
+		extras := removeValues(combinedValues(expanded...), pair)
+		if len(extras) == 0 {
+			return evidenceSteps(move, conclusion)
+		}
+		subsetCells := []core.Position{expanded[0].Position, expanded[1].Position}
+		for _, premise := range premises[4:] {
+			subsetCells = append(subsetCells, premise.Position)
+		}
+		explain = hintDescriptor("hint.unique-rectangle.type3", digitsArgument("digits", extras), cellsArgument("cells", subsetCells), unitsArgument("unit", []solver.UnitRef{*evidence.Unit}))
+	case "unique-rectangle-4":
+		if evidence.Unit == nil || len(expanded) != 2 || len(conclusion.Eliminations) == 0 {
+			return evidenceSteps(move, conclusion)
+		}
+		removed := conclusion.Eliminations[0].Value
+		conjugate := 0
+		for _, digit := range pair {
+			if digit != removed {
+				conjugate = digit
+			}
+		}
+		if conjugate == 0 {
+			return evidenceSteps(move, conclusion)
+		}
+		cells := []core.Position{expanded[0].Position, expanded[1].Position}
+		explain = hintDescriptor("hint.unique-rectangle.type4", digitArgument("digit", conjugate), cellsArgument("cells", cells), unitsArgument("unit", []solver.UnitRef{*evidence.Unit}), digitArgument("removed_digit", removed))
+		refs := []solver.CandidateRef{{Position: cells[0], Value: conjugate}, {Position: cells[1], Value: conjugate}}
+		nodes = []HintNode{{ID: candidateNodeID(refs[0]), Target: candidateTarget(refs[0])}, {ID: candidateNodeID(refs[1]), Target: candidateTarget(refs[1])}}
+		links = []HintLink{{From: nodes[0].ID, To: nodes[1].ID, Kind: solver.LinkStrong}}
+	default:
+		return evidenceSteps(move, conclusion)
+	}
+	var apply message.Descriptor
+	if conclusion.Placement != nil {
+		apply = hintDescriptor("hint.unique-rectangle.place", digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+	} else if len(conclusion.Eliminations) > 0 {
+		apply = hintDescriptor("hint.unique-rectangle.apply", candidatesArgument("candidates", conclusion.Eliminations), strategyArgument("strategy", move.Technique))
+	} else {
+		return evidenceSteps(move, conclusion)
+	}
+	return []HintStep{
+		{ID: "find-unique-rectangle", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: marks},
+		{ID: "explain-" + move.Technique, Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: marks, Nodes: nodes, Links: links},
+		{ID: "apply-" + move.Technique, Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+	}
+}
+
 func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	conclusion := HintConclusion{Placement: placement(move)}
@@ -1101,12 +1199,12 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 		conclusion.Eliminations = evidence.Eliminations
 	}
 	if evidence == nil || len(evidence.Premises) < 4 {
-		return evidenceSteps(move, conclusion)
+		return compactUniquenessSteps(move, conclusion)
 	}
 	premises := evidence.Premises
 	pair := sharedValues(premises[:4]...)
 	if len(pair) != 2 || len(evidence.Eliminations) == 0 {
-		return evidenceSteps(move, conclusion)
+		return compactUniquenessSteps(move, conclusion)
 	}
 	corners := make([]core.Position, 4)
 	var expanded []solver.CandidateGroup
@@ -1119,7 +1217,7 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 	switch move.Technique {
 	case "unique-rectangle":
 		if len(expanded) != 1 {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		exact := make([]solver.CandidateGroup, 0, 3)
 		for _, premise := range premises[:4] {
@@ -1128,11 +1226,11 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 			}
 		}
 		if len(exact) != 3 || len(expanded[0].Values) != 3 {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		extra := removeValues(expanded[0].Values, pair)
 		if len(extra) != 1 || conclusion.Placement == nil || conclusion.Placement.Value != extra[0] {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		unitMarks := make([]HintMark, 0, 4)
 		seenRows, seenColumns := map[int]bool{}, map[int]bool{}
@@ -1194,11 +1292,11 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 			}
 		}
 		if len(exact) != 2 || len(expanded) != 2 || len(expanded[0].Values) != 3 || len(expanded[1].Values) != 3 {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		extra := removeValues(sharedValues(expanded...), pair)
 		if len(extra) != 1 || conclusion.Placement == nil || conclusion.Placement.Value == extra[0] {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		unitMarks := make([]HintMark, 0, 4)
 		seenRows, seenColumns := map[int]bool{}, map[int]bool{}
@@ -1254,13 +1352,13 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 			}
 		}
 		if evidence.Unit == nil || len(exact) != 2 || len(expanded) != 2 || len(premises) != 5 || conclusion.Placement == nil || len(evidence.Eliminations) != 1 {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		extras := removeValues(combinedValues(expanded...), pair)
 		partner := premises[4]
 		removed := evidence.Eliminations[0]
 		if len(extras) != 2 || !equalValues(partner.Values, extras) || !containsValue(extras, removed.Value) || removed.Position != conclusion.Placement.Position {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		unitMarks := make([]HintMark, 0, 4)
 		seenRows, seenColumns := map[int]bool{}, map[int]bool{}
@@ -1298,7 +1396,7 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 		firstExtra := removeValues(expanded[0].Values, pair)
 		secondExtra := removeValues(expanded[1].Values, pair)
 		if len(firstExtra) != 1 || len(secondExtra) != 1 || firstExtra[0] == secondExtra[0] {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		findRectangle := hintDescriptor("hint.unique-rectangle.rectangle", cellsArgument("cells", corners))
 		findPair := hintDescriptor("hint.unique-rectangle.pair-corners", cellsArgument("cells", []core.Position{exact[0].Position, exact[1].Position}), digitsArgument("digits", pair))
@@ -1324,12 +1422,12 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 			}
 		}
 		if evidence.Unit == nil || len(exact) != 2 || len(expanded) != 2 || len(expanded[0].Values) != 3 || len(expanded[1].Values) != 3 || len(evidence.Eliminations) != 2 || conclusion.Placement != nil {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		removed := evidence.Eliminations[0].Value
 		for _, elimination := range evidence.Eliminations {
 			if elimination.Value != removed || (elimination.Position != expanded[0].Position && elimination.Position != expanded[1].Position) {
-				return evidenceSteps(move, conclusion)
+				return compactUniquenessSteps(move, conclusion)
 			}
 		}
 		conjugate := 0
@@ -1341,7 +1439,7 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 		firstExtra := removeValues(expanded[0].Values, pair)
 		secondExtra := removeValues(expanded[1].Values, pair)
 		if conjugate == 0 || len(firstExtra) != 1 || len(secondExtra) != 1 {
-			return evidenceSteps(move, conclusion)
+			return compactUniquenessSteps(move, conclusion)
 		}
 		unitMarks := make([]HintMark, 0, 4)
 		seenRows, seenColumns := map[int]bool{}, map[int]bool{}
@@ -1398,7 +1496,7 @@ func uniquenessSteps(move *solver.Move, _ string) []HintStep {
 			{ID: "apply-unique-rectangle", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(allCornerMarks, conclusionMarks(conclusion)...), Nodes: conjugateNodes, Links: conjugateLinks, Effect: conclusionEffect(conclusion)},
 		}
 	default:
-		return evidenceSteps(move, conclusion)
+		return compactUniquenessSteps(move, conclusion)
 	}
 }
 
@@ -1493,10 +1591,10 @@ func xCycleSteps(move *solver.Move, _ string) []HintStep {
 	if evidence != nil {
 		conclusion.Eliminations = evidence.Eliminations
 	}
-	if evidence == nil || conclusion.Placement == nil || len(evidence.Chain) != 7 || len(evidence.Links) != 7 {
+	if evidence == nil || len(evidence.Chain) < 3 || len(evidence.Links) != len(evidence.Chain) {
 		return evidenceSteps(move, conclusion)
 	}
-	digit := conclusion.Placement.Value
+	digit := evidence.Links[0].From.Value
 	positions := make([]core.Position, len(evidence.Chain))
 	for index, group := range evidence.Chain {
 		if len(group.Values) == 0 {
@@ -1504,61 +1602,146 @@ func xCycleSteps(move *solver.Move, _ string) []HintStep {
 		}
 		positions[index] = group.Position
 	}
-	if positions[0] != conclusion.Placement.Position {
-		return evidenceSteps(move, conclusion)
-	}
-	wantKinds := []solver.LinkKind{solver.LinkStrong, solver.LinkWeak, solver.LinkStrong, solver.LinkWeak, solver.LinkStrong, solver.LinkWeak, solver.LinkStrong}
 	for index, link := range evidence.Links {
-		wantFrom := positions[index]
-		wantTo := positions[(index+1)%len(positions)]
-		if link.Kind != wantKinds[index] || link.From.Position != wantFrom || link.To.Position != wantTo || link.From.Value != digit || link.To.Value != digit {
+		if link.From.Position != positions[index] || link.To.Position != positions[(index+1)%len(positions)] || link.From.Value != digit || link.To.Value != digit {
 			return evidenceSteps(move, conclusion)
 		}
 	}
-	strongUnits := make([]solver.UnitRef, 4)
-	for index, linkIndex := range []int{0, 2, 4, 6} {
-		unit, ok := sharedHintUnit(evidence.Links[linkIndex].From.Position, evidence.Links[linkIndex].To.Position)
+
+	var target core.Position
+	wantKind := solver.LinkWeak
+	if conclusion.Placement != nil {
+		target = conclusion.Placement.Position
+		wantKind = solver.LinkStrong
+		for _, elimination := range conclusion.Eliminations {
+			if elimination.Position == target {
+				wantKind = solver.LinkWeak
+				break
+			}
+		}
+	} else if len(conclusion.Eliminations) > 0 {
+		target = conclusion.Eliminations[0].Position
+	} else {
+		return evidenceSteps(move, conclusion)
+	}
+	start := -1
+	for index, position := range positions {
+		previous := (index + len(positions) - 1) % len(positions)
+		if position == target && evidence.Links[index].Kind == wantKind && evidence.Links[previous].Kind == wantKind {
+			start = index
+			break
+		}
+	}
+	if start < 0 {
+		return evidenceSteps(move, conclusion)
+	}
+	rotatePositions := append(append([]core.Position(nil), positions[start:]...), positions[:start]...)
+	rotateLinks := append(append([]solver.CandidateLink(nil), evidence.Links[start:]...), evidence.Links[:start]...)
+	for index, link := range rotateLinks {
+		want := wantKind
+		if index > 0 && index < len(rotateLinks)-1 {
+			if wantKind == solver.LinkStrong {
+				if index%2 == 1 {
+					want = solver.LinkWeak
+				}
+			} else if index%2 == 1 {
+				want = solver.LinkStrong
+			}
+		}
+		if link.Kind != want {
+			return evidenceSteps(move, conclusion)
+		}
+	}
+	allNodes := visualNodes(evidence, true)
+	hintLinks := func(links []solver.CandidateLink) []HintLink {
+		result := make([]HintLink, len(links))
+		for index, link := range links {
+			result[index] = HintLink{From: candidateNodeID(link.From), To: candidateNodeID(link.To), Kind: link.Kind}
+		}
+		return result
+	}
+	nodesFor := func(positions []core.Position) []HintNode {
+		seen := make(map[core.Position]struct{}, len(positions))
+		for _, position := range positions {
+			seen[position] = struct{}{}
+		}
+		result := make([]HintNode, 0, len(positions))
+		for _, node := range allNodes {
+			if node.Target.Position != nil {
+				if _, ok := seen[*node.Target.Position]; ok {
+					result = append(result, node)
+				}
+			}
+		}
+		return result
+	}
+
+	steps := make([]HintStep, 0, len(rotateLinks)/2+2)
+	if wantKind == solver.LinkStrong {
+		unit, ok := sharedHintUnit(rotatePositions[0], rotatePositions[1])
 		if !ok {
 			return evidenceSteps(move, conclusion)
 		}
-		strongUnits[index] = unit
+		opening := hintDescriptor("hint.x-cycle.opening", unitsArgument("unit", []solver.UnitRef{unit}), digitArgument("digit", digit), cellsArgument("cells", rotatePositions[:2]))
+		openingNodes := nodesFor(rotatePositions[:2])
+		steps = append(steps, HintStep{ID: "find-x-cycle-opening-pair", Kind: HintStepObserve, Message: opening, Narration: []HintNarrationChunk{narrationMessage(opening)}, Marks: marksForNodes(openingNodes), Nodes: openingNodes, Links: hintLinks(rotateLinks[:1])})
+		for weak := 1; weak+1 < len(rotateLinks); weak += 2 {
+			blocked := rotatePositions[weak+1]
+			result := rotatePositions[(weak+2)%len(rotatePositions)]
+			unit, ok := sharedHintUnit(blocked, result)
+			if !ok {
+				return evidenceSteps(move, conclusion)
+			}
+			var descriptor message.Descriptor
+			if weak == 1 {
+				descriptor = hintDescriptor("hint.x-cycle.assume", cellArgument("start", rotatePositions[0]), cellArgument("forced", rotatePositions[1]), cellArgument("blocked", blocked), unitsArgument("unit", []solver.UnitRef{unit}), cellArgument("result", result), digitArgument("digit", digit))
+			} else if result == rotatePositions[0] {
+				descriptor = hintDescriptor("hint.x-cycle.close", cellArgument("true_cell", rotatePositions[weak]), cellArgument("blocked", blocked), unitsArgument("unit", []solver.UnitRef{unit}), cellArgument("result", result), digitArgument("digit", digit))
+			} else {
+				descriptor = hintDescriptor("hint.x-cycle.follow", cellArgument("true_cell", rotatePositions[weak]), cellArgument("blocked", blocked), unitsArgument("unit", []solver.UnitRef{unit}), cellArgument("result", result), digitArgument("digit", digit))
+			}
+			count := weak + 3
+			if count > len(rotatePositions) {
+				count = len(rotatePositions)
+			}
+			stepNodes := nodesFor(rotatePositions[:count])
+			steps = append(steps, HintStep{ID: fmt.Sprintf("follow-x-cycle-%d", weak), Kind: HintStepExplain, Message: descriptor, Narration: []HintNarrationChunk{narrationMessage(descriptor)}, Marks: marksForNodes(stepNodes), Nodes: stepNodes, Links: hintLinks(rotateLinks[:weak+2])})
+		}
+		apply := hintDescriptor("hint.x-cycle.place", cellArgument("assumption", rotatePositions[0]), digitArgument("digit", digit), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+		steps = append(steps, HintStep{ID: "apply-x-cycle", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(marksForNodes(allNodes), conclusionMarks(conclusion)...), Nodes: allNodes, Links: hintLinks(rotateLinks), Effect: conclusionEffect(conclusion)})
+		return steps
 	}
-	marks := premiseCandidateMarks(evidence)
-	nodes := visualNodes(evidence, true)
-	links := visualLinks(evidence)
-	if len(nodes) != 7 {
+
+	unit, ok := sharedHintUnit(rotatePositions[1], rotatePositions[2])
+	if !ok {
 		return evidenceSteps(move, conclusion)
 	}
-	scene := func(linkCount int) ([]HintNode, []HintLink) {
-		selectedLinks := append([]HintLink(nil), links[:linkCount]...)
-		ids := make(map[string]struct{}, linkCount+1)
-		for _, link := range selectedLinks {
-			ids[link.From] = struct{}{}
-			ids[link.To] = struct{}{}
+	opening := hintDescriptor("hint.x-cycle.opening", unitsArgument("unit", []solver.UnitRef{unit}), digitArgument("digit", digit), cellsArgument("cells", rotatePositions[1:3]))
+	openingNodes := nodesFor(rotatePositions[1:3])
+	steps = append(steps, HintStep{ID: "find-x-cycle-opening-pair", Kind: HintStepObserve, Message: opening, Narration: []HintNarrationChunk{narrationMessage(opening)}, Marks: marksForNodes(openingNodes), Nodes: openingNodes, Links: hintLinks(rotateLinks[1:2])})
+	for weak := 2; weak+1 < len(rotateLinks)-1; weak += 2 {
+		blocked := rotatePositions[weak+1]
+		result := rotatePositions[weak+2]
+		unit, ok := sharedHintUnit(blocked, result)
+		if !ok {
+			return evidenceSteps(move, conclusion)
 		}
-		selectedNodes := make([]HintNode, 0, len(ids))
-		for _, node := range nodes {
-			if _, ok := ids[node.ID]; ok {
-				selectedNodes = append(selectedNodes, node)
-			}
-		}
-		return selectedNodes, selectedLinks
+		descriptor := hintDescriptor("hint.x-cycle.follow", cellArgument("true_cell", rotatePositions[weak]), cellArgument("blocked", blocked), unitsArgument("unit", []solver.UnitRef{unit}), cellArgument("result", result), digitArgument("digit", digit))
+		stepNodes := nodesFor(rotatePositions[1 : weak+3])
+		steps = append(steps, HintStep{ID: fmt.Sprintf("follow-x-cycle-%d", weak), Kind: HintStepExplain, Message: descriptor, Narration: []HintNarrationChunk{narrationMessage(descriptor)}, Marks: marksForNodes(stepNodes), Nodes: stepNodes, Links: hintLinks(rotateLinks[1 : weak+2])})
 	}
-	step1Nodes, step1Links := scene(1)
-	step2Nodes, step2Links := scene(3)
-	step3Nodes, step3Links := scene(5)
-	opening := hintDescriptor("hint.x-cycle.opening", unitsArgument("unit", strongUnits[:1]), digitArgument("digit", digit), cellsArgument("cells", positions[:2]))
-	assume := hintDescriptor("hint.x-cycle.assume", cellArgument("start", positions[0]), cellArgument("forced", positions[1]), cellArgument("blocked", positions[2]), unitsArgument("unit", strongUnits[1:2]), cellArgument("result", positions[3]), digitArgument("digit", digit))
-	follow := hintDescriptor("hint.x-cycle.follow", cellArgument("true_cell", positions[3]), cellArgument("blocked", positions[4]), unitsArgument("unit", strongUnits[2:3]), cellArgument("result", positions[5]), digitArgument("digit", digit))
-	closeLoop := hintDescriptor("hint.x-cycle.close", cellArgument("true_cell", positions[5]), cellArgument("blocked", positions[6]), unitsArgument("unit", strongUnits[3:4]), cellArgument("result", positions[0]), digitArgument("digit", digit))
-	apply := hintDescriptor("hint.x-cycle.place", cellArgument("assumption", positions[0]), digitArgument("digit", digit), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
-	return []HintStep{
-		{ID: "find-x-cycle-opening-pair", Kind: HintStepObserve, Message: opening, Narration: []HintNarrationChunk{narrationMessage(opening)}, Marks: marksForNodes(step1Nodes), Nodes: step1Nodes, Links: step1Links},
-		{ID: "follow-x-cycle-to-row-eight", Kind: HintStepExplain, Message: assume, Narration: []HintNarrationChunk{narrationMessage(assume)}, Marks: marksForNodes(step2Nodes), Nodes: step2Nodes, Links: step2Links},
-		{ID: "follow-x-cycle-to-row-two", Kind: HintStepExplain, Message: follow, Narration: []HintNarrationChunk{narrationMessage(follow)}, Marks: marksForNodes(step3Nodes), Nodes: step3Nodes, Links: step3Links},
-		{ID: "close-x-cycle-loop", Kind: HintStepExplain, Message: closeLoop, Narration: []HintNarrationChunk{narrationMessage(closeLoop)}, Marks: marks, Nodes: nodes, Links: links},
-		{ID: "apply-x-cycle", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marks, conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
+	cells := make([]core.Position, len(conclusion.Eliminations))
+	for index, elimination := range conclusion.Eliminations {
+		cells[index] = elimination.Position
 	}
+	var apply message.Descriptor
+	if conclusion.Placement != nil {
+		apply = hintDescriptor("hint.relational-wing.place", digitArgument("removed_digit", digit), digitArgument("digit", conclusion.Placement.Value), cellArgument("cell", conclusion.Placement.Position), strategyArgument("strategy", move.Technique))
+	} else {
+		apply = hintDescriptor("hint.implication-chain.apply", digitArgument("digit", digit), cellsArgument("cells", cells), strategyArgument("strategy", move.Technique))
+	}
+	steps = append(steps, HintStep{ID: "apply-x-cycle", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: append(marksForNodes(allNodes), conclusionMarks(conclusion)...), Nodes: allNodes, Links: hintLinks(rotateLinks), Effect: conclusionEffect(conclusion)})
+	return steps
 }
 
 func coloringActionDescriptor(move *solver.Move, conclusion HintConclusion, digit int) message.Descriptor {
@@ -1600,7 +1783,7 @@ func conclusionNarration(conclusion HintConclusion) []HintNarrationChunk {
 	return chunks
 }
 
-func xyChainSteps(move *solver.Move, _ string) []HintStep {
+func xyChainDetailedSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	conclusion := HintConclusion{Placement: placement(move)}
 	if evidence != nil {
@@ -1683,6 +1866,92 @@ func xyChainSteps(move *solver.Move, _ string) []HintStep {
 		{ID: "reach-xy-chain-endpoint", Kind: HintStepExplain, Message: reach, Narration: []HintNarrationChunk{narrationMessage(reach)}, Marks: marksForNodes(nodes), Nodes: nodes, Links: links},
 		{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marksForNodes(nodes), conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)},
 	}
+}
+
+func xyChainSteps(move *solver.Move, display string) []HintStep {
+	evidence := move.Evidence
+	if evidence != nil && move.IsPlacement() && len(evidence.Chain) == 8 && len(evidence.Links) == 7 && len(sharedValues(evidence.Chain[0], evidence.Chain[len(evidence.Chain)-1])) == 1 {
+		if detailed := xyChainDetailedSteps(move, display); len(detailed) > 0 && detailed[0].Message.ID != "" {
+			return detailed
+		}
+	}
+	conclusion := HintConclusion{Placement: placement(move)}
+	if evidence != nil {
+		conclusion.Eliminations = evidence.Eliminations
+	}
+	if evidence == nil || len(evidence.Chain) < 2 || len(evidence.Links) != len(evidence.Chain)-1 {
+		return evidenceSteps(move, conclusion)
+	}
+	endpoint := 0
+	if len(evidence.Eliminations) > 0 {
+		endpoint = evidence.Eliminations[0].Value
+		for _, elimination := range evidence.Eliminations[1:] {
+			if elimination.Value != endpoint {
+				return evidenceSteps(move, conclusion)
+			}
+		}
+	} else {
+		endpointValues := sharedValues(evidence.Chain[0], evidence.Chain[len(evidence.Chain)-1])
+		if len(endpointValues) == 1 {
+			endpoint = endpointValues[0]
+		}
+	}
+	if endpoint == 0 || !containsValue(evidence.Chain[0].Values, endpoint) || !containsValue(evidence.Chain[len(evidence.Chain)-1].Values, endpoint) {
+		return evidenceSteps(move, conclusion)
+	}
+	positions := make([]core.Position, len(evidence.Chain))
+	for index, group := range evidence.Chain {
+		if len(group.Values) != 2 {
+			return evidenceSteps(move, conclusion)
+		}
+		positions[index] = group.Position
+	}
+	for index, relation := range evidence.Links {
+		if relation.Kind != solver.LinkImplication || relation.From.Position != positions[index] || relation.To.Position != positions[index+1] || relation.From.Value != relation.To.Value {
+			return evidenceSteps(move, conclusion)
+		}
+	}
+	if conclusion.Placement == nil && len(conclusion.Eliminations) == 0 {
+		return evidenceSteps(move, conclusion)
+	}
+
+	nodes := visualNodes(evidence, true)
+	links := visualLinks(evidence)
+	scene := func(cellCount, linkCount int) ([]HintNode, []HintLink) {
+		visiblePositions := make(map[core.Position]struct{}, cellCount)
+		for _, position := range positions[:cellCount] {
+			visiblePositions[position] = struct{}{}
+		}
+		visibleNodes := make([]HintNode, 0, cellCount*2)
+		for _, node := range nodes {
+			if node.Target.Position != nil {
+				if _, ok := visiblePositions[*node.Target.Position]; ok {
+					visibleNodes = append(visibleNodes, node)
+				}
+			}
+		}
+		return visibleNodes, append([]HintLink(nil), links[:linkCount]...)
+	}
+	start := hintDescriptor("hint.implication-chain.observe", cellsArgument("cell", positions[:1]), digitsArgument("digits", evidence.Chain[0].Values))
+	startNodes, startLinks := scene(1, 0)
+	steps := []HintStep{{ID: "start-xy-chain", Kind: HintStepObserve, Message: start, Narration: []HintNarrationChunk{narrationMessage(start)}, Marks: marksForNodes(startNodes), Nodes: startNodes, Links: startLinks}}
+	for index, relation := range evidence.Links {
+		explain := hintDescriptor("hint.implication-chain.explain", candidateArgument("from", relation.From), candidateArgument("to", relation.To))
+		stepNodes, stepLinks := scene(index+2, index+1)
+		steps = append(steps, HintStep{ID: fmt.Sprintf("follow-xy-chain-%d", index+1), Kind: HintStepExplain, Message: explain, Narration: []HintNarrationChunk{narrationMessage(explain)}, Marks: marksForNodes(stepNodes), Nodes: stepNodes, Links: stepLinks})
+	}
+	var apply message.Descriptor
+	if conclusion.Placement != nil {
+		apply = hintDescriptor("hint.xy-chain.place", cellArgument("first_endpoint", positions[0]), cellArgument("second_endpoint", positions[len(positions)-1]), digitArgument("endpoint_digit", endpoint), cellArgument("cell", conclusion.Placement.Position), digitArgument("digit", conclusion.Placement.Value), strategyArgument("strategy", move.Technique))
+	} else {
+		cells := make([]core.Position, len(conclusion.Eliminations))
+		for index, elimination := range conclusion.Eliminations {
+			cells[index] = elimination.Position
+		}
+		apply = hintDescriptor("hint.implication-chain.apply", digitArgument("digit", endpoint), cellsArgument("cells", cells), strategyArgument("strategy", move.Technique))
+	}
+	steps = append(steps, HintStep{ID: "apply-xy-chain", Kind: conclusionKind(conclusion), Message: apply, Narration: actionNarration(apply), Marks: append(marksForNodes(nodes), conclusionMarks(conclusion)...), Nodes: nodes, Links: links, Effect: conclusionEffect(conclusion)})
+	return steps
 }
 
 func otherHintDigit(values []int, excluded int) int {

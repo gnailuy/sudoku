@@ -97,6 +97,11 @@ func cellsArgument(name string, positions []core.Position) message.Argument {
 	return message.Argument{Name: name, Kind: message.ArgumentCells, Cells: values}
 }
 
+func candidateArgument(name string, ref solver.CandidateRef) message.Argument {
+	value := message.Candidate{Cell: message.Cell{Row: ref.Position.Row + 1, Column: ref.Position.Column + 1}, Digit: ref.Value}
+	return message.Argument{Name: name, Kind: message.ArgumentCandidate, Candidate: &value}
+}
+
 func candidatesArgument(name string, refs []solver.CandidateRef) message.Argument {
 	values := make([]message.Candidate, len(refs))
 	for i, ref := range refs {
