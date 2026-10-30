@@ -460,6 +460,21 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	many("hint.unique-rectangle.type3", []ArgumentSpec{{Name: "digits", Kind: ArgumentDigits}, {Name: "cells", Kind: ArgumentCells}, {Name: "unit", Kind: ArgumentUnits}}, func(a []Argument) string {
 		return fmt.Sprintf("The rectangle's extra digits %s combine with %s as a reserved subset in %s, so those digits can be removed elsewhere in that unit.", digits(a[0]), cells(a[1]), units(a[2]))
 	})
+	many("hint.unique-rectangle.type3-first-expanded", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "pair", Kind: ArgumentDigits}, {Name: "extra_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("%s also has %s, plus the extra candidate %d.", cell(a[0]), digits(a[1]), *a[2].Digit)
+	})
+	many("hint.unique-rectangle.type3-second-expanded", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "pair", Kind: ArgumentDigits}, {Name: "extra_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("%s also has %s, plus the extra candidate %d. At least one upper corner must use an extra digit, or the four corners could swap %s and give two solutions.", cell(a[0]), digits(a[1]), *a[2].Digit, digits(a[1]))
+	})
+	many("hint.unique-rectangle.type3-partner", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digits", Kind: ArgumentDigits}}, func(a []Argument) string {
+		return fmt.Sprintf("%s can contain only %s.", cell(a[0]), digits(a[1]))
+	})
+	many("hint.unique-rectangle.type3-reserve", []ArgumentSpec{{Name: "corners", Kind: ArgumentCells}, {Name: "digits", Kind: ArgumentDigits}, {Name: "partner", Kind: ArgumentCell}, {Name: "unit", Kind: ArgumentUnits}, {Name: "target", Kind: ArgumentCell}, {Name: "removed_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("One of %s must use one of %s, and %s must use the other. Those digits are reserved in %s, so %s cannot contain %d.", cells(a[0]), digits(a[1]), cell(a[2]), units(a[3]), cell(a[4]), *a[5].Digit)
+	})
+	many("hint.unique-rectangle.type3-place", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cell", Kind: ArgumentCell}, {Name: "strategy", Kind: ArgumentStrategy}}, func(a []Argument) string {
+		return fmt.Sprintf("Only %d remains in %s. Place it there. This pattern is called %s.", *a[0].Digit, cell(a[1]), strategy(a[2]))
+	})
 	many("hint.unique-rectangle.type4", []ArgumentSpec{{Name: "digit", Kind: ArgumentDigit}, {Name: "cells", Kind: ArgumentCells}, {Name: "unit", Kind: ArgumentUnits}, {Name: "removed_digit", Kind: ArgumentDigit}}, func(a []Argument) string {
 		return fmt.Sprintf("Candidate %d appears in %s as a conjugate pair in %s, so candidate %d cannot occupy either expanded corner without creating interchangeable solutions.", *a[0].Digit, cells(a[1]), units(a[2]), *a[3].Digit)
 	})

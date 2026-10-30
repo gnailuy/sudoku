@@ -942,6 +942,9 @@ func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
 			if key == "bug-plus-one" || key == "unique-rectangle" || key == "unique-rectangle-2" {
 				expectedSteps = 6
 			}
+			if key == "unique-rectangle-3" {
+				expectedSteps = 7
+			}
 			if plan == nil || plan.Strategy.ID != key || len(plan.Steps) != expectedSteps {
 				t.Fatalf("unexpected family plan: %+v", plan)
 			}
@@ -980,6 +983,14 @@ func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
 				for index, id := range ids {
 					if plan.Steps[index].Message.ID != id || len(plan.Steps[index].Marks) != markCounts[index] {
 						t.Fatalf("Unique Rectangle Type 2 step %d = %+v", index, plan.Steps[index])
+					}
+				}
+			} else if key == "unique-rectangle-3" {
+				ids := []string{"hint.unique-rectangle.rectangle", "hint.unique-rectangle.pair-corners", "hint.unique-rectangle.type3-first-expanded", "hint.unique-rectangle.type3-second-expanded", "hint.unique-rectangle.type3-partner", "hint.unique-rectangle.type3-reserve", "hint.unique-rectangle.type3-place"}
+				markCounts := []int{8, 12, 15, 18, 20, 21, 22}
+				for index, id := range ids {
+					if plan.Steps[index].Message.ID != id || len(plan.Steps[index].Marks) != markCounts[index] {
+						t.Fatalf("Unique Rectangle Type 3 step %d = %+v", index, plan.Steps[index])
 					}
 				}
 			} else {
