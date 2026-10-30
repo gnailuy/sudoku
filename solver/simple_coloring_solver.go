@@ -314,9 +314,11 @@ func (s *SimpleColoringSolver) applyRule2(board *core.Board, digit int, color0, 
 
 func coloringEvidence(digit int, color0, color1 []core.Position, adj map[core.Position][]core.Position) *Evidence {
 	evidence := &Evidence{}
+	component := make(map[core.Position]struct{}, len(color0)+len(color1))
 	for _, group := range [][]core.Position{color0, color1} {
 		partition := CandidatePartition{}
 		for _, position := range group {
+			component[position] = struct{}{}
 			ref := CandidateRef{Position: position, Value: digit}
 			partition.Candidates = append(partition.Candidates, ref)
 			evidence.Premises = append(evidence.Premises, CandidateGroup{Position: position, Values: []int{digit}})
@@ -325,6 +327,9 @@ func coloringEvidence(digit int, color0, color1 []core.Position, adj map[core.Po
 	}
 	seen := make(map[[2]core.Position]struct{})
 	for _, from := range sortedPositions(adj) {
+		if _, ok := component[from]; !ok {
+			continue
+		}
 		neighbors := append([]core.Position(nil), adj[from]...)
 		sort.Slice(neighbors, func(left, right int) bool {
 			if neighbors[left].Row != neighbors[right].Row {
@@ -333,10 +338,17 @@ func coloringEvidence(digit int, color0, color1 []core.Position, adj map[core.Po
 			return neighbors[left].Column < neighbors[right].Column
 		})
 		for _, to := range neighbors {
-			if _, ok := seen[[2]core.Position{to, from}]; ok {
+			if _, ok := component[to]; !ok {
 				continue
 			}
-			seen[[2]core.Position{from, to}] = struct{}{}
+			pair := [2]core.Position{from, to}
+			if to.Row < from.Row || (to.Row == from.Row && to.Column < from.Column) {
+				pair = [2]core.Position{to, from}
+			}
+			if _, ok := seen[pair]; ok {
+				continue
+			}
+			seen[pair] = struct{}{}
 			evidence.Links = append(evidence.Links, CandidateLink{
 				From: CandidateRef{Position: from, Value: digit},
 				To:   CandidateRef{Position: to, Value: digit},

@@ -132,6 +132,7 @@ func (s *XYZWingSolver) tryXYZWing(board *core.Board, pivotPos core.Position, ca
 
 			// Eliminate shared from cells that see all three: pivot, w1, w2.
 			var move *Move
+			var eliminations []CandidateRef
 			eliminated := false
 			for row := 0; row < 9; row++ {
 				for col := 0; col < 9; col++ {
@@ -144,6 +145,7 @@ func (s *XYZWingSolver) tryXYZWing(board *core.Board, pivotPos core.Position, ca
 					}
 					if board.EliminateCandidate(pos, shared) {
 						eliminated = true
+						eliminations = append(eliminations, CandidateRef{Position: pos, Value: shared})
 						cands := board.Candidates(pos)
 						if cands.Count() == 1 && move == nil {
 							value := cands.Values()[0]
@@ -168,7 +170,7 @@ func (s *XYZWingSolver) tryXYZWing(board *core.Board, pivotPos core.Position, ca
 					{Position: pivotPos, Values: []int{ca, cb, shared}},
 					{Position: w1, Values: []int{ca, shared}},
 					{Position: w2, Values: []int{cb, shared}},
-				}}
+				}, Eliminations: eliminations}
 				if move != nil {
 					move.Evidence = evidence
 					return move
