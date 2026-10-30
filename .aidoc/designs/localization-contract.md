@@ -32,6 +32,8 @@ The backend exposes user-facing gameplay messages as locale-neutral semantic des
 | `.aidoc/designs/hint-presentation-protocol.md` | Typed hint evidence, descriptor, and narration contract |
 | `.aidoc/designs/cli-sessions.md` | Line CLI capability and shared-English rendering boundary |
 | `.aidoc/designs/tui-frontend.md` | Full-screen terminal and shared-English rendering boundary |
+| [Sudoku UI localization](https://github.com/gnailuy/sudoku-ui/blob/master/.aidoc/designs/localization.md) | Browser catalog, locale, and translated-descriptor ownership |
+| [Sudoku UI E2E scenarios](https://github.com/gnailuy/sudoku-ui/blob/master/.aidoc/designs/e2e-scenarios.md) | Browser hint, responsive, and locale acceptance routes |
 | `api/openapi.yaml` | Canonical descriptor and hint wire contract |
 | `game/hint_plan.go` | Semantic hint-plan composition and descriptor emission |
 | `message/english.go` | Canonical deterministic English catalog |
