@@ -939,7 +939,7 @@ func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
 				}
 			}
 			expectedSteps := 3
-			if key == "bug-plus-one" || key == "unique-rectangle" || key == "unique-rectangle-2" {
+			if key == "bug-plus-one" || key == "unique-rectangle" || key == "unique-rectangle-2" || key == "unique-rectangle-4" {
 				expectedSteps = 6
 			}
 			if key == "unique-rectangle-3" {
@@ -991,6 +991,20 @@ func TestUniquenessFamilyTeachesBeforeNaming(t *testing.T) {
 				for index, id := range ids {
 					if plan.Steps[index].Message.ID != id || len(plan.Steps[index].Marks) != markCounts[index] {
 						t.Fatalf("Unique Rectangle Type 3 step %d = %+v", index, plan.Steps[index])
+					}
+				}
+			} else if key == "unique-rectangle-4" {
+				ids := []string{"hint.unique-rectangle.rectangle", "hint.unique-rectangle.pair-corners", "hint.unique-rectangle.type4-first-expanded", "hint.unique-rectangle.type4-second-expanded", "hint.unique-rectangle.type4", "hint.unique-rectangle.type4-apply"}
+				markCounts := []int{8, 12, 15, 18, 20, 20}
+				linkCounts := []int{0, 0, 0, 0, 1, 1}
+				for index, id := range ids {
+					if plan.Steps[index].Message.ID != id || len(plan.Steps[index].Marks) != markCounts[index] || len(plan.Steps[index].Links) != linkCounts[index] {
+						t.Fatalf("Unique Rectangle Type 4 step %d = %+v", index, plan.Steps[index])
+					}
+				}
+				for _, step := range plan.Steps[4:] {
+					if len(step.Nodes) != 2 || step.Links[0].Kind != solver.LinkStrong {
+						t.Fatalf("Unique Rectangle Type 4 conjugate pair is incomplete: %+v", step)
 					}
 				}
 			} else {
