@@ -31,6 +31,10 @@ jobs:
           python3 scripts/validate_aidoc.py
           python3 -m unittest scripts/test_validate_aidoc.py
 
+      - name: Readability size review
+        continue-on-error: true
+        run: python3 scripts/review_size.py
+
       - name: Deployment service contract
         run: python3 scripts/check_deployment.py
 
