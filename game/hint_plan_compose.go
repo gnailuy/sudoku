@@ -215,8 +215,13 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 		plan.Steps = xCycleSteps(move, display)
 	case "xy-chain":
 		plan.Steps = xyChainSteps(move, display)
+	case "backtracker":
+		plan.Steps = backtrackerSteps(move)
 	default:
 		plan.Steps = evidenceSteps(move, plan.Conclusion)
+	}
+	if len(plan.Steps) == 0 {
+		return nil
 	}
 	plan.Reason = familyHintReason(move)
 	for index := range plan.Steps {
@@ -239,32 +244,9 @@ func composeHintPlan(snapshot Snapshot, strategy solver.Solver, move *solver.Mov
 // populateStrategyStep attaches catalog-backed wording after the composer has
 // built the renderer-neutral scene and effect.
 func populateStrategyStep(step *HintStep, index, total int, strategy string) {
-	if step.Message.ID != "" {
-		if !step.HasValidNarration() {
-			step.Narration = []HintNarrationChunk{narrationMessage(step.Message)}
-		}
-		return
+	if step.Message.ID == "" {
+		panic(fmt.Sprintf("strategy %q step %d of %d has no family-specific message", strategy, index+1, total))
 	}
-	id := "hint.strategy.compare"
-	if index == 0 {
-		id = "hint.strategy.observe"
-	}
-	if index == total-1 {
-		id = "hint.strategy.conclude"
-		step.Message = hintDescriptor(id, strategyArgument("strategy", strategy))
-		if !step.HasValidNarration() {
-			conclusion := HintConclusion{}
-			if step.Effect != nil {
-				conclusion.Placement = step.Effect.Placement
-				conclusion.Eliminations = step.Effect.Eliminations
-			}
-			step.Narration = []HintNarrationChunk{narrationID("hint.narration.apply")}
-			step.Narration = append(step.Narration, conclusionNarration(conclusion)...)
-			step.Narration = append(step.Narration, narrationMessage(hintDescriptor("hint.narration.strategy-result", strategyArgument("strategy", strategy))))
-		}
-		return
-	}
-	step.Message = hintDescriptor(id)
 	if !step.HasValidNarration() {
 		step.Narration = []HintNarrationChunk{narrationMessage(step.Message)}
 	}

@@ -104,27 +104,27 @@ func TestEveryRegisteredStrategyBuildsTypedPlanFromRealGame(t *testing.T) {
 				}
 				switch key {
 				case "naked-pair", "naked-triple", "naked-quad":
-					if first.Reason == nil || first.Reason.Kind != HintReasonSubsetReservation || first.Steps[1].Message.ID == "hint.strategy.compare" {
+					if first.Reason == nil || first.Reason.Kind != HintReasonSubsetReservation || strings.HasPrefix(first.Steps[1].Message.ID, "hint.strategy.") {
 						t.Fatalf("naked subset did not use its typed family reason: %+v", first)
 					}
 				case "pointing-pair":
-					if first.Reason == nil || first.Reason.Kind != HintReasonIntersectionConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {
+					if first.Reason == nil || first.Reason.Kind != HintReasonIntersectionConfinement || strings.HasPrefix(first.Steps[1].Message.ID, "hint.strategy.") {
 						t.Fatalf("intersection did not use its typed family reason: %+v", first)
 					}
 				case "x-wing", "swordfish", "jellyfish":
-					if first.Reason == nil || first.Reason.Kind != HintReasonFishConfinement || first.Steps[1].Message.ID == "hint.strategy.compare" {
+					if first.Reason == nil || first.Reason.Kind != HintReasonFishConfinement || strings.HasPrefix(first.Steps[1].Message.ID, "hint.strategy.") {
 						t.Fatalf("fish did not use its typed family reason: %+v", first)
 					}
 				case "xy-wing", "xyz-wing", "w-wing":
-					if first.Steps[1].Message.ID == "hint.strategy.compare" || first.Steps[len(first.Steps)-1].Message.ID == "hint.strategy.conclude" {
+					if strings.HasPrefix(first.Steps[1].Message.ID, "hint.strategy.") || strings.HasPrefix(first.Steps[len(first.Steps)-1].Message.ID, "hint.strategy.") {
 						t.Fatalf("%s did not use complete relational-wing descriptors: %+v", key, first)
 					}
 				case "bug-plus-one", "unique-rectangle", "unique-rectangle-2", "unique-rectangle-3", "unique-rectangle-4":
-					if first.Steps[1].Message.ID == "hint.strategy.compare" || first.Steps[len(first.Steps)-1].Message.ID == "hint.strategy.conclude" {
+					if strings.HasPrefix(first.Steps[1].Message.ID, "hint.strategy.") || strings.HasPrefix(first.Steps[len(first.Steps)-1].Message.ID, "hint.strategy.") {
 						t.Fatalf("%s did not use complete uniqueness descriptors: %+v", key, first)
 					}
 				case "simple-coloring":
-					if first.Steps[1].Message.ID == "hint.strategy.compare" || first.Steps[len(first.Steps)-1].Message.ID == "hint.strategy.conclude" {
+					if strings.HasPrefix(first.Steps[1].Message.ID, "hint.strategy.") || strings.HasPrefix(first.Steps[len(first.Steps)-1].Message.ID, "hint.strategy.") {
 						t.Fatalf("%s did not use complete linked-candidate descriptors: %+v", key, first)
 					}
 				case "xy-chain":
