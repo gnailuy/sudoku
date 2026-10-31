@@ -1750,20 +1750,6 @@ func coloringWitnesses(target core.Position, groupA, groupB []core.Position) (co
 	return a, b, foundA && foundB
 }
 
-func conclusionNarration(conclusion HintConclusion) []HintNarrationChunk {
-	if conclusion.Placement != nil {
-		return []HintNarrationChunk{narrationID("hint.narration.place-result"), narrationDigit(conclusion.Placement.Value), narrationMessage(hintDescriptor("hint.narration.in")), narrationTarget(cellTarget(conclusion.Placement.Position))}
-	}
-	chunks := []HintNarrationChunk{narrationMessage(hintDescriptor("hint.narration.remove"))}
-	for index, ref := range conclusion.Eliminations {
-		if index > 0 {
-			chunks = append(chunks, narrationMessage(hintDescriptor("hint.narration.separator")))
-		}
-		chunks = append(chunks, narrationDigit(ref.Value), narrationMessage(hintDescriptor("hint.narration.from")), narrationTarget(cellTarget(ref.Position)))
-	}
-	return chunks
-}
-
 func xyChainDetailedSteps(move *solver.Move, _ string) []HintStep {
 	evidence := move.Evidence
 	conclusion := HintConclusion{Placement: placement(move)}
