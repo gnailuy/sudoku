@@ -108,37 +108,18 @@ func actionNarration(descriptor message.Descriptor) []HintNarrationChunk {
 	return []HintNarrationChunk{narrationMessage(descriptor)}
 }
 
-func evidenceSteps(move *solver.Move, conclusion HintConclusion) []HintStep {
-	evidence := move.Evidence
-	var premiseMarks []HintMark
-	for _, unitRef := range evidence.Units {
-		unit := unitRef
-		if target, ok := unitTarget(&unit); ok {
-			premiseMarks = append(premiseMarks, HintMark{Target: target, Role: HintRoleFocus})
-		}
+func evidenceSteps(_ *solver.Move, _ HintConclusion) []HintStep {
+	return nil
+}
+
+func backtrackerSteps(move *solver.Move) []HintStep {
+	placement := solver.CandidateRef{Position: move.Cell.Position, Value: move.Cell.Value}
+	observe := hintDescriptor("hint.backtracker.observe")
+	apply := hintDescriptor("hint.backtracker.apply", cellArgument("cell", move.Cell.Position), digitArgument("digit", move.Cell.Value))
+	return []HintStep{
+		{ID: "explain-complete-search", Kind: HintStepObserve, Message: observe, Narration: []HintNarrationChunk{narrationMessage(observe)}, Marks: []HintMark{}},
+		{ID: "apply-complete-search", Kind: HintStepApply, Message: apply, Narration: actionNarration(apply), Marks: []HintMark{{Target: candidateTarget(placement), Role: HintRoleConclusion}}, Effect: &HintEffect{Placement: &move.Cell}},
 	}
-	for _, premise := range evidence.Premises {
-		premiseMarks = append(premiseMarks, HintMark{Target: cellTarget(premise.Position), Role: HintRoleFocus})
-		for _, value := range premise.Values {
-			premiseMarks = append(premiseMarks, HintMark{Target: candidateTarget(solver.CandidateRef{Position: premise.Position, Value: value}), Role: HintRolePremise})
-		}
-	}
-	var comparisonMarks []HintMark
-	refs := append([]solver.CandidateRef(nil), evidence.RuledOut...)
-	refs = append(refs, evidence.Eliminations...)
-	for _, ref := range refs {
-		comparisonMarks = append(comparisonMarks, HintMark{Target: candidateTarget(ref), Role: HintRoleEliminated})
-	}
-	steps := []HintStep{
-		{ID: "observe-candidate-pattern", Kind: HintStepObserve, Marks: premiseMarks},
-		{ID: "compare-candidate-constraints", Kind: HintStepExplain, Marks: append(append([]HintMark(nil), premiseMarks...), comparisonMarks...)},
-	}
-	kind := HintStepApply
-	if conclusion.Placement == nil {
-		kind = HintStepApply
-	}
-	steps = append(steps, HintStep{ID: "apply-deduction", Kind: kind, Marks: conclusionMarks(conclusion), Effect: conclusionEffect(conclusion)})
-	return steps
 }
 
 func nakedSingleSteps(move *solver.Move) []HintStep {

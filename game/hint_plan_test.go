@@ -20,7 +20,7 @@ func gameWithStrategies(t *testing.T, board core.Board, keys ...string) Game {
 func TestHintStepHasValidNarrationRequiresOnePayloadPerKind(t *testing.T) {
 	position := core.NewPosition(3, 6)
 	validTarget := HintTarget{Kind: HintTargetCell, Position: &position}
-	validMessage := hintDescriptor("hint.strategy.observe")
+	validMessage := hintDescriptor("hint.backtracker.observe")
 	tests := []struct {
 		name  string
 		chunk HintNarrationChunk
@@ -685,8 +685,8 @@ func TestSubsetAndIntersectionFamiliesTeachBeforeNaming(t *testing.T) {
 				if len(reason.PremiseCandidates) < 2 || len(reason.ActionTargets) == 0 || reason.SourceUnit == reason.IntersectingUnit {
 					t.Fatalf("intersection reason is incomplete: %+v", reason)
 				}
-			} else if plan.Steps[2].Message.ID != "hint.strategy.conclude" || len(plan.Steps[2].Message.Arguments) != 1 {
-				t.Fatalf("conclusion descriptor = %+v", plan.Steps[2].Message)
+			} else if plan.Steps[len(plan.Steps)-1].Message.ID != "hint.backtracker.apply" {
+				t.Fatalf("backtracker conclusion descriptor = %+v", plan.Steps[len(plan.Steps)-1].Message)
 			}
 		})
 	}
@@ -830,7 +830,7 @@ func TestFishAndRelationalFamiliesTeachBeforeNaming(t *testing.T) {
 					t.Fatalf("fish conclusion = %+v", plan.Steps[2].Message)
 				}
 			} else {
-				if plan.Steps[1].Message.ID == "hint.strategy.compare" || plan.Steps[len(plan.Steps)-1].Message.ID == "hint.strategy.conclude" {
+				if strings.HasPrefix(plan.Steps[1].Message.ID, "hint.strategy.") || strings.HasPrefix(plan.Steps[len(plan.Steps)-1].Message.ID, "hint.strategy.") {
 					t.Fatalf("relational-wing descriptors remain generic: %+v", plan.Steps)
 				}
 				expectedApply := "hint.relational-wing.apply"
@@ -1173,5 +1173,16 @@ func TestBoxLineReductionUsesItsSpecificRelationshipName(t *testing.T) {
 	}
 	if steps[0].Message.ID != "hint.intersection-confinement.observe" || steps[1].Message.ID != "hint.intersection-confinement.explain" {
 		t.Fatalf("box-line relationship uses generic descriptors: %+v", steps)
+	}
+}
+
+func TestUnsupportedStrategicEvidenceReturnsNoPlan(t *testing.T) {
+	move := &solver.Move{
+		Cell:      core.NewCell(core.NewPosition(0, 0), 1),
+		Technique: "simple-coloring",
+		Evidence:  &solver.Evidence{},
+	}
+	if plan := composeHintPlan(Snapshot{}, nil, move); plan != nil {
+		t.Fatalf("unsupported strategic evidence produced a plan: %+v", plan)
 	}
 }

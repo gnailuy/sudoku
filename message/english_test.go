@@ -56,3 +56,15 @@ func TestRenderEnglishNameRejectsUnknownDomain(t *testing.T) {
 		t.Fatal("RenderEnglishName accepted unsupported domain")
 	}
 }
+
+func TestEnglishCatalogRejectsGenericStrategicHintMessages(t *testing.T) {
+	catalog, err := NewEnglishCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"hint.strategy.observe", "hint.strategy.compare", "hint.strategy.conclude"} {
+		if _, err := catalog.Render(id); err == nil {
+			t.Fatalf("Render(%q) accepted a retired generic strategic hint message", id)
+		}
+	}
+}

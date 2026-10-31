@@ -169,10 +169,9 @@ func addEnglishHintMessages(definitions map[string]Definition) {
 	one("hint.candidate-correction.conclude", "cell", ArgumentCell, func(argument Argument) string {
 		return fmt.Sprintf("Reset the candidate set at %s to every digit allowed by the accepted row, column, and box values.", cell(argument))
 	})
-	constant("hint.strategy.observe", "Examine the highlighted cells, candidates, and units.")
-	constant("hint.strategy.compare", "Compare the highlighted constraints to identify the forced result.")
-	one("hint.strategy.conclude", "strategy", ArgumentStrategy, func(argument Argument) string {
-		return fmt.Sprintf("Apply the highlighted deduction. This pattern is called %s.", strategy(argument))
+	constant("hint.backtracker.observe", "No configured logical strategy can advance this board from its current candidate state.")
+	many("hint.backtracker.apply", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "digit", Kind: ArgumentDigit}}, func(a []Argument) string {
+		return fmt.Sprintf("A complete search finds that %s must be %d. Place %d there.", cell(a[0]), *a[1].Digit, *a[1].Digit)
 	})
 	many("hint.naked-single.constraints", []ArgumentSpec{{Name: "cell", Kind: ArgumentCell}, {Name: "excluded_digits", Kind: ArgumentDigits}}, func(a []Argument) string {
 		return fmt.Sprintf("Start with %s. Its row, column, and box already contain %s.", cell(a[0]), digits(a[1]))
